@@ -1,6 +1,6 @@
 # Guardrails Server
 
-Express + Node.js 20 + TypeScript. Single service: API + worker pipeline. Deploys to Railway/Fly.io.
+Express + Node.js 20 + TypeScript. Single service: API + worker pipeline.
 
 ## Architecture
 

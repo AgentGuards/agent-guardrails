@@ -39,7 +39,7 @@ graph TB
 
     subgraph "Off-Chain Infrastructure"
         Helius[Helius Webhooks]
-        Server[Server<br/>Express on Railway/Fly.io]
+        Server[Server<br/>Express + Node.js]
         Claude[Claude API<br/>Haiku judge / Opus reports]
         DB[(Neon Postgres<br/>via Prisma)]
     end
@@ -71,7 +71,7 @@ graph TB
 | Frontend | Next.js 14 (App Router) / Tailwind / shadcn/ui / Recharts |
 | Wallet | @solana/wallet-adapter (Phantom, Solflare, Backpack) + SIWS |
 | State management | TanStack Query |
-| Server | Express + Node.js 20 / TypeScript on Railway/Fly.io |
+| Server | Express + Node.js 20 / TypeScript |
 | Anomaly detection | Claude Haiku 4.5 (real-time) + Claude Opus 4.7 (incident reports) |
 | Data ingestion | Helius Enhanced Webhooks |
 | Database | Neon Postgres + Prisma ORM |
@@ -88,7 +88,7 @@ Four isolated sub-projects — no monorepo, each deploys independently:
 agent-guardrails/
 ├── program/              # Anchor/Rust on-chain program → Solana devnet
 ├── sdk/                  # IDL + TS client (source of truth, synced to consumers)
-├── server/               # Express server: API + worker pipeline → Railway/Fly.io
+├── server/               # Express server: API + worker pipeline
 ├── dashboard/            # Next.js 14 frontend only → Vercel
 ├── docs/                 # Architecture, data contracts, setup, deploy, demo runbook
 ├── scripts/              # SDK sync, devnet deploy
@@ -198,7 +198,7 @@ Helius webhook → Server
 |---|---|---|
 | Program | Solana devnet | `cd program && anchor deploy` |
 | Database | Neon Postgres | `cd server && npx prisma migrate deploy` |
-| Server | Railway/Fly.io | `cd server && fly deploy` or `railway up` |
+| Server | TBD | See [docs/deploy.md](docs/deploy.md) |
 | Dashboard | Vercel | Auto-deploys on push to main |
 
 Deploy order matters: **Program** (need program ID) → **Database** (need connection string) → **Server** (need program ID + DB + webhook URL) → **Dashboard** (need server URL).

@@ -7,7 +7,7 @@ Solana Frontier hackathon project. On-chain policy layer between AI agents and t
 Four isolated sub-projects — NOT a monorepo with workspaces:
 
 - `program/` — Anchor 0.30.1 / Rust Solana program
-- `server/` — Express server: API + worker pipeline (Railway/Fly.io)
+- `server/` — Express server: API + worker pipeline
 - `dashboard/` — Next.js 14 frontend only (Vercel)
 - `sdk/` — Source of truth for IDL + TS client (synced to consumers)
 

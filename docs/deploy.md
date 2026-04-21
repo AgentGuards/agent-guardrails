@@ -52,62 +52,24 @@ DATABASE_URL="<pooled>" DIRECT_URL="<direct>" npx prisma migrate deploy
 
 ---
 
-## 3. Server → Railway/Fly.io
+## 3. Server
 
-### Option A: Railway
+Deploy the Express server to any Node.js hosting platform. Set the following environment variables:
 
-```bash
-cd server
-
-# Install Railway CLI
-npm install -g @railway/cli
-
-# Login and create project
-railway login
-railway init
-
-# Set environment variables
-railway variables set \
-  PORT=8080 \
-  SOLANA_RPC_URL="https://devnet.helius-rpc.com/?api-key=<KEY>" \
-  GUARDRAILS_PROGRAM_ID="<from step 1>" \
-  MONITOR_KEYPAIR="<base64-encoded keypair>" \
-  HELIUS_WEBHOOK_SECRET="<from Helius dashboard>" \
-  ANTHROPIC_API_KEY="<your key>" \
-  DATABASE_URL="<from step 2, pooled>" \
-  DIRECT_URL="<from step 2, direct>" \
-  JWT_SECRET="<random secret>" \
-  CORS_ORIGIN="https://guardrails.vercel.app"
-
-# Deploy
-railway up
+```
+PORT=8080
+SOLANA_RPC_URL=https://devnet.helius-rpc.com/?api-key=<KEY>
+GUARDRAILS_PROGRAM_ID=<from step 1>
+MONITOR_KEYPAIR=<base64-encoded keypair>
+HELIUS_WEBHOOK_SECRET=<from Helius dashboard>
+ANTHROPIC_API_KEY=<your key>
+DATABASE_URL=<from step 2, pooled>
+DIRECT_URL=<from step 2, direct>
+JWT_SECRET=<random secret>
+CORS_ORIGIN=https://guardrails.vercel.app
 ```
 
-### Option B: Fly.io
-
-```bash
-cd server
-
-# First time: create the app
-fly launch --no-deploy
-
-# Set secrets (never in code)
-fly secrets set \
-  SOLANA_RPC_URL="https://devnet.helius-rpc.com/?api-key=<KEY>" \
-  GUARDRAILS_PROGRAM_ID="<from step 1>" \
-  MONITOR_KEYPAIR="<base64-encoded keypair>" \
-  HELIUS_WEBHOOK_SECRET="<from Helius dashboard>" \
-  ANTHROPIC_API_KEY="<your key>" \
-  DATABASE_URL="<from step 2, pooled>" \
-  DIRECT_URL="<from step 2, direct>" \
-  JWT_SECRET="<random secret>" \
-  CORS_ORIGIN="https://guardrails.vercel.app"
-
-# Deploy
-fly deploy
-```
-
-Note the deployed URL (e.g., `https://guardrails-server.fly.dev`).
+Note the deployed URL — you'll need it for the Helius webhook and dashboard config.
 
 ---
 
@@ -134,7 +96,7 @@ Connect the GitHub repo to Vercel:
 4. Add environment variables:
    - `NEXT_PUBLIC_SOLANA_RPC_URL` = Helius devnet RPC URL
    - `NEXT_PUBLIC_GUARDRAILS_PROGRAM_ID` = from step 1
-   - `NEXT_PUBLIC_API_URL` = server URL from step 3 (e.g., `https://guardrails-server.fly.dev`)
+   - `NEXT_PUBLIC_API_URL` = server URL from step 3
 5. Deploy
 
 Vercel auto-deploys on push to main. Configure **Ignored Build Step** to skip builds when only `program/` or `server/` change:

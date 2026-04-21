@@ -7,7 +7,7 @@ Operator's guide for running the 3-minute hackathon demo. Use when rehearsing or
 ## Pre-Demo Checklist
 
 - [ ] Program deployed on devnet — `solana program show <PROGRAM_ID> --url devnet`
-- [ ] Server running on Railway/Fly.io — `curl https://<server-url>/webhook` (should return 405)
+- [ ] Server running — `curl https://<server-url>/webhook` (should return 405)
 - [ ] Dashboard live on Vercel — open in browser
 - [ ] Neon database has tables — `cd server && npx prisma studio`
 - [ ] Helius webhook configured and pointing to server URL
@@ -79,8 +79,8 @@ This runs:
 - Or use localnet: run a local validator and adjust RPC URLs
 
 ### Server is down
-- Check logs: `fly logs -a guardrails-server` or Railway dashboard
-- Restart: `fly machine restart -a guardrails-server` or redeploy on Railway
+- Check server logs on your hosting platform
+- Restart or redeploy the server
 
 ### Claude API latency > 3s
 - Server falls back to rule-based verdict (if implemented)

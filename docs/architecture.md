@@ -13,7 +13,7 @@ graph TB
 
     subgraph "Off-Chain Infrastructure"
         Helius[Helius Webhooks]
-        Server[Server<br/>Express on Railway/Fly.io]
+        Server[Server<br/>Express + Node.js]
         Claude[Claude API<br/>Haiku judge / Opus reports]
         DB[(Neon Postgres<br/>via Prisma)]
     end

@@ -1,6 +1,6 @@
 # Server Implementation Plan
 
-Express + Node.js 20 + TypeScript. Single service: API + worker pipeline. Deploys to Railway/Fly.io.
+Express + Node.js 20 + TypeScript. Single service: API + worker pipeline.
 
 ---
 
@@ -355,4 +355,4 @@ CORS_ORIGIN=               # Dashboard URL
 4. Claude judge + SSE verdict events (Thu)
 5. End-to-end: attacker → judge → pause → SSE (Fri)
 6. Opus reporter (async) + SIWS auth + JWT middleware (Sat)
-7. Deploy to Railway/Fly.io + load test (Sun)
+7. Deploy server + load test (Sun)
