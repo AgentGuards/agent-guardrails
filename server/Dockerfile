@@ -3,8 +3,10 @@ RUN npm install -g pnpm
 
 FROM base AS build
 WORKDIR /app
-COPY package.json pnpm-lock.yaml ./
-RUN pnpm install --frozen-lockfile
+COPY package.json ./
+COPY prisma ./prisma
+RUN pnpm install
+RUN pnpm db:generate
 COPY . .
 RUN pnpm build
 
