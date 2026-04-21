@@ -39,7 +39,9 @@ Configure hooks after clone: `git config core.hooksPath .githooks`
 ```bash
 # Program
 cd program && anchor build            # Build Anchor program
-cd program && pnpm test                  # Run TS tests (LiteSVM in-process, no external validator)
+cd program && anchor test                # Integration tests (builds, deploys to local validator, runs TS tests)
+cd program && anchor test --skip-build   # Run tests without rebuilding
+# LiteSVM tests run in-process (no validator) — use anchor-litesvm provider in test files
 
 # SDK sync
 bash scripts/sync-sdk.sh              # Sync after any sdk/ or program change

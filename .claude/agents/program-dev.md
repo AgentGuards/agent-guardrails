@@ -46,8 +46,14 @@ The program lives in `program/programs/guardrails/src/`. You build the on-chain 
 
 ## Testing
 
-- Tests are TypeScript using `litesvm` npm package (`pnpm test`)
-- No external validator needed — LiteSVM runs entirely in-process, much faster
-- Test every rejection path in `guarded_execute`
-- Test monitor authorization in `pause_agent`
-- Test only-owner can call `resume_agent`
+Two modes, both TypeScript in `program/tests/`:
+
+- **LiteSVM (fast unit tests):** Uses `litesvm` + `anchor-litesvm` packages. Runs in-process, ~25x faster, supports time-travel. Use `LiteSVMProvider` from `anchor-litesvm` as drop-in for `AnchorProvider`. Run: `anchor test --skip-local-validator`
+- **`anchor test` (integration):** Builds, starts local validator, deploys, runs tests, cleans up. Use for CPI flows and final validation. Run: `anchor test`
+
+What to test:
+- Every rejection path in `guarded_execute` (paused, expired, not whitelisted, over limit, budget exceeded)
+- Monitor authorization in `pause_agent` (authorized succeeds, unauthorized fails)
+- Only-owner can call `resume_agent`
+- Daily budget rollover logic in SpendTracker
+- PDA derivation correctness

@@ -58,7 +58,7 @@ jobs:
 
       - name: Test
         working-directory: program
-        run: pnpm test || true  # TODO: remove || true once tests are implemented
+        run: anchor test || true  # TODO: remove || true once tests are implemented
 
       - name: Verify IDL is current
         run: |
