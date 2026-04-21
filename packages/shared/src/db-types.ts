@@ -1,1 +1,0 @@
-// TODO: Supabase generated types

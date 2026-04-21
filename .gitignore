@@ -26,11 +26,11 @@ test-ledger/
 .DS_Store
 Thumbs.db
 
-# Turbo
-.turbo/
-
 # Vercel
 .vercel/
+
+# Rust
+program/target/
 
 # Supabase
 supabase/.temp/
