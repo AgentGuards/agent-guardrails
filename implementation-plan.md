@@ -1,0 +1,778 @@
+# Agent Guardrails Protocol — Implementation Plan
+
+**Hackathon:** Solana Frontier
+**Timeline:** 5 weeks
+**Stack:** Anchor/Rust · Next.js 14 · TypeScript monitoring worker · Claude API judge · Supabase · Helius · Swig · Squads v4
+
+---
+
+## 0. Stack Summary (locked)
+
+| Layer | Choice | Notes |
+|---|---|---|
+| Smart contract | Anchor 0.30.x, Rust | Solana devnet for submission, mainnet-ready |
+| Program client | `@coral-xyz/anchor` TS client | Auto-gen from IDL, shared between dashboard + worker |
+| Frontend | Next.js 14 (App Router) | Deployed on Vercel |
+| UI | Tailwind + shadcn/ui + Recharts | Dark mode default — looks pro in demo |
+| Wallet | `@solana/wallet-adapter-react` + SIWS | Phantom, Solflare, Backpack supported |
+| State | Zustand + TanStack Query | Query = server cache, Zustand = UI state |
+| Realtime UI | Supabase Realtime (Postgres changes) | Live activity feed |
+| Monitoring worker | Node.js 20 + TypeScript | Long-running service on Fly.io |
+| Ingestion | Helius Enhanced Webhooks | Filtered to the Guardrails program address |
+| Anomaly judge | Claude Haiku 4.5 (hot path) + Opus 4.7 (incident reports) | Hybrid design — see §6 |
+| DB | Supabase (Postgres 15 + Realtime + Row-Level Security) | One service for data + auth + realtime |
+| Agent simulation | Solana Agent Kit v2 (SendAI) | For demo only — produces synthetic agent txns |
+| Sponsor tech used | Swig (session keys), Squads v4 (multisig escalation), Helius (webhooks), Coinbase x402 (optional) | 3–4 sponsor integrations satisfies judge heuristics |
+
+---
+
+## 1. Repository Structure
+
+Monorepo with pnpm workspaces. Keeps TS types shared between program client, worker, and dashboard.
+
+```
+agent-guardrails/
+├── programs/
+│   └── guardrails/              # Anchor program
+│       ├── src/
+│       │   ├── lib.rs
+│       │   ├── state/
+│       │   │   ├── mod.rs
+│       │   │   ├── policy.rs     # PermissionPolicy account
+│       │   │   └── spend_tracker.rs
+│       │   ├── instructions/
+│       │   │   ├── mod.rs
+│       │   │   ├── initialize_policy.rs
+│       │   │   ├── update_policy.rs
+│       │   │   ├── guarded_execute.rs
+│       │   │   ├── pause_agent.rs
+│       │   │   ├── resume_agent.rs
+│       │   │   └── escalate_to_squads.rs
+│       │   ├── errors.rs
+│       │   └── events.rs
+│       └── Cargo.toml
+├── packages/
+│   ├── sdk/                     # TS wrapper over Anchor client (published later)
+│   │   ├── src/
+│   │   │   ├── index.ts
+│   │   │   ├── client.ts        # GuardrailsClient class
+│   │   │   ├── policy.ts        # Policy CRUD helpers
+│   │   │   ├── execute.ts       # guarded_execute builder
+│   │   │   └── types.ts
+│   │   └── package.json
+│   ├── shared/                  # Shared types between worker + dashboard
+│   │   └── src/
+│   │       ├── db-types.ts      # Supabase generated types
+│   │       ├── events.ts
+│   │       └── anomaly.ts
+│   └── prompts/                 # Claude prompt templates
+│       ├── judge.ts
+│       └── incident-report.ts
+├── apps/
+│   ├── dashboard/               # Next.js 14
+│   │   ├── app/
+│   │   │   ├── (auth)/
+│   │   │   ├── agents/
+│   │   │   ├── policies/
+│   │   │   ├── activity/
+│   │   │   ├── incidents/
+│   │   │   └── api/
+│   │   │       ├── auth/siws/route.ts
+│   │   │       └── webhooks/helius/route.ts  # alternative to worker
+│   │   ├── components/
+│   │   ├── lib/
+│   │   └── package.json
+│   ├── worker/                  # Fly.io monitoring service
+│   │   ├── src/
+│   │   │   ├── index.ts          # HTTP server receiving Helius webhooks
+│   │   │   ├── ingest.ts         # Parse + persist events
+│   │   │   ├── prefilter.ts      # Cheap stat checks before LLM
+│   │   │   ├── judge.ts          # Claude API judge
+│   │   │   ├── executor.ts       # Calls on-chain pause instruction
+│   │   │   └── reporter.ts       # Generates incident reports
+│   │   ├── Dockerfile
+│   │   └── fly.toml
+│   └── demo-agents/             # Solana Agent Kit simulated agents
+│       └── src/
+│           ├── trader-agent.ts   # Runs Jupiter swaps
+│           ├── staker-agent.ts   # Marinade staking
+│           └── attacker.ts       # Intentionally misbehaves (demo)
+├── supabase/
+│   ├── migrations/
+│   └── seed.sql
+├── scripts/
+│   ├── deploy-devnet.sh
+│   ├── setup-demo.ts
+│   └── simulate-attack.ts
+├── pnpm-workspace.yaml
+├── Anchor.toml
+└── README.md
+```
+
+---
+
+## 2. Prerequisites & Setup (Day 1 checklist)
+
+**Install**
+- Rust 1.75+, Solana CLI 1.18+, Anchor 0.30.1 (via `avm`)
+- Node.js 20+, pnpm 9+
+- Docker (for Supabase local + Fly.io deploys)
+- Phantom wallet browser extension
+
+**Accounts to create upfront**
+- Helius developer account → API key + webhook dashboard
+- Supabase project → URL + anon key + service role key
+- Anthropic API key → for worker (not exposed to frontend)
+- Fly.io account → for worker deployment
+- Vercel account → for dashboard
+- Solana devnet SOL → `solana airdrop 5` on a dev keypair
+
+**Environment variables (worker)**
+```
+SOLANA_RPC_URL=            # Helius devnet RPC
+GUARDRAILS_PROGRAM_ID=     # After first deploy
+MONITOR_KEYPAIR=           # Path to authorized monitor keypair
+HELIUS_WEBHOOK_SECRET=
+ANTHROPIC_API_KEY=
+SUPABASE_URL=
+SUPABASE_SERVICE_ROLE=
+```
+
+**Environment variables (dashboard)**
+```
+NEXT_PUBLIC_SOLANA_RPC_URL=
+NEXT_PUBLIC_GUARDRAILS_PROGRAM_ID=
+NEXT_PUBLIC_SUPABASE_URL=
+NEXT_PUBLIC_SUPABASE_ANON_KEY=
+SUPABASE_SERVICE_ROLE=     # Server-side only, used in SIWS verification route
+```
+
+---
+
+## 3. On-Chain Program Design
+
+### 3.1 Accounts
+
+**`PermissionPolicy` (PDA)**
+- Seeds: `["policy", owner, agent]`
+- Size: ~500 bytes with room for growth
+
+```rust
+#[account]
+pub struct PermissionPolicy {
+    pub owner: Pubkey,                  // Human owner who can modify policy
+    pub agent: Pubkey,                  // Agent session pubkey (from Swig or raw)
+    pub allowed_programs: Vec<Pubkey>,  // Whitelist — max 10 for MVP
+    pub max_tx_lamports: u64,           // Per-txn SOL cap
+    pub max_tx_token_units: u64,        // Per-txn SPL cap (scaled, see §3.4)
+    pub daily_budget_lamports: u64,     // Rolling 24h SOL cap
+    pub daily_spent_lamports: u64,      // Running counter
+    pub last_reset_ts: i64,             // For daily budget rollover
+    pub session_expiry: i64,            // Unix ts; agent key unusable after
+    pub is_active: bool,                // Kill switch
+    pub paused_by: Option<Pubkey>,      // Who paused (monitor / owner / squad)
+    pub paused_reason: [u8; 64],        // Short reason code
+    pub squads_multisig: Option<Pubkey>,// If set, txns > escalation_threshold require Squads approval
+    pub escalation_threshold: u64,      // Lamports above which Squads approval required
+    pub authorized_monitors: Vec<Pubkey>,// Off-chain monitors allowed to pause (max 3)
+    pub anomaly_score: u8,              // Last judge score 0-100
+    pub bump: u8,
+}
+```
+
+**`SpendTracker` (PDA, optional split for compute budget)**
+- Seeds: `["tracker", policy_pubkey]`
+- Separate account so frequent updates don't realloc the main policy
+
+```rust
+#[account]
+pub struct SpendTracker {
+    pub policy: Pubkey,
+    pub window_start: i64,
+    pub txn_count_24h: u32,
+    pub lamports_spent_24h: u64,
+    pub last_txn_ts: i64,
+    pub last_txn_program: Pubkey,
+    pub bump: u8,
+}
+```
+
+### 3.2 Instructions
+
+| Instruction | Who calls | What it does |
+|---|---|---|
+| `initialize_policy` | Owner | Creates `PermissionPolicy` + `SpendTracker` PDAs |
+| `update_policy` | Owner | Modifies limits, whitelists, monitors |
+| `guarded_execute` | Agent | Validates intent, CPIs to target program with PDA signer |
+| `pause_agent` | Owner OR authorized monitor | Flips `is_active = false` with reason |
+| `resume_agent` | Owner only | Re-enables after manual review |
+| `rotate_agent_key` | Owner | Swap to a new agent pubkey without losing spend history |
+| `escalate_to_squads` | Internally called by `guarded_execute` | Creates a Squads proposal for txns above threshold |
+
+### 3.3 The `guarded_execute` flow (core instruction)
+
+```
+Agent signs a txn calling Guardrails::guarded_execute with:
+  - target_program: Pubkey
+  - instruction_data: Vec<u8>
+  - account_metas: Vec<AccountMeta>  (reconstructed for CPI)
+  - amount_hint: u64  (for budget enforcement; verified separately)
+
+Program logic (in order):
+  1. Load PermissionPolicy for (owner, agent) — fail if PDA doesn't exist
+  2. Assert policy.is_active == true → else PolicyPaused
+  3. Assert clock.unix_timestamp < session_expiry → else SessionExpired
+  4. Assert target_program ∈ allowed_programs → else ProgramNotWhitelisted
+  5. Assert amount_hint <= max_tx_lamports → else AmountExceedsLimit
+  6. Roll daily budget if now > last_reset_ts + 86400
+  7. Assert daily_spent + amount_hint <= daily_budget → else DailyBudgetExceeded
+  8. If amount_hint > escalation_threshold AND squads_multisig.is_some():
+        CPI to Squads to create proposal; return early with "Escalated"
+  9. Emit GuardedTxnAttempted event (for Helius webhook)
+ 10. CPI to target_program with reconstructed instruction, signer_seeds = [policy seeds]
+ 11. On success: update SpendTracker (atomic), emit GuardedTxnExecuted event
+ 12. On failure: emit GuardedTxnRejected event with reason
+```
+
+**Critical design note — amount verification.** An agent could pass a false `amount_hint`. Mitigations:
+- For SOL transfers via System Program: parse the instruction data to extract the true amount before CPI
+- For SPL transfers: inspect the Token Program instruction discriminator + amount bytes
+- For generic DeFi programs (Jupiter, etc.): use pre/post balance diff on a designated "source" token account, stored in `SpendTracker.last_txn_balance_delta` — flag post-hoc via monitor rather than block on-chain
+- MVP: whitelist only System Program + Token Program + Jupiter where we hand-parse amounts; other programs allowed but not budget-tracked
+
+### 3.4 CPI signer architecture
+
+The PermissionPolicy PDA is the signer authority for the agent's scoped actions. The agent session pubkey signs the `guarded_execute` txn, but the actual downstream CPI is signed by the policy PDA using `invoke_signed` with the bump seed.
+
+This means: **the agent's keypair holds no direct funds.** Funds live in a token account owned by the policy PDA. The agent instructs, the PDA acts.
+
+### 3.5 Events (what Helius will stream to the worker)
+
+```rust
+#[event]
+pub struct GuardedTxnExecuted {
+    pub policy: Pubkey,
+    pub agent: Pubkey,
+    pub target_program: Pubkey,
+    pub amount: u64,
+    pub timestamp: i64,
+    pub txn_sig: String,
+}
+
+#[event]
+pub struct GuardedTxnRejected {
+    pub policy: Pubkey,
+    pub agent: Pubkey,
+    pub reason: u8,          // Enum: ProgramNotWhitelisted, AmountExceeds, etc.
+    pub timestamp: i64,
+}
+
+#[event]
+pub struct AgentPaused {
+    pub policy: Pubkey,
+    pub paused_by: Pubkey,
+    pub reason: [u8; 64],
+    pub timestamp: i64,
+}
+
+#[event]
+pub struct EscalatedToSquads {
+    pub policy: Pubkey,
+    pub squads_proposal: Pubkey,
+    pub amount: u64,
+}
+```
+
+### 3.6 Errors
+
+```rust
+#[error_code]
+pub enum GuardrailsError {
+    #[msg("Policy is paused by owner or monitor")]
+    PolicyPaused,
+    #[msg("Session has expired")]
+    SessionExpired,
+    #[msg("Target program is not on the allow-list")]
+    ProgramNotWhitelisted,
+    #[msg("Transaction amount exceeds per-tx limit")]
+    AmountExceedsLimit,
+    #[msg("Daily budget exceeded")]
+    DailyBudgetExceeded,
+    #[msg("Caller is not an authorized monitor or owner")]
+    UnauthorizedPauser,
+    #[msg("Only owner can resume a paused agent")]
+    ResumeRequiresOwner,
+    #[msg("Escalation required — proposal created on Squads")]
+    EscalatedToMultisig,
+}
+```
+
+---
+
+## 4. Database Schema (Supabase / Postgres)
+
+Primary purpose: activity log, anomaly judge cache, incident records, dashboard queries. **The blockchain is source of truth for policies** — DB mirrors for query speed.
+
+```sql
+-- Policies mirror (refreshed by worker from chain events)
+create table policies (
+  pubkey text primary key,
+  owner text not null,
+  agent text not null,
+  allowed_programs text[] not null,
+  max_tx_lamports bigint not null,
+  daily_budget_lamports bigint not null,
+  session_expiry timestamptz not null,
+  is_active boolean not null default true,
+  squads_multisig text,
+  escalation_threshold bigint,
+  anomaly_score smallint default 0,
+  label text,                            -- User-friendly name e.g. "Yield bot"
+  created_at timestamptz default now(),
+  updated_at timestamptz default now()
+);
+create index on policies(owner);
+
+-- Every guarded_execute attempt, accepted or rejected
+create table guarded_txns (
+  id uuid primary key default gen_random_uuid(),
+  policy_pubkey text references policies(pubkey),
+  txn_sig text unique,
+  slot bigint not null,
+  block_time timestamptz not null,
+  target_program text not null,
+  amount_lamports bigint,
+  status text not null,                  -- 'executed' | 'rejected' | 'escalated'
+  reject_reason text,
+  raw_event jsonb,
+  created_at timestamptz default now()
+);
+create index on guarded_txns(policy_pubkey, block_time desc);
+
+-- LLM judge verdicts
+create table anomaly_verdicts (
+  id uuid primary key default gen_random_uuid(),
+  txn_id uuid references guarded_txns(id) on delete cascade,
+  policy_pubkey text not null,
+  verdict text not null,                 -- 'allow' | 'flag' | 'pause'
+  confidence smallint not null,
+  reasoning text not null,
+  model text not null,                   -- 'claude-haiku-4-5' | 'claude-opus-4-7'
+  latency_ms integer,
+  prefilter_skipped boolean default false,
+  prompt_tokens integer,
+  completion_tokens integer,
+  created_at timestamptz default now()
+);
+create index on anomaly_verdicts(policy_pubkey, created_at desc);
+
+-- Incidents (when an agent was paused)
+create table incidents (
+  id uuid primary key default gen_random_uuid(),
+  policy_pubkey text references policies(pubkey),
+  paused_at timestamptz not null,
+  paused_by text not null,
+  reason text not null,
+  triggering_txn_sig text,
+  judge_verdict_id uuid references anomaly_verdicts(id),
+  full_report text,                      -- Opus-generated post-hoc analysis
+  resolved_at timestamptz,
+  resolution text,
+  created_at timestamptz default now()
+);
+create index on incidents(policy_pubkey, paused_at desc);
+
+-- Session (SIWS auth)
+create table auth_sessions (
+  id uuid primary key default gen_random_uuid(),
+  wallet_pubkey text not null,
+  nonce text not null,
+  signed_at timestamptz,
+  expires_at timestamptz not null,
+  created_at timestamptz default now()
+);
+```
+
+RLS policies: users can only read `policies`, `guarded_txns`, `anomaly_verdicts`, `incidents` where `owner = auth.jwt()->>'wallet_pubkey'`. Service role bypasses for the worker.
+
+---
+
+## 5. Monitoring Worker (Node.js)
+
+### 5.1 High-level flow
+
+```
+Helius webhook POST → worker
+   ↓
+[ingest] verify HMAC, parse event, write guarded_txns row
+   ↓
+[prefilter] cheap stat checks — if clearly benign, skip LLM
+   ↓ (only suspicious txns continue)
+[judge] Claude Haiku 4.5 call with policy + txn + recent history
+   ↓
+verdict = allow / flag / pause
+   ↓
+if pause:
+  [executor] sign + send pause_agent instruction on-chain
+  [reporter] queue Opus 4.7 incident report generation (async)
+```
+
+### 5.2 Pre-filter rules (hot path — avoids Claude cost on routine txns)
+
+Runs in < 1ms. Skip LLM if ALL of these hold:
+- Target program is the user's single most-used whitelisted program in last 7 days
+- Amount < 50% of `max_tx_lamports`
+- Less than 3 txns from this agent in the last 60 seconds
+- Current hour matches the agent's historical activity window (±2 hours of its median active hour)
+
+Always invoke LLM if ANY hold:
+- New program (not seen for this agent before)
+- Amount > 70% of per-tx cap
+- Burst detected (>5 txns in 60s)
+- Cumulative spend > 80% of daily budget
+- Session within 10 minutes of expiry (attacker exploiting grace period)
+
+### 5.3 Claude judge prompt (Haiku 4.5, hot path)
+
+Kept tight — target <500 input tokens, <200 output tokens, <2s latency.
+
+```typescript
+// packages/prompts/judge.ts
+export const JUDGE_SYSTEM = `You are an on-chain security judge for Solana AI agents.
+You receive a single transaction attempt and must decide: ALLOW, FLAG, or PAUSE.
+
+Respond ONLY with valid JSON matching this schema:
+{
+  "verdict": "allow" | "flag" | "pause",
+  "confidence": 0-100,
+  "reasoning": "one sentence, <200 chars",
+  "signals": ["short signal strings"]
+}
+
+Rules:
+- PAUSE = stop the agent immediately. Use only for clear exploitation patterns:
+  draining sequences, new destinations + high amount, rapid escalation, known attack shapes.
+- FLAG = log but allow. Unusual but not obviously malicious.
+- ALLOW = routine activity consistent with policy and history.
+Default to ALLOW when uncertain. False positives erode trust; only PAUSE on strong evidence.`;
+
+export function buildJudgeUserMessage(ctx: JudgeContext): string {
+  return `
+POLICY:
+- Agent: ${ctx.policy.agent}
+- Allowed programs: ${ctx.policy.allowedPrograms.join(", ")}
+- Per-tx cap: ${ctx.policy.maxTxSol} SOL
+- Daily budget: ${ctx.policy.dailyBudgetSol} SOL (${ctx.policy.dailyUsedPct}% used today)
+- Session expires in: ${ctx.policy.minsToExpiry} minutes
+
+CURRENT TRANSACTION:
+- Target program: ${ctx.txn.program} ${ctx.txn.programLabel ? `(${ctx.txn.programLabel})` : "(UNKNOWN to this agent)"}
+- Amount: ${ctx.txn.amountSol} SOL (${ctx.txn.pctOfCap}% of per-tx cap)
+- Time: ${ctx.txn.timestamp}
+
+RECENT HISTORY (last 20 txns):
+${ctx.history.map((h, i) =>
+  `${i+1}. ${h.program} | ${h.amountSol} SOL | ${h.status} | ${h.minsAgo}m ago`
+).join("\n")}
+
+AGENT BASELINE:
+- Median tx amount: ${ctx.baseline.medianAmount} SOL
+- p95 tx amount: ${ctx.baseline.p95Amount} SOL
+- Typical active hours: ${ctx.baseline.activeHours}
+- Programs used ever: ${ctx.baseline.uniqueProgramsCount}
+
+PRE-FILTER SIGNALS: ${ctx.prefilterSignals.join(", ") || "none"}
+
+Judge this transaction.`;
+}
+```
+
+### 5.4 Judge implementation
+
+```typescript
+// apps/worker/src/judge.ts
+import Anthropic from "@anthropic-ai/sdk";
+import { JUDGE_SYSTEM, buildJudgeUserMessage } from "@guardrails/prompts";
+
+const client = new Anthropic();
+
+export async function judgeTransaction(ctx: JudgeContext): Promise<Verdict> {
+  const start = Date.now();
+  const response = await client.messages.create({
+    model: "claude-haiku-4-5-20251001",
+    max_tokens: 256,
+    system: JUDGE_SYSTEM,
+    messages: [{ role: "user", content: buildJudgeUserMessage(ctx) }],
+  });
+  const latencyMs = Date.now() - start;
+
+  const textBlock = response.content.find((b) => b.type === "text");
+  if (!textBlock || textBlock.type !== "text") throw new Error("No text response");
+
+  // Strip code fences if present
+  const cleaned = textBlock.text.replace(/```json|```/g, "").trim();
+  const parsed = JSON.parse(cleaned) as Verdict;
+
+  await persistVerdict({ ...parsed, latencyMs, model: "claude-haiku-4-5",
+    promptTokens: response.usage.input_tokens,
+    completionTokens: response.usage.output_tokens });
+
+  return parsed;
+}
+```
+
+### 5.5 Kill-switch executor
+
+When verdict is `pause`:
+```typescript
+// apps/worker/src/executor.ts
+import { Program } from "@coral-xyz/anchor";
+import { Guardrails } from "@guardrails/sdk";
+
+export async function pauseAgent(policyPubkey: PublicKey, reason: string, verdictId: string) {
+  const tx = await program.methods
+    .pauseAgent(Buffer.from(reason.slice(0, 64).padEnd(64, " ")))
+    .accounts({
+      policy: policyPubkey,
+      monitor: MONITOR_KEYPAIR.publicKey,
+    })
+    .signers([MONITOR_KEYPAIR])
+    .rpc({ commitment: "confirmed" });
+
+  await supabase.from("incidents").insert({
+    policy_pubkey: policyPubkey.toBase58(),
+    paused_at: new Date(),
+    paused_by: MONITOR_KEYPAIR.publicKey.toBase58(),
+    reason,
+    triggering_txn_sig: ctx.txn.signature,
+    judge_verdict_id: verdictId,
+  });
+
+  // Queue Opus 4.7 post-hoc report (async, non-blocking)
+  await reportQueue.add({ policyPubkey: policyPubkey.toBase58(), incidentId });
+
+  return tx;
+}
+```
+
+### 5.6 Incident report (Opus 4.7, async)
+
+Generated seconds-to-minutes after pause. Uses full model for narrative quality — shown on the incident detail page in the dashboard. Prompt takes the full 24h of txn history for the agent + the triggering txn + judge reasoning and produces a human-readable postmortem with recommended policy changes.
+
+### 5.7 Cost estimate
+
+- Haiku 4.5: ~$1 / M input tokens, ~$5 / M output tokens
+- Average judge call: ~600 input + 150 output tokens ≈ $0.0014 per call
+- With pre-filter (skips ~70% of txns in healthy steady state), 1000 daily txns ≈ $0.42/day per active agent
+- Enterprise tier ($2000/mo) absorbs this trivially
+
+---
+
+## 6. Dashboard (Next.js 14)
+
+### 6.1 Routes
+
+| Route | Purpose |
+|---|---|
+| `/` | Landing + connect wallet CTA |
+| `/signin` | SIWS flow |
+| `/agents` | List of agents/policies owned by connected wallet |
+| `/agents/new` | Create policy wizard (programs, limits, expiry, monitors, squads) |
+| `/agents/[pubkey]` | Agent detail — live status, spend gauge, recent txns, controls |
+| `/agents/[pubkey]/policy` | Edit policy |
+| `/activity` | Global activity feed across all your agents |
+| `/incidents` | All past pauses with Opus-generated reports |
+| `/incidents/[id]` | Incident detail with timeline + judge reasoning |
+| `/api/auth/siws` | Sign-In With Solana verification endpoint |
+
+### 6.2 Key components (build in this order)
+
+1. `WalletProvider` + `SiwsProvider` — wrap root layout
+2. `PolicyCard` — compact status card for /agents list
+3. `CreatePolicyWizard` — 4-step form: programs → limits → session → escalation
+4. `SpendGauge` — radial chart of daily_used / daily_budget
+5. `ActivityFeed` — Supabase Realtime subscription to `guarded_txns`
+6. `TxnRow` — with verdict badge (allow/flag/pause), expandable reasoning
+7. `KillSwitchButton` — confirm modal → sends pause_agent txn from owner wallet
+8. `IncidentTimeline` — vertical timeline of events leading to pause
+
+### 6.3 Data fetching pattern
+
+- **On-chain state** (authoritative): read via Anchor client, cached with TanStack Query (30s stale time)
+- **Historical txns**: Supabase query with pagination
+- **Live updates**: Supabase Realtime websocket on `guarded_txns` and `incidents` tables, invalidates TanStack caches on change
+
+### 6.4 SIWS flow (bare minimum)
+
+```typescript
+// POST /api/auth/siws/nonce
+// returns { nonce, message } — signed in Phantom
+// POST /api/auth/siws/verify
+// body: { pubkey, signature, message }
+// verifies via tweetnacl, issues JWT with wallet_pubkey claim, sets httpOnly cookie
+// Supabase RLS reads wallet_pubkey from JWT via custom claim
+```
+
+---
+
+## 7. Sponsor Integrations
+
+### 7.1 Swig — session key issuance
+
+**Flow:** Owner creates a Swig sub-account with a session key scoped to the Guardrails program. The session key becomes the `agent` pubkey in the PermissionPolicy. Swig enforces session expiry and signing restrictions at the wallet layer; Guardrails enforces program/amount restrictions at the contract layer. Defense in depth.
+
+**MVP integration point:** The `/agents/new` wizard includes a "Mint Swig session key" step that calls Swig's SDK to provision the key and auto-populates the agent pubkey field. If Swig CPI proves too complex in week 1, fallback is a plain ephemeral keypair stored encrypted in Supabase; we still demo against Swig-issued keys.
+
+### 7.2 Squads v4 — multisig escalation
+
+**Flow:** In the policy creation wizard, owner optionally attaches a Squads multisig address. Sets `escalation_threshold` (e.g., 10 SOL). When `guarded_execute` sees an amount ≥ threshold, it CPIs to Squads `create_proposal` instead of executing directly. Squad members vote; on execution, a second `guarded_execute` (this time from the Squads vault) completes the action.
+
+**MVP:** Use Squads v4 TypeScript SDK for proposal creation from the worker side (simpler than CPI from Anchor). The on-chain program returns an `EscalatedToMultisig` error; worker catches this, creates the Squads proposal, persists the pending proposal ID to Supabase, dashboard shows "Awaiting multisig approval" state.
+
+### 7.3 Solana Agent Kit — demo agents
+
+Three agents in `apps/demo-agents/`:
+1. **`trader-agent.ts`** — honest agent running Jupiter swaps within limits, producing ~30 txns/hour
+2. **`staker-agent.ts`** — honest agent staking/unstaking via Marinade
+3. **`attacker.ts`** — deliberately misbehaves: tries new programs, bursts 20 txns in 10s, attempts to drain at session expiry. Demonstrates the judge catching it.
+
+The demo script (§9) runs `attacker.ts` live on devnet and shows Claude's verdict streaming in, then the agent being paused in real time.
+
+### 7.4 Helius webhooks
+
+Single webhook configured to watch the Guardrails program address. Transaction type filter: `ANY`. On receipt, verify the HMAC using `HELIUS_WEBHOOK_SECRET`, then fan out to ingest → prefilter → judge pipeline.
+
+---
+
+## 8. Week-by-Week Plan
+
+### Week 1 — On-chain core (Mon–Sun)
+
+**Goals:** Deployable Anchor program on devnet with `initialize_policy`, `guarded_execute`, `pause_agent`, and whitelisted CPIs working end-to-end.
+
+- **Mon:** Repo scaffolding (pnpm workspaces, Anchor init, CI stub). Define all account structs + errors + events.
+- **Tue:** `initialize_policy` + `update_policy` + unit tests.
+- **Wed:** `guarded_execute` happy path for System Program SOL transfer. Signer seeds + CPI working.
+- **Thu:** Extend `guarded_execute` to Token Program + Jupiter CPI. Amount parsing for known programs.
+- **Fri:** `pause_agent` + `resume_agent` with authorized monitor check. Events emitted.
+- **Sat:** Integration tests simulating agent → guardrails → Jupiter happy path + all rejection paths.
+- **Sun:** Deploy to devnet, publish IDL, generate TS client, smoke test from CLI.
+
+**Exit criteria:** `scripts/setup-demo.ts` creates a policy and runs a guarded Jupiter swap successfully.
+
+### Week 2 — Spend tracking, session keys, Swig
+
+**Goals:** Budget enforcement works across rolling windows; Swig session keys provision agents.
+
+- **Mon:** `SpendTracker` PDA + atomic increment in `guarded_execute`. Rolling 24h reset logic.
+- **Tue:** Daily budget tests — partial spends, rollover at midnight, exceeding limit.
+- **Wed:** Session expiry enforcement + `rotate_agent_key` instruction.
+- **Thu–Fri:** Swig SDK integration. `/agents/new` wizard step provisions Swig session key. Integration test: Swig-issued key calls guarded_execute successfully.
+- **Sat:** Squads v4 integration — CPI from worker to create proposal when threshold exceeded. Proposal → execute flow tested.
+- **Sun:** Merge + regression pass. Program feature-complete for MVP.
+
+**Exit criteria:** Demo flow works end-to-end on-chain: Swig session key + guardrails + Squads escalation.
+
+### Week 3 — Monitoring worker & Claude judge
+
+**Goals:** Webhook ingestion, pre-filter, Claude judge, auto-pause all working on devnet traffic.
+
+- **Mon:** Worker skeleton (Express + HMAC verify + Supabase client). Helius webhook configured.
+- **Tue:** Event parsing → `guarded_txns` rows populated. Verify Helius sends events correctly.
+- **Wed:** Pre-filter implementation + unit tests on synthetic txn streams.
+- **Thu:** Claude Haiku judge integration. Prompt engineering + output parsing. Retry logic + timeouts.
+- **Fri:** End-to-end: run `attacker.ts` → worker sees events → judge returns PAUSE → on-chain pause executed.
+- **Sat:** Opus 4.7 incident report queue + generation.
+- **Sun:** Deploy worker to Fly.io. Load test with 100 txn/min synthetic stream. Tune pre-filter ratios.
+
+**Exit criteria:** Full pipeline runs autonomously on devnet. Attacker agent gets paused within 3 seconds of triggering behavior.
+
+### Week 4 — Dashboard
+
+**Goals:** All dashboard routes shipped with live data. SIWS working. Create-policy wizard end-to-end.
+
+- **Mon:** Next.js scaffold, Tailwind + shadcn, wallet adapter, SIWS endpoints.
+- **Tue:** `/agents` list + `PolicyCard`. TanStack Query hooks for on-chain reads.
+- **Wed:** `/agents/new` wizard (4 steps). Calls Swig + Guardrails on submit.
+- **Thu:** `/agents/[pubkey]` detail page. Spend gauge, live activity feed via Supabase Realtime.
+- **Fri:** `/incidents` + `/incidents/[id]` with Opus-generated reports rendered.
+- **Sat:** `KillSwitchButton` from owner wallet. Edit-policy page. Polish empty states + error states.
+- **Sun:** Dashboard deployed on Vercel. End-to-end user test: connect wallet → create agent → watch attack → see pause.
+
+**Exit criteria:** A non-technical viewer can understand what the system does within 30 seconds of seeing the dashboard.
+
+### Week 5 — Demo polish, docs, submission
+
+**Goals:** 3-minute demo video, polished README, devnet-deployed everything, Colosseum submission.
+
+- **Mon:** `scripts/simulate-attack.ts` — orchestrates the live demo. Trader + staker running normally, attacker triggers at T+60s.
+- **Tue:** Record raw demo footage. Iterate on script timing.
+- **Wed:** Edit video (3 min target). Overlay key callouts (judge reasoning, pause event, Squads approval).
+- **Thu:** README, architecture diagram, SKILL.md for judges. Code cleanup + comments.
+- **Fri:** Buffer for bugs. Security review of any custodial paths.
+- **Sat:** Final submission to Colosseum. Publish open-source repo. Post on X tagging Swig, Squads, Helius, SendAI.
+- **Sun:** Rest. Monitor for questions from judges.
+
+**Exit criteria:** Submission accepted, video public, repo public with clear setup instructions.
+
+---
+
+## 9. Demo Script (3 minutes)
+
+**0:00–0:20 — Hook.** Step Finance lost $40M in January because a treasury wallet with full permissions was compromised. Today, 250,000 AI agents operate on Solana with similar unconstrained keys. Nothing on-chain stops a compromised agent from draining its treasury.
+
+**0:20–0:50 — What we built.** Agent Guardrails Protocol — an on-chain policy layer between any agent and the blockchain. Show the architecture diagram: agent → Guardrails PDA → policy check → CPI. Three enforcement layers: allow-list, budget, kill switch.
+
+**0:50–1:30 — Live demo starts.** Dashboard on screen. Three agents running on devnet: trader, staker, attacker. Activity feed streams in real time. Spend gauges tick up. Everything green.
+
+**1:30–2:15 — Attack.** Attacker agent starts burst-swapping to an unfamiliar program. Watch the activity feed: first txn highlighted yellow (FLAG). Claude's reasoning appears inline: "new program + 3x median amount + 4 txns in 8s." Second txn: PAUSE. Agent stops instantly. On-chain pause event shows in explorer.
+
+**2:15–2:40 — Incident view.** Click into the incident. Opus-generated postmortem reads: timeline, root cause, recommended policy adjustments. Show the judge verdict chain — every txn has a reasoning trail.
+
+**2:40–3:00 — Close.** This is the containment layer Solana doesn't have. Built on Swig session keys, Squads multisig, Helius streams. Open source, devnet-live today. Two AI agents just passed policy, one was stopped. That's what safety for agents looks like.
+
+---
+
+## 10. Risks & Mitigations
+
+| Risk | Likelihood | Impact | Mitigation |
+|---|---|---|---|
+| Amount parsing breaks for unknown DeFi programs | High | Medium | MVP whitelist only System/Token/Jupiter; document as known limit; monitor-side post-hoc detection catches the rest |
+| Claude Haiku latency spikes make demo choppy | Medium | High | Stream responses; pre-filter aggressively; fallback to rule-based verdict on timeout >3s |
+| Helius webhook delivery lag | Medium | Medium | Poll Solana RPC as backup every 2s for the demoed policy |
+| Swig SDK integration proves fragile late in week 2 | Medium | High | Fallback: issue agent keys directly from our UI; note in demo "Swig is the production issuer; we demo with equivalent session semantics" |
+| Judge hallucinates a PAUSE on a benign txn during demo | Low | Catastrophic | Pre-record a reliable seed trace of attacker txns; `simulate-attack.ts` replays identical patterns; extensive dry runs in week 5 |
+| Compute budget exceeded in `guarded_execute` | Medium | Medium | Profile early; keep `allowed_programs` max 10; use Merkle proof if it grows; split into `SpendTracker` already reduces payload |
+| Attacker prompt-injects via txn memo → LLM judges wrong | Low | High | Strip memo fields from judge context; never include untrusted strings in prompt; test with malicious memo payloads |
+| Devnet congestion during demo window | Medium | Medium | Pre-record a high-quality capture as fallback; run demo on localnet if devnet is unreliable |
+
+---
+
+## 11. Submission Checklist (Colosseum)
+
+- [ ] Public GitHub repo with permissive license (MIT or Apache-2.0)
+- [ ] README with: problem, solution, architecture diagram, setup steps, demo link
+- [ ] Devnet program deployed + IDL published to repo
+- [ ] Dashboard live at custom subdomain (e.g., `guardrails.vercel.app`)
+- [ ] 3-minute demo video on YouTube (unlisted OK if required)
+- [ ] Pitch deck (10–12 slides)
+- [ ] Explicit tagging of sponsor tech used: Swig, Squads, Helius, SendAI
+- [ ] Track selected on Colosseum (agent infrastructure / DeFi security)
+- [ ] Team members verified on Colosseum portal
+- [ ] Backup demo recording uploaded privately in case of live demo failure
+
+---
+
+## 12. Post-Hackathon Roadmap (talking points for judges)
+
+**Month 2:** Open-source SDK release. Integrations with SendAI, Helius, and Para published. Free tier launched.
+
+**Month 3:** Mainnet audit (Halborn or OtterSec). First 10 paying agent operators onboarded.
+
+**Month 4–6:** Protocol integration partnerships (Drift, Jupiter, Marinade). Transaction-fee revenue model activated. Apply for Solana Foundation STRIDE partnership.
+
+**Month 7–12:** Anomaly model trained on real traffic. Elastic circuit breakers upgraded. Institutional bundle with Squads. $5M ARR run rate target.
+
+---
+
+**End of plan. Start with Week 1, Monday tasks. Questions, changes, or need any section expanded — ask.**
