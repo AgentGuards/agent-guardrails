@@ -1,9 +1,9 @@
 /**
  * Mock data barrel export.
  *
- * All data matches the Supabase schema in docs/data-contracts.md.
+ * All data matches the Prisma schema in server/prisma/schema.prisma.
  * Use this for building the dashboard UI without real backend.
- * Swap for real Supabase queries when ready.
+ * Swap for real server API calls when ready.
  *
  * Narrative:
  * - Yield Bot (trader): 8 normal Jupiter swaps, all healthy

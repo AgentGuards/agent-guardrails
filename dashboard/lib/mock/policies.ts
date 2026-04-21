@@ -11,17 +11,17 @@ export interface Policy {
   pubkey: string;
   owner: string;
   agent: string;
-  allowed_programs: string[];
-  max_tx_lamports: number;
-  daily_budget_lamports: number;
-  session_expiry: string; // ISO 8601
-  is_active: boolean;
-  squads_multisig: string | null;
-  escalation_threshold: number | null;
-  anomaly_score: number; // 0–100
+  allowedPrograms: string[];
+  maxTxLamports: number;
+  dailyBudgetLamports: number;
+  sessionExpiry: string; // ISO 8601
+  isActive: boolean;
+  squadsMultisig: string | null;
+  escalationThreshold: number | null;
+  anomalyScore: number; // 0–100
   label: string;
-  created_at: string;
-  updated_at: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 // Known program addresses for labels
@@ -43,58 +43,58 @@ export const POLICIES: Policy[] = [
     pubkey: "4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU",
     owner: OWNER,
     agent: "Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS",
-    allowed_programs: [
+    allowedPrograms: [
       "JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4",
       "11111111111111111111111111111111",
       "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
     ],
-    max_tx_lamports: 5_000_000_000, // 5 SOL
-    daily_budget_lamports: 50_000_000_000, // 50 SOL
-    session_expiry: "2026-05-01T00:00:00Z",
-    is_active: true,
-    squads_multisig: "SMPLecH534Ngo6KPUV3GRbGN8D4BUXy4JUPq2YTJ1f",
-    escalation_threshold: 10_000_000_000, // 10 SOL
-    anomaly_score: 8,
+    maxTxLamports: 5_000_000_000, // 5 SOL
+    dailyBudgetLamports: 50_000_000_000, // 50 SOL
+    sessionExpiry: "2026-05-01T00:00:00Z",
+    isActive: true,
+    squadsMultisig: "SMPLecH534Ngo6KPUV3GRbGN8D4BUXy4JUPq2YTJ1f",
+    escalationThreshold: 10_000_000_000, // 10 SOL
+    anomalyScore: 8,
     label: "Yield Bot",
-    created_at: "2026-04-10T08:00:00Z",
-    updated_at: "2026-04-21T14:30:00Z",
+    createdAt: "2026-04-10T08:00:00Z",
+    updatedAt: "2026-04-21T14:30:00Z",
   },
   {
     pubkey: "8dHEsGNtQ2obTBbh8mxmXJ3A6stUdmKz1KfLFbm2WDNG",
     owner: OWNER,
     agent: "3Hk5ZxpWQna8JDVCvjMvQw5HGMFdZGPRBzDf9eMGx3hZ",
-    allowed_programs: [
+    allowedPrograms: [
       "MrNEdFKsp4MSGPoQwnZqSxUYEbBYaxQGTdCSg1vmDVJ",
       "11111111111111111111111111111111",
     ],
-    max_tx_lamports: 10_000_000_000, // 10 SOL
-    daily_budget_lamports: 100_000_000_000, // 100 SOL
-    session_expiry: "2026-05-01T00:00:00Z",
-    is_active: true,
-    squads_multisig: null,
-    escalation_threshold: null,
-    anomaly_score: 3,
+    maxTxLamports: 10_000_000_000, // 10 SOL
+    dailyBudgetLamports: 100_000_000_000, // 100 SOL
+    sessionExpiry: "2026-05-01T00:00:00Z",
+    isActive: true,
+    squadsMultisig: null,
+    escalationThreshold: null,
+    anomalyScore: 3,
     label: "Staking Agent",
-    created_at: "2026-04-10T08:15:00Z",
-    updated_at: "2026-04-21T12:00:00Z",
+    createdAt: "2026-04-10T08:15:00Z",
+    updatedAt: "2026-04-21T12:00:00Z",
   },
   {
     pubkey: "CsZ5LZkDS7h9TDKjt4zMJSiP8bZzYLkWsa4bGMQKDqeE",
     owner: OWNER,
     agent: "J2HH7qPsULG5CzzDmPLsEikMm1CCEZop5qmdDsCuQAA",
-    allowed_programs: [
+    allowedPrograms: [
       "JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4",
       "11111111111111111111111111111111",
     ],
-    max_tx_lamports: 2_000_000_000, // 2 SOL
-    daily_budget_lamports: 20_000_000_000, // 20 SOL
-    session_expiry: "2026-04-21T16:00:00Z",
-    is_active: false,
-    squads_multisig: null,
-    escalation_threshold: null,
-    anomaly_score: 87,
+    maxTxLamports: 2_000_000_000, // 2 SOL
+    dailyBudgetLamports: 20_000_000_000, // 20 SOL
+    sessionExpiry: "2026-04-21T16:00:00Z",
+    isActive: false,
+    squadsMultisig: null,
+    escalationThreshold: null,
+    anomalyScore: 87,
     label: "Alpha Scanner",
-    created_at: "2026-04-15T10:00:00Z",
-    updated_at: "2026-04-21T15:02:03Z",
+    createdAt: "2026-04-15T10:00:00Z",
+    updatedAt: "2026-04-21T15:02:03Z",
   },
 ];

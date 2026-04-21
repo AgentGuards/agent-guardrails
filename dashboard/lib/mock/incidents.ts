@@ -7,28 +7,28 @@
 
 export interface Incident {
   id: string;
-  policy_pubkey: string;
-  paused_at: string;
-  paused_by: string;
+  policyPubkey: string;
+  pausedAt: string;
+  pausedBy: string;
   reason: string;
-  triggering_txn_sig: string;
-  judge_verdict_id: string;
-  full_report: string | null;
-  resolved_at: string | null;
+  triggeringTxnSig: string;
+  judgeVerdictId: string;
+  fullReport: string | null;
+  resolvedAt: string | null;
   resolution: string | null;
-  created_at: string;
+  createdAt: string;
 }
 
 export const INCIDENTS: Incident[] = [
   {
     id: "e5f6a7b8-0001-4000-8000-000000000001",
-    policy_pubkey: "CsZ5LZkDS7h9TDKjt4zMJSiP8bZzYLkWsa4bGMQKDqeE",
-    paused_at: "2026-04-21T15:00:06Z",
-    paused_by: "9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM", // monitor
+    policyPubkey: "CsZ5LZkDS7h9TDKjt4zMJSiP8bZzYLkWsa4bGMQKDqeE",
+    pausedAt: "2026-04-21T15:00:06Z",
+    pausedBy: "9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM", // monitor
     reason: "Draining sequence detected by Claude judge",
-    triggering_txn_sig: "2KlM3nP4qR5sT6uV7wX8yZ9aB1cD2eF3gH4jK5lM6nP7qR8sT9uV1wX2yZ3aB4cD5eF6gH7jK8lM9nP",
-    judge_verdict_id: "d4e5f6a7-0003-4000-8000-000000000006",
-    full_report: `# Incident Report — Alpha Scanner (CsZ5...QAA)
+    triggeringTxnSig: "2KlM3nP4qR5sT6uV7wX8yZ9aB1cD2eF3gH4jK5lM6nP7qR8sT9uV1wX2yZ3aB4cD5eF6gH7jK8lM9nP",
+    judgeVerdictId: "d4e5f6a7-0003-4000-8000-000000000006",
+    fullReport: `# Incident Report — Alpha Scanner (CsZ5...QAA)
 
 ## Summary
 Agent "Alpha Scanner" was automatically paused at 2026-04-21T15:00:06Z after the monitoring system detected a high-confidence draining sequence. The agent executed 3 transactions in 5 seconds to an unwhitelisted program (DezX...B263) with escalating amounts approaching the per-transaction cap.
@@ -70,8 +70,8 @@ The agent session key appears to have been compromised or the agent's decision-m
 - Report model: claude-opus-4-7
 - Total judge latency: 4,050ms across 3 evaluations
 - Total tokens: 1,642 input, 255 output`,
-    resolved_at: null,
+    resolvedAt: null,
     resolution: null,
-    created_at: "2026-04-21T15:00:07Z",
+    createdAt: "2026-04-21T15:00:07Z",
   },
 ];
