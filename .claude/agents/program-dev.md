@@ -46,8 +46,8 @@ The program lives in `program/programs/guardrails/src/`. You build the on-chain 
 
 ## Testing
 
-- Tests in `program/tests/guardrails.ts` using Mocha/Chai + `@coral-xyz/anchor`
-- `anchor test` starts a local validator automatically
+- Tests are Rust unit tests using LiteSVM in-process validator (`cargo test`)
+- No external validator needed — LiteSVM runs entirely in-process, much faster
 - Test every rejection path in `guarded_execute`
 - Test monitor authorization in `pause_agent`
 - Test only-owner can call `resume_agent`

@@ -74,7 +74,7 @@ This runs:
 
 ### Devnet is slow/congested
 - Switch to the pre-recorded demo video
-- Or use localnet: `solana-test-validator` and adjust RPC URLs
+- Or use localnet: run a local validator and adjust RPC URLs
 
 ### Worker is down
 - Check Fly.io logs: `fly logs -a guardrails-worker`

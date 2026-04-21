@@ -9,7 +9,7 @@ Standalone Anchor 0.30.1 program. Rust edition 2021. Dependencies: `anchor-lang 
 - Instructions: `instructions/*.rs` — one file per instruction, six total
 - Errors: `errors.rs` — GuardrailsError enum (section 3.6)
 - Events: `events.rs` — emitted via `emit!()` for Helius consumption (section 3.5)
-- Tests: `tests/guardrails.ts` using Mocha/Chai + @coral-xyz/anchor
+- Tests: Rust unit tests using LiteSVM in-process validator
 
 ## Key design
 
@@ -31,7 +31,7 @@ Standalone Anchor 0.30.1 program. Rust edition 2021. Dependencies: `anchor-lang 
 
 ```bash
 anchor build       # Compile + generate IDL
-anchor test        # Run tests with local validator
+cargo test         # Run unit tests (LiteSVM, in-process — no external validator needed)
 anchor deploy      # Deploy to cluster in Anchor.toml
 ```
 

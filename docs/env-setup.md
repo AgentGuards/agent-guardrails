@@ -42,7 +42,7 @@ bash scripts/sync-sdk.sh
 ## Step 2: Start Local Solana Validator (Terminal 1)
 
 ```bash
-solana-test-validator
+LiteSVM (in-process, no external validator needed)
 ```
 
 Leave this running. Default RPC: `http://localhost:8899`

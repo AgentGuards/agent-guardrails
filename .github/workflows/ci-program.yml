@@ -51,7 +51,7 @@ jobs:
 
       - name: Test
         working-directory: program
-        run: anchor test --skip-local-validator || true  # TODO: remove || true once tests are implemented
+        run: cargo test || true  # TODO: remove || true once tests are implemented
 
       - name: Verify IDL is current
         run: |
