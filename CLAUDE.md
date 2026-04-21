@@ -36,6 +36,7 @@ Configure hooks after clone: `git config core.hooksPath .githooks`
 - `docs/env-setup.md` — Local development setup guide
 - `docs/deploy.md` — Deployment guide (program → server → dashboard)
 - `docs/demo-runbook.md` — Demo day operator's guide
+- `docs/walkthrough.md` — End-to-end system walkthrough with demo example
 
 ## Prerequisites
 

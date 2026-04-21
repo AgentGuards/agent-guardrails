@@ -240,6 +240,7 @@ The dashboard shows normal activity streaming in via SSE, then the attack: FLAG 
 | [docs/env-setup.md](docs/env-setup.md) | Local development setup guide |
 | [docs/deploy.md](docs/deploy.md) | Deployment guide for all components |
 | [docs/demo-runbook.md](docs/demo-runbook.md) | Demo day operator's guide |
+| [docs/walkthrough.md](docs/walkthrough.md) | End-to-end system walkthrough with demo example |
 
 ## License
 
