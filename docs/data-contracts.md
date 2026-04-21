@@ -135,7 +135,7 @@ Seeds: `["tracker", policy_pubkey]`
 | verdict | text | 'allow' \| 'flag' \| 'pause' |
 | confidence | smallint | 0–100 |
 | reasoning | text | |
-| model | text | 'claude-haiku-4-5' \| 'claude-opus-4-7' |
+| model | text | 'claude-haiku-4-5-20251001' \| 'claude-opus-4-7' (full model ID with date) |
 | latency_ms | integer | |
 | prefilter_skipped | boolean | |
 | prompt_tokens | integer | |

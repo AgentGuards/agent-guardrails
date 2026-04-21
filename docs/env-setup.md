@@ -39,26 +39,31 @@ cd ..
 bash scripts/sync-sdk.sh
 ```
 
-## Step 2: Start Local Solana Validator (Terminal 1)
+## Step 2: Run Program Tests
 
-```bash
-`anchor test --skip-local-validator --skip-deploy` (LiteSVM — runs in-process, no external validator)
-```
-
-Leave this running. Default RPC: `http://localhost:8899`
-
-## Step 3: Deploy Program Locally
+Tests use LiteSVM (in-process) — no external validator needed.
 
 ```bash
 cd program
-anchor deploy --provider.cluster localnet
-# Note the program ID from the output
+pnpm install
+anchor test --skip-local-validator --skip-deploy
 cd ..
+```
+
+## Step 3: Get the Program ID
+
+After `anchor build` (run in Step 1), extract the program ID:
+
+```bash
+solana address -k program/target/deploy/guardrails-keypair.json
 ```
 
 Update the program ID in:
 - `program/Anchor.toml` → `[programs.devnet]` value
 - `program/programs/guardrails/src/lib.rs` → `declare_id!()`
+- Rebuild after updating: `cd program && anchor build && cd .. && bash scripts/sync-sdk.sh`
+
+Later, set it in env files:
 - `worker/.env` → `GUARDRAILS_PROGRAM_ID`
 - `dashboard/.env.local` → `NEXT_PUBLIC_GUARDRAILS_PROGRAM_ID`
 
@@ -130,7 +135,7 @@ Dashboard at `http://localhost:3000`.
 
 ## Verify
 
-1. Dashboard loads at localhost:3000
-2. Worker responds at localhost:8080
-3. `solana program show <PROGRAM_ID> --url localhost` shows the deployed program
+1. Program tests pass: `cd program && anchor test --skip-local-validator --skip-deploy`
+2. Dashboard loads at localhost:3000
+3. Worker responds at localhost:8080
 4. Supabase Studio at `http://localhost:54323`

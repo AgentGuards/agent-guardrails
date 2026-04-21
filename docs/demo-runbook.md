@@ -41,7 +41,7 @@ This runs:
 4. Click into `/incidents` — show the paused incident
 5. Open incident detail — show Opus-generated postmortem with timeline
 
-### Expected Timing
+### Expected Timing (ideal conditions — Claude API <2s latency)
 
 | Time | Event |
 |---|---|
@@ -51,6 +51,8 @@ This runs:
 | T+63s | PAUSE verdict — on-chain pause executed |
 | T+65s | Incident appears in dashboard |
 | T+70s | Opus incident report generates |
+
+**Note:** If Claude API latency spikes >3s, the pause may take longer. Do dry runs to calibrate timing before demo day.
 
 ---
 

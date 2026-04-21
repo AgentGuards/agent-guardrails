@@ -60,7 +60,7 @@ cd dashboard && npm run demo:simulate  # Run the attack simulation
 Never commit `.env` files. See `worker/.env.example` and `dashboard/.env.example`.
 
 - Worker needs: `SOLANA_RPC_URL`, `GUARDRAILS_PROGRAM_ID`, `MONITOR_KEYPAIR`, `HELIUS_WEBHOOK_SECRET`, `ANTHROPIC_API_KEY`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE`
-- Dashboard needs: `NEXT_PUBLIC_SOLANA_RPC_URL`, `NEXT_PUBLIC_GUARDRAILS_PROGRAM_ID`, `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE`
+- Dashboard needs: `NEXT_PUBLIC_SOLANA_RPC_URL`, `NEXT_PUBLIC_GUARDRAILS_PROGRAM_ID`, `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE` (server-side only — used in API routes for SIWS verification, never exposed to client)
 
 ## Do NOT
 
