@@ -222,7 +222,7 @@ Four SSE event types: `new_transaction`, `verdict`, `agent_paused`, `report_read
 Pure frontend on Vercel. No API routes, no database access. Data from:
 - **Solana RPC** — on-chain reads via Anchor client (TanStack Query, 30s stale)
 - **Server REST API** — historical transactions, incidents, policies
-- **Server SSE** — live updates via `EventSource`, invalidates TanStack caches
+- **Server SSE** — live updates via `EventSource`, full payloads inserted directly into TanStack cache
 
 Eight key components: WalletProvider, PolicyCard, CreatePolicyWizard, SpendGauge, ActivityFeed, TxnRow, KillSwitchButton, IncidentTimeline.
 

@@ -27,7 +27,7 @@ The dashboard lives in `dashboard/`. It shows agent status, activity feeds, spen
 
 - **On-chain state:** Anchor client via `lib/sdk/client.ts`, cached with TanStack Query (30s stale)
 - **Historical data:** `fetch()` to server REST API via `lib/api/client.ts`, cached with TanStack Query
-- **Live updates:** SSE via `lib/sse/useSSE.ts` — `EventSource` to server `GET /api/events`, invalidates TanStack caches on events (`new_transaction`, `verdict`, `agent_paused`, `report_ready`)
+- **Live updates:** SSE via `lib/sse/useSSE.ts` — `EventSource` to server `GET /api/events`. Events carry full payloads — inserted directly into TanStack cache via `setQueryData` (no refetch). Events: `new_transaction`, `verdict`, `agent_paused`, `report_ready`.
 
 ## Routes
 
@@ -57,7 +57,7 @@ The dashboard lives in `dashboard/`. It shows agent status, activity feeds, spen
 ## Key files
 
 - `lib/api/client.ts` — fetch helpers for server REST API (credentials: include)
-- `lib/sse/useSSE.ts` — EventSource hook, invalidates TanStack Query caches
+- `lib/sse/useSSE.ts` — EventSource hook, inserts SSE payloads directly into TanStack cache
 - `lib/sdk/` — **COPY of sdk/, never edit directly**
 - `lib/mock/` — fixture data for building UI without server
 - `lib/types/` — shared types

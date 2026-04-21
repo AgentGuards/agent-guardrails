@@ -1,3 +1,7 @@
 // TODO: In-memory event bus (EventEmitter)
 // Bridge between worker pipeline and SSE route
-// Events: new_transaction, verdict, agent_paused, report_ready
+// Events emitted with full payload objects:
+//   - "new_transaction": full GuardedTxn row from Prisma
+//   - "verdict": full AnomalyVerdict row + signals array
+//   - "agent_paused": full Incident row from Prisma
+//   - "report_ready": { incidentId, fullReport } after Opus completes

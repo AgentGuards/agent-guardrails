@@ -105,7 +105,7 @@ const { data: txns, isLoading } = useQuery({
 
 ### 4.3 Realtime (SSE)
 
-Single EventSource connection to server. On events, invalidate relevant TanStack Query caches.
+Single EventSource connection to server. SSE events carry full payloads — insert directly into TanStack Query cache, no refetch needed.
 
 ```typescript
 // lib/sse/useSSE.ts
@@ -115,21 +115,40 @@ export function useSSE() {
   useEffect(() => {
     const source = new EventSource(`${API_URL}/api/events`, { withCredentials: true });
 
-    source.addEventListener("new_transaction", () => {
-      queryClient.invalidateQueries({ queryKey: ["transactions"] });
+    source.addEventListener("new_transaction", (e) => {
+      const txn = JSON.parse(e.data);
+      queryClient.setQueryData(["transactions"], (old: any[]) => [txn, ...(old ?? [])]);
     });
 
-    source.addEventListener("verdict", () => {
-      queryClient.invalidateQueries({ queryKey: ["transactions"] });
+    source.addEventListener("verdict", (e) => {
+      const verdict = JSON.parse(e.data);
+      // Update the matching transaction's verdict in cache
+      queryClient.setQueryData(["transactions"], (old: any[]) =>
+        (old ?? []).map((txn) =>
+          txn.id === verdict.txnId ? { ...txn, verdict } : txn
+        )
+      );
     });
 
-    source.addEventListener("agent_paused", () => {
-      queryClient.invalidateQueries({ queryKey: ["incidents"] });
-      queryClient.invalidateQueries({ queryKey: ["policies"] });
+    source.addEventListener("agent_paused", (e) => {
+      const incident = JSON.parse(e.data);
+      queryClient.setQueryData(["incidents"], (old: any[]) => [incident, ...(old ?? [])]);
+      // Mark the policy as paused in cache
+      queryClient.setQueryData(["policies"], (old: any[]) =>
+        (old ?? []).map((p) =>
+          p.pubkey === incident.policyPubkey ? { ...p, isActive: false } : p
+        )
+      );
     });
 
-    source.addEventListener("report_ready", () => {
-      queryClient.invalidateQueries({ queryKey: ["incidents"] });
+    source.addEventListener("report_ready", (e) => {
+      const { incidentId, fullReport } = JSON.parse(e.data);
+      // Patch the report into the cached incident
+      queryClient.setQueryData(["incidents"], (old: any[]) =>
+        (old ?? []).map((inc) =>
+          inc.id === incidentId ? { ...inc, fullReport } : inc
+        )
+      );
     });
 
     return () => source.close();

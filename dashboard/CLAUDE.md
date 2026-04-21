@@ -13,7 +13,7 @@ Next.js 14 App Router. Frontend only — no API routes, no direct database acces
 
 - **On-chain:** Anchor client via `lib/sdk/`, cached with TanStack Query (30s stale)
 - **Historical:** `fetch()` to server REST API via `lib/api/client.ts`, cached with TanStack Query
-- **Live:** SSE via `lib/sse/useSSE.ts` — `EventSource` to server `GET /api/events`, invalidates TanStack caches on events
+- **Live:** SSE via `lib/sse/useSSE.ts` — `EventSource` to server `GET /api/events`, inserts full payloads directly into TanStack cache (no refetch)
 
 ## Routes
 

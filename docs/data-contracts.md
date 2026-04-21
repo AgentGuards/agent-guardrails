@@ -221,11 +221,11 @@ interface Verdict {
 
 ## 5. SSE Event Types (Server → Dashboard)
 
-Four event types pushed via `GET /api/events` (Server-Sent Events):
+Four event types pushed via `GET /api/events` (Server-Sent Events). Each event carries a full JSON payload — the dashboard inserts it directly into the TanStack Query cache via `setQueryData` (no refetch needed).
 
-| Event | Emitted by | Payload | Dashboard action |
+| Event | Emitted by | Payload | Dashboard cache update |
 |---|---|---|---|
-| `new_transaction` | ingest.ts | GuardedTxn row | Invalidate transactions query |
-| `verdict` | judge.ts | AnomalyVerdict + signals | Invalidate transactions query |
-| `agent_paused` | executor.ts | Incident row | Invalidate incidents + policies queries |
-| `report_ready` | reporter.ts | { incidentId, policyPubkey } | Invalidate incidents query |
+| `new_transaction` | ingest.ts | Full GuardedTxn row | Prepend to `["transactions"]` |
+| `verdict` | judge.ts | Full AnomalyVerdict + signals | Update matching txn's verdict in `["transactions"]` |
+| `agent_paused` | executor.ts | Full Incident row | Prepend to `["incidents"]`, mark policy inactive in `["policies"]` |
+| `report_ready` | reporter.ts | `{ incidentId, fullReport }` | Patch `fullReport` into matching incident in `["incidents"]` |
