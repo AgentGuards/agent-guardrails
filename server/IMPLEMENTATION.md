@@ -107,6 +107,70 @@ Always invoke LLM if ANY hold:
 - Cumulative spend > 80% of daily budget
 - Session within 10 minutes of expiry
 
+#### Prefilter query implementation
+
+```typescript
+// src/worker/pipeline/prefilter.ts
+async function computePrefilterSignals(policyPubkey: string, txn: IngestedTxn): Promise<string[]> {
+  const signals: string[] = [];
+
+  // Recent txns for this policy (last 7 days)
+  const recentTxns = await prisma.guardedTxn.findMany({
+    where: { policyPubkey, createdAt: { gte: subDays(new Date(), 7) } },
+    orderBy: { createdAt: "desc" },
+  });
+
+  // Most-used program in last 7 days
+  const programCounts: Record<string, number> = {};
+  for (const t of recentTxns) {
+    programCounts[t.targetProgram] = (programCounts[t.targetProgram] || 0) + 1;
+  }
+  const mostUsed = Object.entries(programCounts).sort((a, b) => b[1] - a[1])[0]?.[0];
+  if (txn.targetProgram !== mostUsed) signals.push("new_or_uncommon_program");
+
+  // Burst detection: txns in last 60s
+  const oneMinAgo = subSeconds(new Date(), 60);
+  const recentBurst = recentTxns.filter((t) => new Date(t.createdAt) > oneMinAgo);
+  if (recentBurst.length >= 5) signals.push("burst_detected");
+  if (recentBurst.length >= 3) signals.push("elevated_frequency");
+
+  // Amount thresholds (policy fetched from DB or passed in)
+  const policy = await prisma.policy.findUnique({ where: { pubkey: policyPubkey } });
+  if (policy) {
+    const pctOfCap = Number(txn.amountLamports ?? 0) / Number(policy.maxTxLamports) * 100;
+    if (pctOfCap > 70) signals.push("high_amount");
+
+    // Daily budget usage
+    const todayTxns = recentTxns.filter((t) => isToday(new Date(t.createdAt)));
+    const dailySpent = todayTxns.reduce((sum, t) => sum + Number(t.amountLamports ?? 0), 0);
+    if (dailySpent / Number(policy.dailyBudgetLamports) > 0.8) signals.push("budget_nearly_exhausted");
+
+    // Session expiry proximity
+    const minsToExpiry = (new Date(policy.sessionExpiry).getTime() - Date.now()) / 60000;
+    if (minsToExpiry < 10) signals.push("session_expiring_soon");
+  }
+
+  // Median active hour check
+  const hours = recentTxns.map((t) => new Date(t.createdAt).getUTCHours());
+  if (hours.length > 0) {
+    const medianHour = hours.sort((a, b) => a - b)[Math.floor(hours.length / 2)];
+    const currentHour = new Date().getUTCHours();
+    if (Math.abs(currentHour - medianHour) > 2) signals.push("outside_active_hours");
+  }
+
+  return signals;
+}
+
+// Decision: skip LLM if signals is empty
+const signals = await computePrefilterSignals(policyPubkey, txn);
+if (signals.length === 0) {
+  // Record as prefilter-skipped allow
+  await prisma.anomalyVerdict.create({ data: { ..., prefilterSkipped: true, model: "prefilter" } });
+  return;
+}
+// Otherwise, pass signals to judge
+```
+
 ### 3.4 Claude judge prompt
 
 Target: <500 input tokens, <200 output tokens, <2s latency.
@@ -240,11 +304,114 @@ export async function pauseAgent(policyPubkey: PublicKey, reason: string, verdic
 }
 ```
 
-### 3.7 Incident report (Opus, async)
+### 3.7 Judge timeout, retry, and fallback
 
-Generated seconds-to-minutes after pause. Claude Opus writes a postmortem from 24h of txn history + triggering txn + judge reasoning. Updates `incidents.fullReport` via Prisma, emits `"report_ready"` via SSE.
+```typescript
+const JUDGE_TIMEOUT_MS = 3000;
 
-### 3.8 Cost estimate
+try {
+  const response = await Promise.race([
+    client.messages.create({ model: "claude-haiku-4-5-20251001", ... }),
+    new Promise((_, reject) => setTimeout(() => reject(new Error("timeout")), JUDGE_TIMEOUT_MS)),
+  ]);
+  // parse and persist verdict
+} catch (err) {
+  if (err.message === "timeout" || err.status >= 500) {
+    // Fallback: rule-based verdict based on prefilter signals
+    const verdict = signals.includes("burst_detected") ? "pause" : "flag";
+    await prisma.anomalyVerdict.create({
+      data: { ..., verdict, confidence: 50, reasoning: "Claude timeout — rule-based fallback",
+              model: "fallback", latencyMs: JUDGE_TIMEOUT_MS, prefilterSkipped: false },
+    });
+    sseEmitter.emit("verdict", { ... });
+  }
+  // Rate limit (429): wait 1s, retry once. If still fails, use fallback.
+  // Malformed JSON: log warning, treat as "flag" with confidence 40
+}
+```
+
+- **Timeout:** 3 seconds. If Claude doesn't respond, use rule-based fallback.
+- **API error (500):** Same as timeout — fallback verdict.
+- **Rate limit (429):** Retry once after 1s. If still fails, fallback.
+- **Malformed JSON:** Log warning, default to "flag" with confidence 40.
+- **Never block** the webhook handler. If all retries fail, still return a response.
+
+### 3.8 Incident report (Opus, async)
+
+Generated seconds-to-minutes after pause. Fire-and-forget — never blocks the webhook handler.
+
+```typescript
+// src/worker/pipeline/reporter.ts
+async function generateReport(incidentId: string, policyPubkey: string) {
+  // Runs async — called without await from executor
+  try {
+    const history = await prisma.guardedTxn.findMany({
+      where: { policyPubkey, createdAt: { gte: subHours(new Date(), 24) } },
+      include: { verdict: true },
+      orderBy: { createdAt: "asc" },
+    });
+
+    const incident = await prisma.incident.findUnique({
+      where: { id: incidentId },
+      include: { judgeVerdict: true },
+    });
+
+    const response = await client.messages.create({
+      model: "claude-opus-4-7",
+      max_tokens: 2048,
+      system: REPORT_SYSTEM,
+      messages: [{ role: "user", content: buildReportUserMessage(incident, history) }],
+    });
+
+    const report = response.content.find((b) => b.type === "text")?.text ?? "";
+
+    await prisma.incident.update({
+      where: { id: incidentId },
+      data: { fullReport: report },
+    });
+
+    sseEmitter.emit("report_ready", { incidentId, fullReport: report });
+  } catch (err) {
+    console.error("Report generation failed:", err);
+    // Non-critical — incident is already recorded, pause is already active
+  }
+}
+```
+
+**Report format:** Markdown string stored in `incidents.fullReport`. Rendered in dashboard with a markdown renderer. Includes:
+- Summary (1-2 sentences)
+- Timeline table (time, event, detail)
+- Anomaly signals list
+- Judge reasoning chain
+- Root cause assessment
+- Recommended policy changes
+
+**Timeout:** No hard timeout — Opus can take 10-30s. It's fire-and-forget so it doesn't block anything.
+
+### 3.9 Monitor keypair
+
+The `MONITOR_KEYPAIR` env var holds the base64-encoded Solana keypair JSON. This key is authorized to call `pause_agent` on-chain.
+
+```typescript
+// Loading at startup
+const keypairBytes = JSON.parse(Buffer.from(process.env.MONITOR_KEYPAIR!, "base64").toString());
+const MONITOR_KEYPAIR = Keypair.fromSecretKey(Uint8Array.from(keypairBytes));
+```
+
+**Security:**
+- Hot key — if the server is compromised, attacker can pause any agent
+- Mitigation: least-privilege (can only pause, not drain funds or modify policies)
+- Fund with ~0.1 SOL per 1000 expected pauses (each pause_agent tx costs ~5000 lamports)
+- Rotation: update the env var and restart the server. The new key must be added as an authorized monitor on each policy via `update_policy`
+
+**Generate:**
+```bash
+solana-keygen new --outfile monitor-keypair.json --no-passphrase
+# Base64 encode for env var
+cat monitor-keypair.json | base64 | tr -d '\n'
+```
+
+### 3.10 Cost estimate
 
 - Haiku 4.5: ~$1/M input, ~$5/M output tokens
 - Average judge call: ~600 input + 150 output ≈ $0.0014/call

@@ -56,6 +56,92 @@ dashboard/
 7. **`KillSwitchButton`** — confirm modal → sends `pause_agent` txn from owner wallet
 8. **`IncidentTimeline`** — vertical timeline of events leading to pause
 
+### Component implementation details
+
+#### CreatePolicyWizard (4 steps)
+
+**Step 1 — Programs:** Multi-select combobox with search. Pre-populated options: System Program, Token Program, Jupiter v6, Marinade Finance (from known addresses). User can paste custom program pubkeys. Max 10. Stored as `string[]`.
+
+**Step 2 — Limits:** Two numeric inputs in SOL (not lamports). `maxTxSol` (default: 5 SOL), `dailyBudgetSol` (default: 50 SOL). Validation: daily >= max_tx. Converted to lamports on submit (`value * 1e9`).
+
+**Step 3 — Session:** Numeric input "days from now" (min 1, max 90, default 30). Computed: `unix_timestamp = Date.now()/1000 + days * 86400`. Display: "Expires on {date} at 00:00 UTC".
+
+**Step 4 — Escalation:** Optional. Checkbox "Require multisig for large transactions". If checked: paste Squads multisig address + threshold in SOL. If unchecked: `squadsMultisig = null`, `escalationThreshold = null`.
+
+**Submit:** Connected wallet (owner) signs `initialize_policy` via Anchor client. On success, navigate to `/agents/[newPubkey]`.
+
+#### SpendGauge
+
+Recharts `RadialBarChart`. Input: `dailySpent` and `dailyBudget` (both in lamports, convert to SOL for display).
+
+- **Zero budget:** Show "No budget set" text instead of chart
+- **Normal (0-66%):** Green fill
+- **Warning (66-90%):** Yellow/orange fill
+- **Critical (90-100%):** Red fill
+- **Over budget (>100%):** Red fill, pulsing border, text "OVER BUDGET: {spent} / {budget} SOL"
+
+#### ActivityFeed
+
+Scrollable list of `TxnRow` components. Initial load: fetch last 50 txns from `GET /api/transactions`. New txns arrive via SSE and prepend to the list.
+
+- Keep max ~200 items in memory. Oldest items drop off.
+- "Load more" button at bottom fetches next page from API (cursor-based: `?before={oldestTxnId}`).
+- Show skeleton loader during initial fetch.
+
+#### TxnRow
+
+**Collapsed (default):**
+```
+[ALLOW ✓] Jupiter v6 | 1.5 SOL | 2m ago
+[FLAG ⚠] Unknown Program | 1.8 SOL | 30s ago
+[PAUSE ✕] Unknown Program | 1.95 SOL | 15s ago
+```
+
+**Expanded (click to toggle):**
+```
+Verdict: FLAG (confidence: 72%)
+Reasoning: "New program not seen before + amount at 90% of cap. Monitoring."
+Signals: new_program, high_amount
+Model: claude-haiku-4-5-20251001 | Latency: 1580ms
+Txn: 5UfD...3rS (link to Solana Explorer)
+```
+
+Color: allow = green, flag = yellow, pause = red.
+
+#### KillSwitchButton
+
+Red button on agent detail page. Only visible if `policy.isActive === true`.
+
+1. Click → confirmation modal: "Pause {agentLabel}? This will immediately stop all transactions."
+2. Text input for reason (required, max 64 chars)
+3. On confirm: wallet signs `pause_agent` instruction via Anchor client
+4. On success: update policy in TanStack cache (`isActive: false`), show success toast
+5. On error: show error toast with message
+6. If wallet not connected or wrong wallet: disable button, tooltip "Connect owner wallet"
+
+#### IncidentTimeline
+
+Vertical timeline on `/incidents/[id]` page. Events in chronological order:
+
+```
+● 15:00:00 — Transaction executed
+  Jupiter swap, 1.8 SOL to DezX...B263
+
+● 15:00:02 — Verdict: FLAG (72%)
+  "New program not seen before + amount at 90% of cap"
+
+● 15:00:05 — Verdict: PAUSE (94%)
+  "Draining sequence confirmed: 3 txns in 5s..."
+
+● 15:00:06 — Agent paused
+  Paused by monitor 9WzD...WWM
+
+● 15:00:35 — Incident report ready
+  [Full Opus postmortem rendered below]
+```
+
+Opus report rendered as markdown (use `react-markdown` or similar). Includes timeline table, signals, reasoning chain, root cause, recommended changes.
+
 ---
 
 ## 4. State management
@@ -65,6 +151,36 @@ dashboard/
 - **SSE events**: Insert directly into TanStack Query cache via `setQueryData`
 
 Zustand stores live in `lib/stores/`. Keep them small and focused — one store per concern.
+
+```typescript
+// lib/stores/ui.ts — global UI state
+import { create } from "zustand";
+
+interface UIStore {
+  sidebarOpen: boolean;
+  toggleSidebar: () => void;
+}
+
+export const useUIStore = create<UIStore>((set) => ({
+  sidebarOpen: true,
+  toggleSidebar: () => set((s) => ({ sidebarOpen: !s.sidebarOpen })),
+}));
+
+// lib/stores/activity.ts — activity feed filters
+interface ActivityStore {
+  selectedPolicyPubkey: string | null;
+  verdictFilter: "all" | "allow" | "flag" | "pause";
+  setSelectedPolicy: (pubkey: string | null) => void;
+  setVerdictFilter: (filter: "all" | "allow" | "flag" | "pause") => void;
+}
+
+export const useActivityStore = create<ActivityStore>((set) => ({
+  selectedPolicyPubkey: null,
+  verdictFilter: "all",
+  setSelectedPolicy: (pubkey) => set({ selectedPolicyPubkey: pubkey }),
+  setVerdictFilter: (filter) => set({ verdictFilter: filter }),
+}));
+```
 
 ---
 

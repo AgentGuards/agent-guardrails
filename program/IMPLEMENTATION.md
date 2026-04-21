@@ -101,6 +101,55 @@ An agent could pass a false `amount_hint`. Mitigations:
 - **Jupiter/DeFi:** use pre/post balance diff on designated "source" token account — flag post-hoc via monitor rather than block on-chain
 - **MVP:** whitelist only System Program + Token Program + Jupiter where we hand-parse amounts; other programs allowed but not budget-tracked
 
+#### Instruction data layout for amount parsing
+
+**System Program transfer:**
+```
+Bytes 0-3: instruction index (2 = Transfer, little-endian u32)
+Bytes 4-11: lamports amount (u64 little-endian)
+account_metas[0] = source (signer, writable)
+account_metas[1] = destination (writable)
+```
+
+**Token Program transfer:**
+```
+Byte 0: instruction discriminator (3 = Transfer)
+Bytes 1-8: amount (u64 little-endian)
+account_metas[0] = source token account (writable)
+account_metas[1] = destination token account (writable)
+account_metas[2] = authority (signer)
+```
+
+Parse these before CPI to verify `amount_hint` matches. If mismatch, reject with `AmountExceedsLimit`.
+
+### SpendTracker update semantics
+
+- SpendTracker is updated **only on successful CPI** (step 11, not before step 10)
+- If CPI fails, amount is NOT deducted — the `GuardedTxnRejected` event is emitted instead
+- `lamports_spent_24h` is incremented by the verified amount (parsed from instruction data, not `amount_hint`)
+- `txn_count_24h` is incremented by 1 per successful `guarded_execute`
+- Rolling window reset: if `Clock::get().unix_timestamp > window_start + 86400`, reset `lamports_spent_24h = 0`, `txn_count_24h = 0`, `window_start = now`
+
+### Signer architecture detail
+
+The transaction has TWO signers:
+1. **Agent session key** — signs the outer `guarded_execute` transaction (fee payer)
+2. **Policy PDA** — signs the inner CPI via `invoke_signed` with seeds `["policy", owner, agent, &[bump]]`
+
+The agent's keypair is NOT passed to the CPI. Only the policy PDA authority is used downstream. This means the target program sees the policy PDA as the signer/authority, not the agent.
+
+### Squads v4 escalation
+
+When `amount_hint > escalation_threshold` and `squads_multisig.is_some()`:
+
+1. Do NOT execute the CPI to the target program
+2. Instead, return the `EscalatedToMultisig` error (step 8)
+3. The server worker pipeline catches this error and creates a Squads v4 proposal via the TypeScript SDK (not CPI from Anchor — simpler for MVP)
+4. The proposal includes: target program, instruction data, amount, policy pubkey
+5. Once Squads members approve and execute the proposal, the funds move from the Squads vault directly — bypassing Guardrails for the approved txn
+
+**MVP approach:** The on-chain program only returns the error. All Squads proposal creation happens off-chain in the server. This avoids complex CPI to Squads from within the program.
+
 ---
 
 ## 4. CPI signer architecture

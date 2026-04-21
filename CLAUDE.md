@@ -37,6 +37,28 @@ Configure hooks after clone: `git config core.hooksPath .githooks`
 - `docs/deploy.md` — Deployment guide (program → server → dashboard)
 - `docs/demo-runbook.md` — Demo day operator's guide
 
+## Prerequisites
+
+- Rust 1.75+ (`rustc --version`)
+- Solana CLI 1.18+ (`solana --version`)
+- Anchor CLI 0.30.1 (`anchor --version`)
+- Node.js 20+ (`node --version`)
+- pnpm 9+ (`pnpm --version`)
+
+## Deployment sequence
+
+```
+1. cd program && anchor build && bash ../scripts/sync-sdk.sh
+2. cd program && anchor deploy --provider.cluster devnet
+3. Update GUARDRAILS_PROGRAM_ID in server/.env and dashboard/.env.local
+4. Create Neon database, set DATABASE_URL + DIRECT_URL in server/.env
+5. cd server && npx prisma migrate deploy
+6. Deploy server (set all env vars on host)
+7. Configure Helius webhook → server URL + /webhook
+8. Deploy dashboard to Vercel (set NEXT_PUBLIC_API_URL to server URL)
+9. Test: cd dashboard && npm run demo:setup && npm run demo:simulate
+```
+
 ## Common commands
 
 ```bash
