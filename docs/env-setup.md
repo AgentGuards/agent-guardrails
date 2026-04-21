@@ -42,8 +42,7 @@ bash scripts/sync-sdk.sh
 ## Step 2: Start Local Solana Validator (Terminal 1)
 
 ```bash
-`anchor test` (integration tests — Anchor manages the local validator automatically)
-LiteSVM via `anchor-litesvm` (fast unit tests — runs in-process, no validator)
+`anchor test --skip-local-validator --skip-deploy` (LiteSVM — runs in-process, no external validator)
 ```
 
 Leave this running. Default RPC: `http://localhost:8899`

@@ -9,7 +9,7 @@ Standalone Anchor 0.30.1 program. Rust edition 2021. Dependencies: `anchor-lang 
 - Instructions: `instructions/*.rs` — one file per instruction, six total
 - Errors: `errors.rs` — GuardrailsError enum (section 3.6)
 - Events: `events.rs` — emitted via `emit!()` for Helius consumption (section 3.5)
-- Tests: TypeScript in `tests/` — two modes (see Testing section below)
+- Tests: TypeScript in `tests/` using LiteSVM (in-process, no external validator)
 
 ## Key design
 
@@ -29,41 +29,39 @@ Standalone Anchor 0.30.1 program. Rust edition 2021. Dependencies: `anchor-lang 
 
 ## Testing
 
-Two testing modes, both TypeScript:
+Tests use LiteSVM — runs the Solana VM in-process, no external validator needed.
 
-### `anchor test` — Integration tests
-- Builds the program, starts a local validator (Surfpool by default), deploys, runs tests, cleans up
-- Uses `AnchorProvider` connected to the local validator
-- Slower but full end-to-end: real validator, real deploys, real RPC
-- Use for: CPI flows, cross-program interactions, final validation
-- Run: `anchor test` (or `anchor test --skip-build` to skip recompile)
+**How it works:**
+- Test files use `LiteSVMProvider` (from `anchor-litesvm`) as a drop-in for `AnchorProvider`
+- `fromWorkspace(".")` reads `Anchor.toml`, loads compiled `.so` files from `target/deploy/` into LiteSVM
+- All program execution happens in-process — ~25x faster than validator-based testing
+- Supports time-travel (`setClock`), account injection (`setAccount`), compute budget control
 
-### LiteSVM — Fast unit tests
-- Runs Solana VM in-process via `litesvm` + `anchor-litesvm` npm packages
-- Uses `LiteSVMProvider` as a drop-in replacement for `AnchorProvider`
-- ~25x faster, no external process, supports time-travel (manipulate Clock/slot)
-- Use for: instruction logic, account validation, error paths, rapid iteration
-- Configured in test files, not Anchor.toml:
-  ```typescript
-  import { fromWorkspace, LiteSVMProvider } from "anchor-litesvm";
-  import { Program } from "@coral-xyz/anchor";
+**Test file pattern:**
+```typescript
+import { fromWorkspace, LiteSVMProvider } from "anchor-litesvm";
+import { Program } from "@coral-xyz/anchor";
 
-  const client = fromWorkspace("target/types/guardrails.ts");
-  const provider = new LiteSVMProvider(client);
-  const program = new Program(IDL, provider);
-  ```
+const svm = fromWorkspace(".");
+const provider = new LiteSVMProvider(svm);
+const program = new Program(IDL, provider);
+```
 
-### Dependencies
-- `litesvm` — in-process Solana VM
-- `anchor-litesvm` — Anchor integration, provides `LiteSVMProvider` + `fromWorkspace`
+**Why both flags in the command:**
+- `--skip-local-validator` — don't start Surfpool/solana-test-validator (LiteSVM runs in-process)
+- `--skip-deploy` — don't try deploying to localhost:8899 which would fail with no validator running. LiteSVM loads `.so` files directly via `fromWorkspace`.
+
+**Dependencies:**
+- `litesvm` ^0.3.3 — in-process Solana VM (must stay 0.3.x–0.7.x for @solana/web3.js v1 compat)
+- `anchor-litesvm` ^0.2.1 — Anchor integration, provides `LiteSVMProvider` + `fromWorkspace`
 - `mocha` + `chai` + `ts-mocha` — test runner (Anchor default)
 
 ## Commands
 
 ```bash
-anchor build       # Compile + generate IDL
-anchor test        # Integration tests (build + deploy + test + cleanup)
-anchor deploy      # Deploy to cluster in Anchor.toml
+anchor build                                        # Compile + generate IDL
+anchor test --skip-local-validator --skip-deploy     # Run LiteSVM tests
+anchor deploy                                       # Deploy to cluster in Anchor.toml
 ```
 
 After `anchor build`, always run `bash ../scripts/sync-sdk.sh`.

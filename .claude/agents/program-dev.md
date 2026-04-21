@@ -46,10 +46,14 @@ The program lives in `program/programs/guardrails/src/`. You build the on-chain 
 
 ## Testing
 
-Two modes, both TypeScript in `program/tests/`:
+TypeScript tests in `program/tests/` using LiteSVM (in-process, no external validator).
 
-- **LiteSVM (fast unit tests):** Uses `litesvm` + `anchor-litesvm` packages. Runs in-process, ~25x faster, supports time-travel. Use `LiteSVMProvider` from `anchor-litesvm` as drop-in for `AnchorProvider`. Run: `anchor test --skip-local-validator`
-- **`anchor test` (integration):** Builds, starts local validator, deploys, runs tests, cleans up. Use for CPI flows and final validation. Run: `anchor test`
+- Tests use `LiteSVMProvider` from `anchor-litesvm` as drop-in for `AnchorProvider`
+- `fromWorkspace(".")` loads compiled `.so` files from `target/deploy/` into LiteSVM
+- Run: `anchor test --skip-local-validator --skip-deploy`
+- `--skip-local-validator`: don't start Surfpool (LiteSVM runs in-process)
+- `--skip-deploy`: don't deploy to localhost:8899 (LiteSVM loads `.so` directly)
+- Supports time-travel (`setClock`) for testing session expiry, account injection for testing budget states
 
 What to test:
 - Every rejection path in `guarded_execute` (paused, expired, not whitelisted, over limit, budget exceeded)
