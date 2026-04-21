@@ -73,11 +73,9 @@ Alice is now authenticated. The server knows every API request from her browser 
 
 Before creating a policy, Alice needs an agent session key — a separate keypair that the AI agent will use to sign transactions. The agent never holds Alice's main wallet key.
 
-### How the session key is created
+### How the session key is created (Swig)
 
-**Option A: Swig session key (production)**
-
-Alice uses Swig to create a scoped session key:
+Alice uses Swig to create a scoped session key from the dashboard:
 
 ```
 Dashboard (/agents/new)                 Swig SDK                    Solana
@@ -99,18 +97,7 @@ Dashboard (/agents/new)                 Swig SDK                    Solana
 
 Swig enforces session expiry and signing restrictions at the wallet layer. Guardrails enforces program/amount restrictions at the contract layer. Defense in depth.
 
-**Option B: Ephemeral keypair (MVP/demo fallback)**
-
-If Swig integration isn't ready, generate a plain keypair:
-
-```typescript
-const agentKeypair = Keypair.generate();
-// Store the secret key securely (encrypted, or in the agent's runtime)
-// The pubkey becomes the "agent" field in the policy
-const agentPubkey = agentKeypair.publicKey; // "J2HH...QAA"
-```
-
-The agent process holds this keypair and uses it to sign `guarded_execute` transactions.
+The agent process receives the Swig session key and uses it to sign `guarded_execute` transactions.
 
 ### Key point: the agent key holds NO funds
 
