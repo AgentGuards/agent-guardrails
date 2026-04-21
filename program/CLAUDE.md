@@ -7,25 +7,20 @@ Standalone Anchor 0.30.1 program. Rust edition 2021. Dependencies: `anchor-lang 
 - Entry point: `programs/guardrails/src/lib.rs`
 - Accounts: `state/policy.rs` (PermissionPolicy PDA) + `state/spend_tracker.rs` (SpendTracker PDA)
 - Instructions: `instructions/*.rs` — one file per instruction, six total
-- Errors: `errors.rs` — GuardrailsError enum (section 3.6)
-- Events: `events.rs` — emitted via `emit!()` for Helius consumption (section 3.5)
+- Errors: `errors.rs` — GuardrailsError enum
+- Events: `events.rs` — emitted via `emit!()` for Helius consumption
 - Tests: TypeScript in `tests/` using LiteSVM (in-process, no external validator)
 
 ## Key design
 
 - **PDA signer pattern:** PermissionPolicy PDA signs CPIs via `invoke_signed`. Agent keypair holds no funds. Funds live in token accounts owned by the policy PDA.
 - **Seeds:** PermissionPolicy = `["policy", owner, agent]`, SpendTracker = `["tracker", policy_pubkey]`
-- **guarded_execute** is the core instruction — 12-step validation flow in section 3.3
-- **Amount verification:** Parse real amounts from System/Token Program instructions. Other programs use post-hoc detection via the worker.
+- **guarded_execute** is the core instruction — 12-step validation flow
+- **Amount verification:** Parse real amounts from System/Token Program instructions. Other programs use post-hoc detection via the server worker pipeline.
 
 ## Spec reference
 
-- Section 3.1: Account structs and fields
-- Section 3.2: Instruction table
-- Section 3.3: guarded_execute flow (12 steps)
-- Section 3.4: CPI signer architecture
-- Section 3.5: Events
-- Section 3.6: Errors
+Full details in `IMPLEMENTATION.md` in this directory.
 
 ## Testing
 

@@ -1,22 +1,26 @@
 # Guardrails Dashboard
 
-Next.js 14 App Router. Standalone. Deployed on Vercel. Dark mode default.
+Next.js 14 App Router. Frontend only — no API routes, no direct database access. Deployed on Vercel. Dark mode default.
 
 ## Stack
 
 - Tailwind CSS 3.4 + shadcn/ui
 - Recharts for charts
 - @solana/wallet-adapter-react (Phantom, Solflare, Backpack)
-- @tanstack/react-query v5 (server state)
-- Zustand (UI state)
-- @supabase/supabase-js (queries + Realtime)
+- @tanstack/react-query v5 (server state cache)
+
+## Data sources
+
+- **On-chain:** Anchor client via `lib/sdk/`, cached with TanStack Query (30s stale)
+- **Historical:** `fetch()` to server REST API via `lib/api/client.ts`, cached with TanStack Query
+- **Live:** SSE via `lib/sse/useSSE.ts` — `EventSource` to server `GET /api/events`, invalidates TanStack caches on events
 
 ## Routes
 
 | Route | Purpose |
 |---|---|
 | `/` | Landing + connect wallet |
-| `/(auth)/signin` | SIWS flow |
+| `/(auth)/signin` | SIWS flow (calls server auth endpoints) |
 | `/agents` | Agent list with PolicyCards |
 | `/agents/new` | 4-step create policy wizard |
 | `/agents/[pubkey]` | Agent detail + live activity |
@@ -25,15 +29,9 @@ Next.js 14 App Router. Standalone. Deployed on Vercel. Dark mode default.
 | `/incidents` | All pauses with reports |
 | `/incidents/[id]` | Incident detail + timeline |
 
-## Data fetching (section 6.3)
+## Mock data (for building UI without server)
 
-- **On-chain:** Anchor client via `lib/sdk/`, cached with TanStack Query (30s stale)
-- **Historical:** Supabase query with pagination
-- **Live:** Supabase Realtime WS on `guarded_txns` + `incidents`, invalidates TanStack caches
-
-## Mock data (for building UI without backend)
-
-`lib/mock/` contains fixture data matching the Supabase schema exactly (types + data from `docs/data-contracts.md`). Use `import { POLICIES, TRANSACTIONS, VERDICTS, INCIDENTS } from "@/lib/mock"` while building components. Swap for real Supabase queries when the backend is ready.
+`lib/mock/` contains fixture data matching the Prisma schema. Use `import { POLICIES, TRANSACTIONS, VERDICTS, INCIDENTS } from "@/lib/mock"` while building components. Swap for real API calls when server is ready.
 
 - `policies.ts` — 3 agents: Yield Bot (active), Staking Agent (active), Alpha Scanner (paused)
 - `transactions.ts` — 20 txns: 8 normal swaps + 4 stakes + 3 normal + 5 burst (attack sequence)
@@ -41,20 +39,20 @@ Next.js 14 App Router. Standalone. Deployed on Vercel. Dark mode default.
 - `incidents.ts` — 1 incident with full Opus-generated postmortem report
 - `index.ts` — barrel export with types
 
-## Component build order (section 6.2)
+## Component build order
 
 1. WalletProvider + SiwsProvider (root layout)
 2. PolicyCard
 3. CreatePolicyWizard (4 steps)
 4. SpendGauge (Recharts radial)
-5. ActivityFeed (Supabase Realtime)
+5. ActivityFeed (SSE subscription to server)
 6. TxnRow (verdict badge + reasoning)
 7. KillSwitchButton (confirm modal)
 8. IncidentTimeline
 
 ## Path aliases
 
-`@/*` → project root. Use `@/components/Foo`, `@/lib/types/db`.
+`@/*` → project root. Use `@/components/Foo`, `@/lib/api/client`.
 
 ## Demo scripts
 
@@ -79,7 +77,7 @@ npm run demo:simulate   # Full attack orchestration
 
 - Edit `lib/sdk/` — edit `sdk/` at repo root and sync
 - Use Pages Router — App Router only
-- Expose `SUPABASE_SERVICE_ROLE` to client
+- Add API routes — dashboard is frontend only, server handles all backend
 - Add `"use client"` to pages unless necessary — extract interactive parts
 - Install CSS frameworks beyond Tailwind + shadcn
 - Hardcode public keys or program IDs — use env vars
