@@ -15,6 +15,7 @@ pub mod state;
 // needed for each implemented instruction module.
 pub use instructions::initialize_policy::*;
 pub use instructions::update_policy::*;
+pub use instructions::guarded_execute::*;
 
 declare_id!("ENzC6oJhL2bVELvRCZqN4JizFNPTCTfMR5Gz1YJb4u76");
 
@@ -37,8 +38,15 @@ pub mod guardrails {
         instructions::update_policy::handler(ctx, args)
     }
 
-    pub fn guarded_execute(_ctx: Context<GuardedExecute>) -> Result<()> {
-        Ok(())
+    /// Core CPI execution instruction. Validates agent permissions against the
+    /// policy, verifies spending amounts, and executes the target program
+    /// instruction via PDA-signed CPI. See IMPLEMENTATION.md §3 for the
+    /// full 12-step flow.
+    pub fn guarded_execute(
+        ctx: Context<GuardedExecute>,
+        args: GuardedExecuteArgs,
+    ) -> Result<()> {
+        instructions::guarded_execute::handler(ctx, args)
     }
 
     pub fn pause_agent(_ctx: Context<PauseAgent>) -> Result<()> {
@@ -63,9 +71,6 @@ pub mod guardrails {
 // These will be moved to their respective instruction modules in later phases.
 // DO NOT delete — they are required for the program to compile.
 // ---------------------------------------------------------------------------
-
-#[derive(Accounts)]
-pub struct GuardedExecute {}
 
 #[derive(Accounts)]
 pub struct PauseAgent {}

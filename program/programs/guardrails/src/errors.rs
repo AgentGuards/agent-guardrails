@@ -35,4 +35,11 @@ pub enum GuardrailsError {
     SessionExpiryInPast,
     #[msg("Per-tx limit cannot exceed daily budget")]
     TxLimitExceedsDailyBudget,
+
+    // --- Execution errors (added in Phase 3) ---
+
+    #[msg("Amount hint does not match parsed instruction data")]
+    AmountMismatch,
+    #[msg("CPI to target program failed")]
+    CpiExecutionFailed,
 }

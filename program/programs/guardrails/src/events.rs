@@ -88,3 +88,20 @@ pub struct EscalatedToSquads {
     /// The transaction amount that exceeded `escalation_threshold`.
     pub amount: u64,
 }
+
+/// Emitted before the CPI in `guarded_execute` (step 9 of the 12-step flow).
+/// Gives the server pipeline visibility into every CPI attempt that passed
+/// pre-validation, regardless of whether the CPI itself succeeds or fails.
+#[event]
+pub struct GuardedTxnAttempted {
+    /// The PermissionPolicy PDA governing this attempt.
+    pub policy: Pubkey,
+    /// The agent session key initiating the CPI.
+    pub agent: Pubkey,
+    /// The target program being invoked.
+    pub target_program: Pubkey,
+    /// The verified spending amount for this transaction.
+    pub amount_hint: u64,
+    /// Unix timestamp from the Solana clock.
+    pub timestamp: i64,
+}
