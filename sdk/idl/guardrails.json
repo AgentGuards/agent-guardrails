@@ -24,6 +24,12 @@
     },
     {
       "name": "guarded_execute",
+      "docs": [
+        "Core CPI execution instruction. Validates agent permissions against the",
+        "policy, verifies spending amounts, and executes the target program",
+        "instruction via PDA-signed CPI. See IMPLEMENTATION.md §3 for the",
+        "full 12-step flow."
+      ],
       "discriminator": [
         24,
         6,
@@ -34,8 +40,112 @@
         247,
         225
       ],
-      "accounts": [],
-      "args": []
+      "accounts": [
+        {
+          "name": "agent",
+          "docs": [
+            "Agent session key — signs the outer transaction and pays fees.",
+            "Does NOT hold funds; the policy PDA is the actual authority."
+          ],
+          "writable": true,
+          "signer": true,
+          "relations": [
+            "policy"
+          ]
+        },
+        {
+          "name": "policy",
+          "docs": [
+            "The PermissionPolicy PDA governing this agent's permissions.",
+            "`has_one = agent` ensures the signer matches the policy's stored agent key.",
+            "Mutable because daily_spent_lamports and last_reset_ts may be updated",
+            "during budget window resets and after successful CPI."
+          ],
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  112,
+                  111,
+                  108,
+                  105,
+                  99,
+                  121
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "policy.owner",
+                "account": "PermissionPolicy"
+              },
+              {
+                "kind": "account",
+                "path": "policy.agent",
+                "account": "PermissionPolicy"
+              }
+            ]
+          },
+          "relations": [
+            "spend_tracker"
+          ]
+        },
+        {
+          "name": "spend_tracker",
+          "docs": [
+            "SpendTracker PDA linked to this policy. Mutable — updated with spend",
+            "counters and last-transaction metadata after successful CPI."
+          ],
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  116,
+                  114,
+                  97,
+                  99,
+                  107,
+                  101,
+                  114
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "policy"
+              }
+            ]
+          }
+        },
+        {
+          "name": "target_program",
+          "docs": [
+            "The target program to CPI into. Validated in the handler against the",
+            "policy's allowed_programs whitelist (not via Anchor constraints, because",
+            "the check is a runtime Vec::contains, not a static seed/has_one check)."
+          ]
+        },
+        {
+          "name": "system_program",
+          "docs": [
+            "System program — required for potential rent operations and as a CPI",
+            "target when the agent performs System Program transfers."
+          ],
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "args",
+          "type": {
+            "defined": {
+              "name": "GuardedExecuteArgs"
+            }
+          }
+        }
+      ]
     },
     {
       "name": "initialize_policy",
@@ -325,6 +435,19 @@
       ]
     },
     {
+      "name": "GuardedTxnAttempted",
+      "discriminator": [
+        146,
+        95,
+        160,
+        129,
+        223,
+        112,
+        34,
+        191
+      ]
+    },
+    {
       "name": "GuardedTxnExecuted",
       "discriminator": [
         191,
@@ -411,6 +534,16 @@
       "code": 6011,
       "name": "TxLimitExceedsDailyBudget",
       "msg": "Per-tx limit cannot exceed daily budget"
+    },
+    {
+      "code": 6012,
+      "name": "AmountMismatch",
+      "msg": "Amount hint does not match parsed instruction data"
+    },
+    {
+      "code": 6013,
+      "name": "CpiExecutionFailed",
+      "msg": "CPI to target program failed"
     }
   ],
   "types": [
@@ -494,6 +627,82 @@
               "The transaction amount that exceeded `escalation_threshold`."
             ],
             "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "GuardedExecuteArgs",
+      "docs": [
+        "Arguments for a guarded CPI execution. The agent specifies what instruction",
+        "to run on the target program and declares the spending amount."
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "instruction_data",
+            "docs": [
+              "Raw instruction data to pass to the target program."
+            ],
+            "type": "bytes"
+          },
+          {
+            "name": "amount_hint",
+            "docs": [
+              "Agent-declared spending amount in lamports. For System Program and Token",
+              "Program transfers, this is verified against the parsed instruction data.",
+              "For other programs, trusted as-is (server does post-hoc verification)."
+            ],
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "GuardedTxnAttempted",
+      "docs": [
+        "Emitted before the CPI in `guarded_execute` (step 9 of the 12-step flow).",
+        "Gives the server pipeline visibility into every CPI attempt that passed",
+        "pre-validation, regardless of whether the CPI itself succeeds or fails."
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "policy",
+            "docs": [
+              "The PermissionPolicy PDA governing this attempt."
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "agent",
+            "docs": [
+              "The agent session key initiating the CPI."
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "target_program",
+            "docs": [
+              "The target program being invoked."
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "amount_hint",
+            "docs": [
+              "The verified spending amount for this transaction."
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "timestamp",
+            "docs": [
+              "Unix timestamp from the Solana clock."
+            ],
+            "type": "i64"
           }
         ]
       }
