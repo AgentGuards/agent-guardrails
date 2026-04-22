@@ -11,16 +11,28 @@ cat > .github/copilot-instructions.md << 'EOF'
 
 Solana Frontier hackathon. On-chain policy layer for AI agents — allow-lists, budgets, kill switch.
 
-## Where to find context
+## MANDATORY: Read before working
 
-Working in program/   → Read program/CLAUDE.md and program/IMPLEMENTATION.md
-Working in server/    → Read server/CLAUDE.md and server/IMPLEMENTATION.md
-Working in dashboard/ → Read dashboard/CLAUDE.md and dashboard/IMPLEMENTATION.md
-Working in sdk/       → Read sdk/CLAUDE.md
+Before making ANY changes, you MUST read the relevant files first:
 
-For data shapes       → Read docs/data-contracts.md
-For full system flow  → Read docs/walkthrough.md
-For architecture      → Read docs/architecture.md
+- Editing program/**     → Read program/CLAUDE.md AND program/IMPLEMENTATION.md before writing code
+- Editing server/**      → Read server/CLAUDE.md AND server/IMPLEMENTATION.md before writing code
+- Editing dashboard/**   → Read dashboard/CLAUDE.md AND dashboard/IMPLEMENTATION.md before writing code
+- Editing sdk/**         → Read sdk/CLAUDE.md before writing code
+- Any cross-cutting task → Read CLAUDE.md (root) first
+
+## MANDATORY: Read before specific tasks
+
+- Before implementing any Anchor instruction → Read program/IMPLEMENTATION.md §2-3
+- Before writing Prisma queries             → Read server/prisma/schema.prisma AND docs/data-contracts.md §3
+- Before touching pipeline files            → Read server/IMPLEMENTATION.md §3
+- Before building a dashboard component     → Read dashboard/IMPLEMENTATION.md §3
+- Before touching SSE code                  → Read dashboard/IMPLEMENTATION.md §5.3 AND server/IMPLEMENTATION.md §4.3
+- Before touching auth code                 → Read server/IMPLEMENTATION.md §4.2 AND dashboard/IMPLEMENTATION.md §6
+- Before any on-chain account changes       → Read docs/data-contracts.md §1-2
+- Before working on the judge/Claude API    → Read server/IMPLEMENTATION.md §3.4-3.7
+- Before working on Swig integration        → Read docs/walkthrough.md Phase 1
+- Before working on demo agents             → Read docs/walkthrough.md AND docs/demo-runbook.md
 
 ## Critical rules
 
@@ -32,8 +44,11 @@ For architecture      → Read docs/architecture.md
 - Worker and API never import from each other — shared only via db/ and sse/
 - Database: Neon Postgres + Prisma (schema in server/prisma/schema.prisma)
 - Realtime: SSE from server, not WebSocket. Dashboard uses setQueryData (no refetch)
-- Auth: SIWS → JWT in httpOnly cookie
+- SSE updates BOTH global and policy-filtered caches
+- Auth: SIWS → JWT in httpOnly cookie. Dashboard uses credentials: "include"
 - Program: Anchor 0.30.1, LiteSVM tests (--skip-local-validator --skip-deploy)
+- BigInt fields (lamports, slot) serialize as strings in JSON
+- Swig is setup-only (key provisioning). NOT in the runtime CPI chain.
 EOF
 
 echo "Creating .vscode/settings.json..."

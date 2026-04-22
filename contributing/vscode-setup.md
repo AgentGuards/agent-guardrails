@@ -1,70 +1,19 @@
 # VS Code + GitHub Copilot Setup Guide
 
-Copilot reads `.github/copilot-instructions.md` automatically. Keep it short — pointers to context files, not the content itself.
+Copilot reads `.github/copilot-instructions.md` automatically. Create it with mandatory read instructions so Copilot knows where to find context.
 
-## What to Create
+## Setup
 
-### `.github/copilot-instructions.md`
-
-```markdown
-# Agent Guardrails Protocol
-
-Solana Frontier hackathon. On-chain policy layer for AI agents — allow-lists, budgets, kill switch.
-
-## Where to find context
-
-Working in program/   → Read program/CLAUDE.md and program/IMPLEMENTATION.md
-Working in server/    → Read server/CLAUDE.md and server/IMPLEMENTATION.md
-Working in dashboard/ → Read dashboard/CLAUDE.md and dashboard/IMPLEMENTATION.md
-Working in sdk/       → Read sdk/CLAUDE.md
-
-For data shapes       → Read docs/data-contracts.md
-For full system flow  → Read docs/walkthrough.md
-For architecture      → Read docs/architecture.md
-
-## Critical rules
-
-- 4 isolated sub-projects: program/, server/, dashboard/, sdk/ — no root package.json
-- sdk/ is source of truth. NEVER edit server/src/sdk/ or dashboard/lib/sdk/
-- After editing sdk/ or program/: run bash scripts/sync-sdk.sh
-- Dashboard is frontend ONLY — no API routes, no DB access
-- Server has two modules: src/worker/ (pipeline) and src/api/ (REST + SSE + auth)
-- Worker and API never import from each other — shared only via db/ and sse/
-- Database: Neon Postgres + Prisma (schema in server/prisma/schema.prisma)
-- Realtime: SSE from server, not WebSocket. Dashboard uses setQueryData (no refetch)
-- Auth: SIWS → JWT in httpOnly cookie
-- Program: Anchor 0.30.1, LiteSVM tests (--skip-local-validator --skip-deploy)
-```
-
-### `.vscode/settings.json` (optional)
-
-```json
-{
-  "github.copilot.chat.codeGeneration.instructions": [
-    { "file": ".github/copilot-instructions.md" }
-  ],
-  "search.exclude": {
-    "**/node_modules": true,
-    "**/target": true,
-    "**/.next": true,
-    "**/dist": true
-  }
-}
-```
-
-## How to Create
-
-### Option A: Ask your AI agent to do it
+### Option A: Ask your agent (recommended)
 
 In Copilot Chat:
 
 ```
-Read contributing/vscode-setup.md in this repo. It contains the exact
-content for .github/copilot-instructions.md and .vscode/settings.json.
-Create both files.
+Read contributing/scripts/setup-vscode.sh and execute it to create
+.github/copilot-instructions.md and .vscode/settings.json.
 ```
 
-### Option B: Run the setup script
+### Option B: Run the script
 
 ```bash
 bash contributing/scripts/setup-vscode.sh
@@ -72,24 +21,31 @@ bash contributing/scripts/setup-vscode.sh
 
 ### Option C: Create manually
 
-Copy the content from the sections above into:
-- `.github/copilot-instructions.md`
-- `.vscode/settings.json`
+Run `cat contributing/scripts/setup-vscode.sh` to see the exact file contents, then create the files by hand.
 
-## Using Copilot Chat Effectively
+## How It Works
 
-Copilot Chat can reference files with `#file:`. For deeper context on any task:
+`.github/copilot-instructions.md` contains:
+1. **"MANDATORY: Read before working"** — which files to read for each directory
+2. **"MANDATORY: Read before specific tasks"** — which docs to read before touching SSE, auth, pipeline, components, etc.
+3. **Critical rules** — the constraints Copilot must follow
+
+Copilot loads this file automatically on every interaction.
+
+## For Deeper Context
+
+Reference files in Copilot Chat with `#file:`:
 
 ```
 #file:program/IMPLEMENTATION.md implement the pause_agent instruction
-```
-
-```
 #file:server/IMPLEMENTATION.md #file:docs/data-contracts.md build the SSE events route
+#file:dashboard/IMPLEMENTATION.md build the SpendGauge component
 ```
 
-```
-#file:dashboard/IMPLEMENTATION.md build the SpendGauge component following section 3
-```
+Or keep the relevant `IMPLEMENTATION.md` open in a tab — Copilot sees open files.
 
-Keep the relevant IMPLEMENTATION.md open in a tab — Copilot automatically sees open files.
+## Notes
+
+- `.github/copilot-instructions.md` can be committed (shared) or gitignored (per-user)
+- `.vscode/settings.json` is already gitignored
+- If CLAUDE.md files change, re-run the setup script

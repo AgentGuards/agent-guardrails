@@ -1,183 +1,61 @@
 # Cursor Setup Guide
 
 Cursor supports two context mechanisms:
-1. **`.cursorrules`** — loaded on every query (keep it short, just pointers)
+1. **`.cursorrules`** — loaded on every query (project rules + mandatory read instructions)
 2. **`.cursor/rules/*.mdc`** — directory-scoped rules loaded only when editing matching files
 
-## What to Create
+## Setup
 
-### `.cursorrules` (repo root)
+### Option A: Ask your agent (recommended)
 
-Short file that tells Cursor where to find context. Loaded on every query.
-
-```
-# Agent Guardrails Protocol
-
-Solana Frontier hackathon. On-chain policy layer for AI agents — allow-lists, budgets, kill switch.
-
-## Where to find context
-
-Working in program/   → Read program/CLAUDE.md and program/IMPLEMENTATION.md
-Working in server/    → Read server/CLAUDE.md and server/IMPLEMENTATION.md
-Working in dashboard/ → Read dashboard/CLAUDE.md and dashboard/IMPLEMENTATION.md
-Working in sdk/       → Read sdk/CLAUDE.md
-
-For data shapes       → Read docs/data-contracts.md
-For full system flow  → Read docs/walkthrough.md
-For architecture      → Read docs/architecture.md
-
-## Critical rules
-
-- 4 isolated sub-projects: program/, server/, dashboard/, sdk/ — no root package.json
-- sdk/ is source of truth. NEVER edit server/src/sdk/ or dashboard/lib/sdk/
-- After editing sdk/ or program/: run bash scripts/sync-sdk.sh
-- Dashboard is frontend ONLY — no API routes, no DB access
-- Server has two modules: src/worker/ (pipeline) and src/api/ (REST + SSE + auth)
-- Worker and API never import from each other — shared only via db/ and sse/
-- Database: Neon Postgres + Prisma (schema in server/prisma/schema.prisma)
-- Realtime: SSE from server, not WebSocket. Dashboard uses setQueryData (no refetch)
-- Auth: SIWS → JWT in httpOnly cookie
-- Program: Anchor 0.30.1, LiteSVM tests (--skip-local-validator --skip-deploy)
-```
-
-### `.cursor/rules/program.mdc`
+Open Cursor and paste as your first prompt:
 
 ```
----
-description: Anchor/Rust on-chain program
-globs: program/**
-alwaysApply: false
----
-
-Read program/CLAUDE.md for conventions and testing.
-Read program/IMPLEMENTATION.md for accounts, instructions, events, errors, and build order.
-Read docs/data-contracts.md §1-2 for account layouts and event shapes.
-
-Key rules:
-- Anchor 0.30.1, Rust edition 2021
-- PDA seeds: PermissionPolicy = ["policy", owner, agent], SpendTracker = ["tracker", policy_pubkey]
-- guarded_execute is the core instruction (12-step validation)
-- Policy PDA signs CPIs via invoke_signed — agent key holds no funds
-- Use require!() with GuardrailsError variants
-- No String types in accounts — use [u8; N]
-- Max 10 allowed_programs, max 3 authorized_monitors
-- After anchor build: run bash ../scripts/sync-sdk.sh
-- Tests: anchor test --skip-local-validator --skip-deploy (LiteSVM in-process)
+Read contributing/scripts/setup-cursor.sh and execute it to create all
+the Cursor context files (.cursorrules and .cursor/rules/*.mdc).
 ```
 
-### `.cursor/rules/server.mdc`
-
-```
----
-description: Express server (API + worker pipeline)
-globs: server/**
-alwaysApply: false
----
-
-Read server/CLAUDE.md for architecture and conventions.
-Read server/IMPLEMENTATION.md for pipeline, API routes, SSE, auth, and build order.
-Read docs/data-contracts.md §3-5 for Prisma schema, Claude API contract, SSE events.
-
-Key rules:
-- Two modules: src/worker/ (Helius ingestion + pipeline) and src/api/ (REST + SSE + auth)
-- Shared: src/db/client.ts (Prisma), src/sse/emitter.ts (EventEmitter)
-- Worker and API NEVER import from each other
-- Pipeline: ingest → prefilter → judge → executor → reporter
-- Each stage writes to DB via Prisma AND emits SSE event
-- SSE events: new_transaction, verdict, agent_paused, report_ready
-- Claude Haiku judge: 3s timeout, fallback to rule-based verdict
-- Opus reports: fire-and-forget, never block webhook handler
-- Auth: JWT from httpOnly cookie, skip /webhook and /api/auth/* routes
-- Protected queries filter by owner = walletPubkey from JWT
-- ESM project — use import/export, never require
-- Never include txn memo fields in Claude prompt (injection risk)
-- Prisma commands: npx prisma migrate dev, npx prisma generate
-```
-
-### `.cursor/rules/dashboard.mdc`
-
-```
----
-description: Next.js 14 frontend (no backend)
-globs: dashboard/**
-alwaysApply: false
----
-
-Read dashboard/CLAUDE.md for stack and conventions.
-Read dashboard/IMPLEMENTATION.md for components, state management, data fetching, SSE hook.
-Read docs/data-contracts.md §5 for SSE event types and cache update strategy.
-
-Key rules:
-- Next.js 14 App Router ONLY — no Pages Router, no API routes
-- Frontend only — all data from server REST API or Solana RPC
-- Stack: Tailwind + shadcn/ui, Recharts, TanStack Query v5, Zustand, wallet-adapter
-- TanStack Query = server state, Zustand = client UI state
-- SSE: EventSource to server /api/events, setQueryData (no refetch)
-- SSE updates BOTH global and policy-filtered caches (updateIfExists helper)
-- Mock data in lib/mock/ — BigInt fields are strings, matches server JSON
-- SIWS auth: calls server endpoints, JWT in httpOnly cookie, credentials: "include"
-- Dark mode first, shorten pubkeys (first 4 + last 4)
-- Pages are Server Components by default, "use client" only for interactivity
-- NEVER edit lib/sdk/ — edit sdk/ at root and sync
-- Path alias: @/* → project root
-```
-
-### `.cursor/rules/sdk.mdc`
-
-```
----
-description: SDK source of truth
-globs: sdk/**
-alwaysApply: false
----
-
-Read sdk/CLAUDE.md for sync rules.
-
-This directory is the SINGLE source of truth. Copies exist at:
-- server/src/sdk/ (NEVER edit directly)
-- dashboard/lib/sdk/ (NEVER edit directly)
-
-After ANY change: run bash scripts/sync-sdk.sh
-Pre-commit hook auto-syncs when sdk/ or program/ files are staged.
-Must work in both ESM (server) and bundler (Next.js) contexts.
-Only use @coral-xyz/anchor and @solana/web3.js — available in both consumers.
-Do not manually edit idl/guardrails.json — auto-generated by anchor build.
-```
-
-## How to Create These Files
-
-### Option A: Ask your AI agent to do it
-
-Open Cursor and paste this as your first prompt:
-
-```
-Read contributing/cursor-setup.md in this repo. It contains the exact
-content for .cursorrules and .cursor/rules/*.mdc files. Create all of
-them exactly as specified.
-```
-
-### Option B: Run the setup script
+### Option B: Run the script
 
 ```bash
-# From repo root
 bash contributing/scripts/setup-cursor.sh
 ```
 
 ### Option C: Create manually
 
-Copy each file's content from the sections above into the correct path:
-- `.cursorrules` (repo root)
-- `.cursor/rules/program.mdc`
-- `.cursor/rules/server.mdc`
-- `.cursor/rules/dashboard.mdc`
-- `.cursor/rules/sdk.mdc`
+Run `cat contributing/scripts/setup-cursor.sh` to see the exact file contents, then create each file by hand.
 
-## After Setup
+## What Gets Created
 
-Cursor will auto-load `.cursorrules` on every query and load the relevant `.cursor/rules/*.mdc` when you're editing files in that directory. For deeper context, reference files in chat:
+| File | Purpose | When loaded |
+|------|---------|-------------|
+| `.cursorrules` | Project rules + "read X before doing Y" instructions | Every query |
+| `.cursor/rules/program.mdc` | Anchor/Rust conventions + mandatory reads | Editing `program/**` |
+| `.cursor/rules/server.mdc` | Server pipeline/API conventions + mandatory reads | Editing `server/**` |
+| `.cursor/rules/dashboard.mdc` | Next.js/React conventions + mandatory reads | Editing `dashboard/**` |
+| `.cursor/rules/sdk.mdc` | SDK sync rules | Editing `sdk/**` |
 
-- `@program/IMPLEMENTATION.md` for detailed program spec
-- `@server/IMPLEMENTATION.md` for pipeline and API details
-- `@dashboard/IMPLEMENTATION.md` for component specs
-- `@docs/walkthrough.md` for end-to-end system flow
-- `@docs/data-contracts.md` for schemas and API contracts
+## How It Works
+
+The generated files contain two types of instructions:
+
+1. **"MANDATORY: Read before working"** — tells the agent which files to read before making changes in each directory
+2. **"MANDATORY: Read before specific tasks"** — tells the agent to read specific docs before touching SSE code, auth, Prisma queries, components, etc.
+
+This means the agent will proactively read `IMPLEMENTATION.md`, `data-contracts.md`, and other detailed files before writing code — not just when you `@mention` them.
+
+## For Deeper Context
+
+If the agent needs more detail than what's in the rules, reference files in chat:
+
+```
+@docs/walkthrough.md explain the full transaction lifecycle
+@docs/data-contracts.md what are the SSE event payloads?
+@server/IMPLEMENTATION.md show me the prefilter query implementation
+```
+
+## Notes
+
+- These files are gitignored — each contributor generates their own
+- If CLAUDE.md files change, re-run the setup script
+- The rules files contain instructions, not content — the detailed specs stay in IMPLEMENTATION.md files

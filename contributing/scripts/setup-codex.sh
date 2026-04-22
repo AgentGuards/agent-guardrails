@@ -10,17 +10,28 @@ cat > AGENTS.md << 'EOF'
 
 Solana Frontier hackathon. On-chain policy layer for AI agents — allow-lists, budgets, kill switch.
 
-## Read these files based on your task
+## MANDATORY: Read before working
 
-| Working on | Read first | Then read |
-|-----------|-----------|----------|
-| program/ | program/CLAUDE.md | program/IMPLEMENTATION.md |
-| server/ | server/CLAUDE.md | server/IMPLEMENTATION.md |
-| dashboard/ | dashboard/CLAUDE.md | dashboard/IMPLEMENTATION.md |
-| sdk/ | sdk/CLAUDE.md | — |
-| Cross-cutting | CLAUDE.md (root) | docs/architecture.md |
-| Data shapes | docs/data-contracts.md | — |
-| Full system flow | docs/walkthrough.md | — |
+Before making ANY changes, you MUST read the relevant files first:
+
+- Editing program/**     → Read program/CLAUDE.md AND program/IMPLEMENTATION.md before writing code
+- Editing server/**      → Read server/CLAUDE.md AND server/IMPLEMENTATION.md before writing code
+- Editing dashboard/**   → Read dashboard/CLAUDE.md AND dashboard/IMPLEMENTATION.md before writing code
+- Editing sdk/**         → Read sdk/CLAUDE.md before writing code
+- Any cross-cutting task → Read CLAUDE.md (root) first
+
+## MANDATORY: Read before specific tasks
+
+- Before implementing any Anchor instruction → Read program/IMPLEMENTATION.md §2-3
+- Before writing Prisma queries             → Read server/prisma/schema.prisma AND docs/data-contracts.md §3
+- Before touching pipeline files            → Read server/IMPLEMENTATION.md §3 (prefilter queries, judge, timeout)
+- Before building a dashboard component     → Read dashboard/IMPLEMENTATION.md §3 (component specs with UX details)
+- Before touching SSE code                  → Read dashboard/IMPLEMENTATION.md §5.3 AND server/IMPLEMENTATION.md §4.3
+- Before touching auth code                 → Read server/IMPLEMENTATION.md §4.2 AND dashboard/IMPLEMENTATION.md §6
+- Before any on-chain account changes       → Read docs/data-contracts.md §1-2
+- Before working on the judge/Claude API    → Read server/IMPLEMENTATION.md §3.4-3.7
+- Before working on Swig integration        → Read docs/walkthrough.md Phase 1
+- Before working on demo agents             → Read docs/walkthrough.md AND docs/demo-runbook.md
 
 ## Critical rules
 
@@ -29,10 +40,14 @@ Solana Frontier hackathon. On-chain policy layer for AI agents — allow-lists, 
 - After editing sdk/ or program/: run bash scripts/sync-sdk.sh
 - Dashboard is frontend ONLY — no API routes, no DB access
 - Server has two modules: src/worker/ (pipeline) and src/api/ (REST + SSE + auth)
+- Worker and API never import from each other — shared only via db/ and sse/
 - Database: Neon Postgres + Prisma (schema in server/prisma/schema.prisma)
-- Realtime: SSE from server, dashboard uses setQueryData (no refetch)
-- Auth: SIWS → JWT in httpOnly cookie
-- Program: Anchor 0.30.1, tests use LiteSVM (--skip-local-validator --skip-deploy)
+- Realtime: SSE from server, not WebSocket. Dashboard uses setQueryData (no refetch)
+- SSE updates BOTH global and policy-filtered caches
+- Auth: SIWS → JWT in httpOnly cookie. Dashboard uses credentials: "include"
+- Program: Anchor 0.30.1, LiteSVM tests (--skip-local-validator --skip-deploy)
+- BigInt fields (lamports, slot) serialize as strings in JSON
+- Swig is setup-only (key provisioning). NOT in the runtime CPI chain.
 EOF
 
 echo "Done! Created AGENTS.md"
