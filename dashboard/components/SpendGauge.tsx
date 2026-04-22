@@ -26,35 +26,44 @@ export function SpendGauge({ dailySpentLamports, dailyBudgetLamports }: SpendGau
   const overBudget = pct > 100
   const displayPct = Math.min(pct, 100)
 
+  const pctTextClass = pct >= 90 ? "text-red-400" : pct >= 66 ? "text-amber-400" : "text-emerald-400"
+
   const data = [{ name: "spend", value: displayPct }]
 
   return (
-    <div className={cn("relative", overBudget && "animate-pulse")}>
-      <ResponsiveContainer width="100%" height={180}>
-        <RadialBarChart
-          cx="50%"
-          cy="50%"
-          innerRadius="60%"
-          outerRadius="90%"
-          barSize={14}
-          data={data}
-          startAngle={90}
-          endAngle={-270}
-        >
-          <PolarAngleAxis type="number" domain={[0, 100]} angleAxisId={0} tick={false} />
-          <RadialBar
-            background={{ fill: "hsl(var(--secondary))" }}
-            dataKey="value"
-            angleAxisId={0}
-            fill={fill}
-            cornerRadius={6}
-          />
-        </RadialBarChart>
-      </ResponsiveContainer>
-      <div className="absolute inset-0 flex flex-col items-center justify-center">
-        <span className="text-2xl font-bold">{pct.toFixed(0)}%</span>
-        <span className="text-xs text-muted-foreground">{spent.toFixed(2)} / {budget.toFixed(0)} SOL</span>
-        {overBudget && <span className="text-xs text-red-400 font-semibold mt-1">OVER BUDGET</span>}
+    <div className="relative">
+      <div className={cn(
+        "relative",
+        overBudget && "ring-2 ring-red-500/50 ring-offset-2 ring-offset-background rounded-full animate-pulse"
+      )}>
+        <ResponsiveContainer width="100%" height={180}>
+          <RadialBarChart
+            cx="50%"
+            cy="50%"
+            innerRadius="60%"
+            outerRadius="90%"
+            barSize={14}
+            data={data}
+            startAngle={90}
+            endAngle={-270}
+          >
+            <PolarAngleAxis type="number" domain={[0, 100]} angleAxisId={0} tick={false} />
+            <RadialBar
+              background={{ fill: "hsl(217.2, 32.6%, 25%)" }}
+              dataKey="value"
+              angleAxisId={0}
+              fill={fill}
+              cornerRadius={6}
+            />
+          </RadialBarChart>
+        </ResponsiveContainer>
+        <div className="absolute inset-0 flex flex-col items-center justify-center">
+          <span className={cn("text-2xl font-bold", pctTextClass)}>{pct.toFixed(0)}%</span>
+          <span className="text-sm text-muted-foreground font-mono mt-0.5">
+            {spent.toFixed(2)} / {budget.toFixed(0)} SOL
+          </span>
+          {overBudget && <span className="text-xs text-red-400 font-semibold mt-1">OVER BUDGET</span>}
+        </div>
       </div>
     </div>
   )

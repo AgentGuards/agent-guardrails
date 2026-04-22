@@ -35,3 +35,34 @@
     @apply bg-background text-foreground;
   }
 }
+
+@keyframes slide-in-from-top {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.txn-row-enter {
+  animation: slide-in-from-top 0.2s ease-out;
+}
+
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes scale-in {
+  from { opacity: 0; transform: scale(0.95); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+.animate-fade-up   { animation: fade-up 0.3s ease-out both; }
+.animate-scale-in  { animation: scale-in 0.2s ease-out both; }
+
+.chip { @apply bg-white/[0.08] text-foreground border border-white/10 text-xs px-2 py-0.5 rounded font-mono; }
+.live-dot { @apply h-2 w-2 rounded-full bg-emerald-400 animate-pulse inline-block; }

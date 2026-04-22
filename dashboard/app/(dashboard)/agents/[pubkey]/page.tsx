@@ -8,12 +8,14 @@ import { Button } from "@/components/ui/button"
 import Link from "next/link"
 import { SpendGauge } from "@/components/SpendGauge"
 import { KillSwitchButton } from "@/components/KillSwitchButton"
+import { ResumeAgentButton } from "@/components/ResumeAgentButton"
 import { ActivityFeed } from "@/components/ActivityFeed"
 import { PubkeyDisplay } from "@/components/PubkeyDisplay"
+import { EmptyState } from "@/components/EmptyState"
 import { usePolicy } from "@/lib/hooks/usePolicy"
 import { useSpendTracker } from "@/lib/hooks/useSpendTracker"
 import { lamportsToSol, shortenPubkey } from "@/lib/utils"
-import { Settings } from "lucide-react"
+import { Settings, ChevronLeft, AlertTriangle } from "lucide-react"
 
 // Program address → human label map (covers all programs used in mock data)
 const PROGRAM_LABELS: Record<string, string> = {
@@ -43,7 +45,13 @@ export default function AgentDetailPage({ params }: { params: { pubkey: string }
   }
 
   if (!policy) {
-    return <div className="text-muted-foreground">Policy not found.</div>
+    return (
+      <EmptyState
+        icon={AlertTriangle}
+        title="Policy not found"
+        description="This agent policy does not exist."
+      />
+    )
   }
 
   const statusVariant = !policy.isActive ? "danger" : policy.anomalyScore >= 50 ? "warning" : "success"
@@ -52,6 +60,12 @@ export default function AgentDetailPage({ params }: { params: { pubkey: string }
 
   return (
     <div className="space-y-6">
+      {/* Breadcrumb */}
+      <Link href="/agents" className="text-sm text-muted-foreground hover:text-foreground flex items-center gap-1 mb-2 w-fit">
+        <ChevronLeft className="h-3 w-3" />
+        All Agents
+      </Link>
+
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
@@ -64,6 +78,7 @@ export default function AgentDetailPage({ params }: { params: { pubkey: string }
               <Settings className="h-4 w-4" /> Edit Policy
             </Button>
           </Link>
+          <ResumeAgentButton policy={policy} />
           <KillSwitchButton policy={policy} />
         </div>
       </div>
@@ -91,38 +106,38 @@ export default function AgentDetailPage({ params }: { params: { pubkey: string }
           <CardContent className="space-y-3">
             <div className="grid grid-cols-2 gap-3 text-sm">
               <div>
-                <p className="text-muted-foreground text-xs">Max per transaction</p>
-                <p className="font-medium">{lamportsToSol(policy.maxTxLamports).toFixed(2)} SOL</p>
+                <p className="text-muted-foreground uppercase tracking-wider text-[10px] mb-0.5">Max per transaction</p>
+                <p className="font-medium font-mono">{lamportsToSol(policy.maxTxLamports).toFixed(2)} SOL</p>
               </div>
               <div>
-                <p className="text-muted-foreground text-xs">Daily budget</p>
-                <p className="font-medium">{lamportsToSol(policy.dailyBudgetLamports).toFixed(2)} SOL</p>
+                <p className="text-muted-foreground uppercase tracking-wider text-[10px] mb-0.5">Daily budget</p>
+                <p className="font-medium font-mono">{lamportsToSol(policy.dailyBudgetLamports).toFixed(2)} SOL</p>
               </div>
               <div>
-                <p className="text-muted-foreground text-xs">Session expires</p>
+                <p className="text-muted-foreground uppercase tracking-wider text-[10px] mb-0.5">Session expires</p>
                 <p className={`font-medium ${expiryDate < new Date() ? "text-red-400" : ""}`}>
                   {expiryDate.toLocaleDateString()}
                 </p>
               </div>
               <div>
-                <p className="text-muted-foreground text-xs">Anomaly score</p>
-                <p className="font-medium">{policy.anomalyScore}/100</p>
+                <p className="text-muted-foreground uppercase tracking-wider text-[10px] mb-0.5">Anomaly score</p>
+                <p className="font-medium font-mono">{policy.anomalyScore}/100</p>
               </div>
               <div>
-                <p className="text-muted-foreground text-xs">Owner</p>
+                <p className="text-muted-foreground uppercase tracking-wider text-[10px] mb-0.5">Owner</p>
                 <PubkeyDisplay pubkey={policy.owner} />
               </div>
               <div>
-                <p className="text-muted-foreground text-xs">Agent wallet</p>
+                <p className="text-muted-foreground uppercase tracking-wider text-[10px] mb-0.5">Agent wallet</p>
                 <PubkeyDisplay pubkey={policy.agent} />
               </div>
             </div>
             <Separator />
             <div>
-              <p className="text-muted-foreground text-xs mb-2">Allowed programs ({policy.allowedPrograms.length})</p>
+              <p className="text-muted-foreground uppercase tracking-wider text-[10px] mb-2">Allowed programs ({policy.allowedPrograms.length})</p>
               <div className="flex flex-wrap gap-1">
                 {policy.allowedPrograms.map((prog) => (
-                  <span key={prog} className="text-xs bg-secondary px-2 py-0.5 rounded font-mono">
+                  <span key={prog} className="chip">
                     {PROGRAM_LABELS[prog] ?? shortenPubkey(prog)}
                   </span>
                 ))}
@@ -130,7 +145,7 @@ export default function AgentDetailPage({ params }: { params: { pubkey: string }
             </div>
             {policy.squadsMultisig && (
               <div>
-                <p className="text-muted-foreground text-xs">Squads multisig</p>
+                <p className="text-muted-foreground uppercase tracking-wider text-[10px] mb-0.5">Squads multisig</p>
                 <PubkeyDisplay pubkey={policy.squadsMultisig} />
               </div>
             )}

@@ -6,10 +6,11 @@ import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Loader2, OctagonX } from "lucide-react"
+import { Loader2, OctagonX, AlertTriangle } from "lucide-react"
 import type { Policy } from "@/lib/types/anomaly"
 import { useToast } from "@/components/ui/use-toast"
 import { shortenPubkey } from "@/lib/utils"
+import { cn } from "@/lib/utils"
 
 interface KillSwitchButtonProps {
   policy: Policy
@@ -26,6 +27,13 @@ export function KillSwitchButton({ policy, onPaused }: KillSwitchButtonProps) {
   const { toast } = useToast()
 
   if (!policy.isActive) return null
+
+  const charCount = reason.length
+  const charCountClass = charCount > 60
+    ? "text-red-400"
+    : charCount > 48
+    ? "text-amber-400"
+    : "text-muted-foreground"
 
   async function handleConfirm() {
     if (!reason.trim()) return
@@ -55,9 +63,12 @@ export function KillSwitchButton({ policy, onPaused }: KillSwitchButtonProps) {
 
   return (
     <>
-      <Button variant="destructive" size="sm" className="gap-2" onClick={() => setOpen(true)}>
+      <button
+        onClick={() => setOpen(true)}
+        className="inline-flex items-center gap-2 px-3 py-1.5 text-sm font-medium rounded-md bg-red-600 hover:bg-red-500 text-white shadow-lg shadow-red-500/25 hover:shadow-red-500/40 transition-all hover:scale-105 active:scale-95"
+      >
         <OctagonX className="h-4 w-4" /> Pause Agent
-      </Button>
+      </button>
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent>
@@ -67,6 +78,12 @@ export function KillSwitchButton({ policy, onPaused }: KillSwitchButtonProps) {
               This will immediately stop all transactions from this agent.
             </DialogDescription>
           </DialogHeader>
+
+          <div className="flex items-center gap-2 p-3 bg-red-500/10 border border-red-500/20 rounded-md mb-4">
+            <AlertTriangle className="h-4 w-4 text-red-400 shrink-0" />
+            <span className="text-red-400 text-sm font-medium">This will immediately block all transactions for this agent.</span>
+          </div>
+
           <div className="space-y-2">
             <Label htmlFor="reason">Reason <span className="text-red-400">*</span></Label>
             <Input
@@ -76,17 +93,20 @@ export function KillSwitchButton({ policy, onPaused }: KillSwitchButtonProps) {
               onChange={(e) => setReason(e.target.value.slice(0, 64))}
               maxLength={64}
             />
-            <p className="text-xs text-muted-foreground text-right">{reason.length}/64</p>
+            <p className={cn("text-xs text-right", charCountClass)}>{charCount}/64</p>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
-            <Button
-              variant="destructive"
+            <button
               disabled={!reason.trim() || loading}
               onClick={handleConfirm}
+              className={cn(
+                "inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-md bg-red-600 hover:bg-red-500 text-white shadow-lg shadow-red-500/30 transition-all hover:scale-105 active:scale-95",
+                (!reason.trim() || loading) && "opacity-50 cursor-not-allowed hover:scale-100"
+              )}
             >
               {loading ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Pausing...</> : "Confirm Pause"}
-            </Button>
+            </button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

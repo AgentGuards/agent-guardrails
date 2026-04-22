@@ -4,8 +4,7 @@ import ReactMarkdown from "react-markdown"
 import type { Incident, AnomalyVerdict } from "@/lib/types/anomaly"
 import { formatTimeAgo, shortenPubkey } from "@/lib/utils"
 import { cn } from "@/lib/utils"
-import { ExternalLink } from "lucide-react"
-import { Skeleton } from "@/components/ui/skeleton"
+import { ExternalLink, Loader2 } from "lucide-react"
 
 // Monitor wallet pubkey (matches MONITOR in lib/mock/policies.ts)
 const MONITOR = "9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM"
@@ -73,11 +72,19 @@ function buildEvents(incident: Incident, verdicts: AnomalyVerdict[]): TimelineEv
   return events.sort((a, b) => new Date(a.time).getTime() - new Date(b.time).getTime())
 }
 
-const DOT_CLASSES: Record<string, string> = {
-  gray: "bg-muted-foreground",
-  amber: "bg-amber-500",
-  red: "bg-red-500",
-  blue: "bg-blue-500",
+function dotClasses(dot: TimelineEvent["dot"]): string {
+  switch (dot) {
+    case "gray":
+      return "h-2.5 w-2.5 bg-muted-foreground"
+    case "amber":
+      return "h-3 w-3 bg-amber-500 ring-2 ring-amber-500/30"
+    case "red":
+      return "h-3.5 w-3.5 bg-red-500 ring-2 ring-red-500/40 animate-pulse"
+    case "blue":
+      return "h-3 w-3 bg-blue-500"
+    default:
+      return "h-2.5 w-2.5 bg-muted-foreground"
+  }
 }
 
 export function IncidentTimeline({ incident, verdicts }: IncidentTimelineProps) {
@@ -90,7 +97,7 @@ export function IncidentTimeline({ incident, verdicts }: IncidentTimelineProps) 
         {events.map((event, i) => (
           <div key={i} className="flex gap-4">
             <div className="flex flex-col items-center">
-              <div className={cn("h-3 w-3 rounded-full shrink-0 mt-0.5", DOT_CLASSES[event.dot])} />
+              <div className={cn("rounded-full shrink-0 mt-0.5", dotClasses(event.dot))} />
               {i < events.length - 1 && <div className="w-0.5 flex-1 bg-border mt-2" />}
             </div>
             <div className="pb-6 min-w-0">
@@ -101,7 +108,9 @@ export function IncidentTimeline({ incident, verdicts }: IncidentTimelineProps) 
                 <span className="font-medium text-sm">{event.title}</span>
               </div>
               {event.detail && (
-                <p className="text-sm text-muted-foreground italic">"{event.detail}"</p>
+                <div className="mt-1 bg-muted/30 border-l-2 border-border px-3 py-1.5 rounded-r text-sm text-muted-foreground">
+                  {event.detail}
+                </div>
               )}
             </div>
           </div>
@@ -135,8 +144,8 @@ export function IncidentTimeline({ incident, verdicts }: IncidentTimelineProps) 
         <div className="border-t border-border pt-6">
           <h3 className="text-lg font-semibold mb-4">Incident Report</h3>
           <div className="flex items-center gap-3 text-muted-foreground">
-            <Skeleton className="h-4 w-4 rounded-full" />
-            <span className="text-sm">Report generating...</span>
+            <Loader2 className="h-4 w-4 animate-spin text-primary" />
+            <span className="text-sm">Generating Opus report...</span>
           </div>
         </div>
       )}

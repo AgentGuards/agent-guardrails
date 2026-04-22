@@ -1,8 +1,9 @@
 "use client"
 
 import { useState } from "react"
+import { AnimatePresence, motion } from "framer-motion"
 import { Badge } from "@/components/ui/badge"
-import { ChevronDown, ChevronRight, ExternalLink } from "lucide-react"
+import { ChevronDown, ChevronRight, ExternalLink, CheckCircle2, AlertTriangle, OctagonX, Clock } from "lucide-react"
 import type { GuardedTxnWithVerdict } from "@/lib/types/anomaly"
 import { lamportsToSol, formatTimeAgo, shortenPubkey } from "@/lib/utils"
 import { cn } from "@/lib/utils"
@@ -29,6 +30,15 @@ function verdictLabel(verdict: string | undefined): string {
   return verdict.toUpperCase()
 }
 
+function VerdictIcon({ verdict }: { verdict: string | undefined }) {
+  const cls = "h-3 w-3 mr-1 shrink-0"
+  if (!verdict) return <Clock className={cls} />
+  if (verdict === "allow") return <CheckCircle2 className={cls} />
+  if (verdict === "flag") return <AlertTriangle className={cls} />
+  if (verdict === "pause") return <OctagonX className={cls} />
+  return <Clock className={cls} />
+}
+
 export function TxnRow({ txn }: { txn: GuardedTxnWithVerdict }) {
   const [expanded, setExpanded] = useState(false)
   const programName = PROGRAM_LABELS[txn.targetProgram] ?? shortenPubkey(txn.targetProgram)
@@ -36,16 +46,17 @@ export function TxnRow({ txn }: { txn: GuardedTxnWithVerdict }) {
 
   return (
     <div
-      className="border-b border-border last:border-0 cursor-pointer hover:bg-accent/30 transition-colors"
+      className="txn-row-enter border-b border-border last:border-0 cursor-pointer hover:bg-white/5 transition-colors"
       onClick={() => setExpanded(!expanded)}
     >
       <div className="flex items-center gap-3 px-4 py-3">
-        <Badge variant={verdictVariant(txn.verdict?.verdict)} className="w-20 justify-center shrink-0 text-xs">
+        <Badge variant={verdictVariant(txn.verdict?.verdict)} className="w-24 justify-center shrink-0 text-xs flex items-center">
+          <VerdictIcon verdict={txn.verdict?.verdict} />
           {verdictLabel(txn.verdict?.verdict)}
         </Badge>
         <span className="flex-1 text-sm truncate">{programName}</span>
         {amountSol && (
-          <span className="text-sm text-muted-foreground shrink-0">{amountSol} SOL</span>
+          <span className="text-sm text-muted-foreground shrink-0 font-mono">{amountSol} SOL</span>
         )}
         <span className="text-xs text-muted-foreground shrink-0 w-16 text-right">
           {formatTimeAgo(txn.blockTime)}
@@ -57,50 +68,63 @@ export function TxnRow({ txn }: { txn: GuardedTxnWithVerdict }) {
         )}
       </div>
 
-      {expanded && (
-        <div className="px-4 pb-3 space-y-1.5 text-sm bg-muted/20">
-          {txn.verdict ? (
-            <>
-              <div className="flex gap-2">
-                <span className="text-muted-foreground">Verdict:</span>
-                <span className="font-medium">{txn.verdict.verdict.toUpperCase()} (confidence: {txn.verdict.confidence}%)</span>
-              </div>
-              <div className="flex gap-2">
-                <span className="text-muted-foreground shrink-0">Reasoning:</span>
-                <span className="italic">"{txn.verdict.reasoning}"</span>
-              </div>
-              {txn.verdict.prefilterSkipped ? (
-                <div><span className="text-muted-foreground">Prefilter:</span> Routine (skipped LLM)</div>
-              ) : (
-                <div className="flex gap-4">
-                  <span><span className="text-muted-foreground">Model:</span> {txn.verdict.model}</span>
-                  {txn.verdict.latencyMs && (
-                    <span><span className="text-muted-foreground">Latency:</span> {txn.verdict.latencyMs.toLocaleString()}ms</span>
+      <AnimatePresence initial={false}>
+        {expanded && (
+          <motion.div
+            key="expanded"
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.2, ease: "easeInOut" }}
+            style={{ overflow: "hidden" }}
+          >
+            <div className="px-4 pb-3 space-y-1.5 text-sm bg-muted/20">
+              {txn.verdict ? (
+                <>
+                  <div className="flex gap-2">
+                    <span className="text-muted-foreground">Verdict:</span>
+                    <span className="font-medium">{txn.verdict.verdict.toUpperCase()} (confidence: {txn.verdict.confidence}%)</span>
+                  </div>
+                  <div className="flex gap-2">
+                    <span className="text-muted-foreground shrink-0">Reasoning:</span>
+                    <div className="bg-muted/40 border-l-2 border-border rounded-r px-3 py-2 italic text-sm flex-1">
+                      "{txn.verdict.reasoning}"
+                    </div>
+                  </div>
+                  {txn.verdict.prefilterSkipped ? (
+                    <div><span className="text-muted-foreground">Prefilter:</span> Routine (skipped LLM)</div>
+                  ) : (
+                    <div className="flex gap-4">
+                      <span><span className="text-muted-foreground">Model:</span> {txn.verdict.model}</span>
+                      {txn.verdict.latencyMs && (
+                        <span><span className="text-muted-foreground">Latency:</span> {txn.verdict.latencyMs.toLocaleString()}ms</span>
+                      )}
+                    </div>
                   )}
-                </div>
+                </>
+              ) : (
+                <span className="text-muted-foreground">Verdict pending...</span>
               )}
-            </>
-          ) : (
-            <span className="text-muted-foreground">Verdict pending...</span>
-          )}
-          <div className="flex items-center gap-1">
-            <span className="text-muted-foreground">Txn:</span>
-            <span className="font-mono text-xs">{shortenPubkey(txn.txnSig)}</span>
-            <a
-              href={`https://explorer.solana.com/tx/${txn.txnSig}?cluster=devnet`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-primary hover:underline ml-1"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <ExternalLink className="h-3 w-3 inline" />
-            </a>
-          </div>
-          {txn.rejectReason && (
-            <div className="text-red-400 text-xs">Reject reason: {txn.rejectReason}</div>
-          )}
-        </div>
-      )}
+              <div className="flex items-center gap-1">
+                <span className="text-muted-foreground">Txn:</span>
+                <span className="font-mono text-xs">{shortenPubkey(txn.txnSig)}</span>
+                <a
+                  href={`https://explorer.solana.com/tx/${txn.txnSig}?cluster=devnet`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-primary hover:underline ml-1"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <ExternalLink className="h-3 w-3 inline" />
+                </a>
+              </div>
+              {txn.rejectReason && (
+                <div className="text-red-400 text-xs">Reject reason: {txn.rejectReason}</div>
+              )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   )
 }
