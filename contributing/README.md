@@ -1,19 +1,68 @@
 # Contributing — AI Tool Setup
 
-This project is built with Claude Code and has rich context files (`.claude/`, `CLAUDE.md`, `IMPLEMENTATION.md`) that Claude Code reads automatically. If you use a different AI tool, you'll need to generate equivalent context files for your editor.
+This project is built with Claude Code and has rich context files (`CLAUDE.md`, `IMPLEMENTATION.md`, `.claude/agents/`, `.claude/commands/`) that Claude Code reads automatically. If you use a different AI tool, you need to generate equivalent context files first.
 
-## Quick Setup by Tool
+## For Claude Code Users
 
-| Tool | Guide | Context File |
-|------|-------|-------------|
-| **Claude Code** | No setup needed — works out of the box | `CLAUDE.md` (auto-loaded) |
-| **Cursor** | [cursor-setup.md](cursor-setup.md) | `.cursorrules` (auto-loaded) |
-| **Codex (OpenAI)** | [codex-setup.md](codex-setup.md) | `AGENTS.md` (referenced manually) |
-| **VS Code + Copilot** | [vscode-setup.md](vscode-setup.md) | `.github/copilot-instructions.md` (auto-loaded) |
+No setup needed. Everything works out of the box. Start coding.
 
-## What Context Exists
+## For Everyone Else
 
-The project has detailed context files that give AI tools everything they need:
+### Option A: Ask your agent to set it up (recommended)
+
+Open your tool and paste this as your **very first prompt**:
+
+**Cursor:**
+```
+Read contributing/cursor-setup.md in this repo. Create all the files it
+specifies (.cursorrules and .cursor/rules/*.mdc) with the exact content shown.
+```
+
+**Codex:**
+```
+Read contributing/codex-setup.md in this repo. Create the AGENTS.md file
+at the repo root with the exact content shown.
+```
+
+**VS Code + Copilot:**
+```
+Read contributing/vscode-setup.md in this repo. Create .github/copilot-instructions.md
+and .vscode/settings.json with the exact content shown.
+```
+
+Your agent will read the guide, create the files, and you're ready to go.
+
+### Option B: Run the setup script
+
+```bash
+# Cursor
+bash contributing/scripts/setup-cursor.sh
+
+# Codex
+bash contributing/scripts/setup-codex.sh
+
+# VS Code + Copilot
+bash contributing/scripts/setup-vscode.sh
+```
+
+### Option C: Create manually
+
+Follow the step-by-step guide for your tool:
+- [Cursor setup](cursor-setup.md)
+- [Codex setup](codex-setup.md)
+- [VS Code + Copilot setup](vscode-setup.md)
+
+## What Each Tool Gets
+
+| Feature | Claude Code | Cursor | Codex | VS Code + Copilot |
+|---------|------------|--------|-------|-------------------|
+| Auto-loaded rules | CLAUDE.md (per dir) | .cursorrules (root) | None | copilot-instructions.md |
+| Directory-scoped context | Auto | .cursor/rules/*.mdc | None | None |
+| Detailed specs | Auto on reference | @mention files | Reference in prompt | #file: or open tab |
+| Slash commands | .claude/commands/ | Not available | Not available | Not available |
+| Specialized agents | .claude/agents/ | Not available | Not available | Not available |
+
+## What Context Exists in This Repo
 
 ```
 CLAUDE.md                      ← Root: repo structure, commands, env vars, rules
@@ -22,17 +71,19 @@ server/CLAUDE.md               ← Express server: pipeline, API, SSE, auth
 dashboard/CLAUDE.md            ← Next.js frontend: routes, components, data fetching
 sdk/CLAUDE.md                  ← SDK sync rules
 
-program/IMPLEMENTATION.md      ← Detailed program spec with code
-server/IMPLEMENTATION.md       ← Detailed server spec with code
-dashboard/IMPLEMENTATION.md    ← Detailed dashboard spec with code
+program/IMPLEMENTATION.md      ← Detailed program spec with code examples
+server/IMPLEMENTATION.md       ← Detailed server spec with code examples
+dashboard/IMPLEMENTATION.md    ← Detailed dashboard spec with code examples
 
 .claude/agents/                ← 5 specialized agent definitions
 .claude/commands/              ← 8 slash commands
 docs/                          ← Architecture, data contracts, walkthrough, etc.
 ```
 
-The setup guides below show how to convert this context into the format your tool understands.
+All generated context files (`.cursorrules`, `AGENTS.md`, `copilot-instructions.md`) point to these source files rather than duplicating their content. This keeps them lightweight and always in sync.
 
-## Generating Context Files
+## Keeping Context Updated
 
-Each setup guide includes a one-time generation step that reads the Claude context files and creates the equivalent for your tool. After generation, the context file is committed to the repo so future contributors using the same tool get it automatically.
+If `CLAUDE.md` or `IMPLEMENTATION.md` files change, the generated context files don't auto-update. Re-run your setup script or re-generate manually.
+
+The generated files only contain **pointers and critical rules** — the detailed specs live in the source files and are always up to date.

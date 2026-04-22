@@ -1,12 +1,12 @@
-# VS Code + GitHub Copilot Setup Guide
+#!/usr/bin/env bash
+set -euo pipefail
 
-Copilot reads `.github/copilot-instructions.md` automatically. Keep it short — pointers to context files, not the content itself.
+REPO_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
+cd "$REPO_ROOT"
 
-## What to Create
-
-### `.github/copilot-instructions.md`
-
-```markdown
+echo "Creating .github/copilot-instructions.md..."
+mkdir -p .github
+cat > .github/copilot-instructions.md << 'EOF'
 # Agent Guardrails Protocol
 
 Solana Frontier hackathon. On-chain policy layer for AI agents — allow-lists, budgets, kill switch.
@@ -34,11 +34,11 @@ For architecture      → Read docs/architecture.md
 - Realtime: SSE from server, not WebSocket. Dashboard uses setQueryData (no refetch)
 - Auth: SIWS → JWT in httpOnly cookie
 - Program: Anchor 0.30.1, LiteSVM tests (--skip-local-validator --skip-deploy)
-```
+EOF
 
-### `.vscode/settings.json` (optional)
-
-```json
+echo "Creating .vscode/settings.json..."
+mkdir -p .vscode
+cat > .vscode/settings.json << 'EOF'
 {
   "github.copilot.chat.codeGeneration.instructions": [
     { "file": ".github/copilot-instructions.md" }
@@ -50,46 +50,8 @@ For architecture      → Read docs/architecture.md
     "**/dist": true
   }
 }
-```
+EOF
 
-## How to Create
-
-### Option A: Ask your AI agent to do it
-
-In Copilot Chat:
-
-```
-Read contributing/vscode-setup.md in this repo. It contains the exact
-content for .github/copilot-instructions.md and .vscode/settings.json.
-Create both files.
-```
-
-### Option B: Run the setup script
-
-```bash
-bash contributing/scripts/setup-vscode.sh
-```
-
-### Option C: Create manually
-
-Copy the content from the sections above into:
-- `.github/copilot-instructions.md`
-- `.vscode/settings.json`
-
-## Using Copilot Chat Effectively
-
-Copilot Chat can reference files with `#file:`. For deeper context on any task:
-
-```
-#file:program/IMPLEMENTATION.md implement the pause_agent instruction
-```
-
-```
-#file:server/IMPLEMENTATION.md #file:docs/data-contracts.md build the SSE events route
-```
-
-```
-#file:dashboard/IMPLEMENTATION.md build the SpendGauge component following section 3
-```
-
-Keep the relevant IMPLEMENTATION.md open in a tab — Copilot automatically sees open files.
+echo "Done! Created:"
+echo "  .github/copilot-instructions.md"
+echo "  .vscode/settings.json"
