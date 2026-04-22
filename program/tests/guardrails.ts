@@ -1147,7 +1147,7 @@ describe("guardrails", () => {
       const [bPolicyPda] = findPolicyPda(bOwner.publicKey, bAgent.publicKey);
       const [bTrackerPda] = findTrackerPda(bPolicyPda);
 
-      // Create policy with small daily budget
+      // Create policy: per-tx = daily = 500k lamports (tight budget)
       await program.methods
         .initializePolicy({
           allowedPrograms: [SystemProgram.programId],
@@ -1169,29 +1169,18 @@ describe("guardrails", () => {
         .signers([bOwner])
         .rpc();
 
-      // Capture current clock before warping
       const currentClock = svm.getClock();
 
-      // Warp clock forward by 25 hours (past the 24h budget window)
-      svm.setClock(new Clock(
-        currentClock.slot + 1000n,
-        currentClock.epochStartTimestamp,
-        currentClock.epoch,
-        currentClock.leaderScheduleEpoch,
-        currentClock.unixTimestamp + 90_000n, // +25 hours
-      ));
-
-      // guarded_execute will trigger budget window reset (step 6) even though
-      // it will fail at CPI. The reset happens BEFORE the CPI attempt.
-      // After the window reset, daily_spent should be 0.
-      // We can verify by checking that a transfer within budget passes validation.
+      // Verify: BEFORE clock warp, a 500k transfer passes validation (per-tx
+      // and daily budget checks both pass since daily_spent starts at 0).
+      // It will fail at CPI, but NOT with a budget error.
       const txData = Buffer.alloc(12);
       txData.writeUInt32LE(2, 0);
-      txData.writeBigUInt64LE(100_000n, 4);
+      txData.writeBigUInt64LE(500_000n, 4);
 
       try {
         await program.methods
-          .guardedExecute({ instructionData: txData, amountHint: new BN(100_000) })
+          .guardedExecute({ instructionData: txData, amountHint: new BN(500_000) })
           .accounts({
             agent: bAgent.publicKey,
             policy: bPolicyPda,
@@ -1207,12 +1196,50 @@ describe("guardrails", () => {
           .signers([bAgent])
           .rpc();
       } catch (err: any) {
-        // Should NOT fail with DailyBudgetExceeded — budget window was reset
+        // CPI fails (policy PDA has data), but validation passed — no budget error
         expect(err.toString()).to.not.include("DailyBudgetExceeded");
+        expect(err.toString()).to.not.include("AmountExceedsLimit");
       }
 
-      // Reset clock for subsequent tests
-      svm.setClock(currentClock);
+      // Warp clock past 24h boundary, then verify the same transfer still
+      // passes validation (budget window resets in guarded_execute step 6).
+      // NOTE: Since CPI fails and the transaction rolls back, the budget
+      // counters are never actually persisted. This test verifies the reset
+      // code path executes without error, not cumulative budget exhaustion
+      // (which requires successful CPI via Token Program — deferred).
+      try {
+        svm.setClock(new Clock(
+          currentClock.slot + 1000n,
+          currentClock.epochStartTimestamp,
+          currentClock.epoch,
+          currentClock.leaderScheduleEpoch,
+          currentClock.unixTimestamp + 90_000n, // +25 hours
+        ));
+
+        await program.methods
+          .guardedExecute({ instructionData: txData, amountHint: new BN(500_000) })
+          .accounts({
+            agent: bAgent.publicKey,
+            policy: bPolicyPda,
+            spendTracker: bTrackerPda,
+            targetProgram: SystemProgram.programId,
+            systemProgram: SystemProgram.programId,
+          })
+          .remainingAccounts([
+            { pubkey: bPolicyPda, isWritable: true, isSigner: false },
+            { pubkey: Keypair.generate().publicKey, isWritable: true, isSigner: false },
+            { pubkey: SystemProgram.programId, isWritable: false, isSigner: false },
+          ])
+          .signers([bAgent])
+          .rpc();
+      } catch (err: any) {
+        // After clock warp: should still NOT fail with budget errors
+        expect(err.toString()).to.not.include("DailyBudgetExceeded");
+        expect(err.toString()).to.not.include("AmountExceedsLimit");
+      } finally {
+        // Always restore clock for subsequent tests
+        svm.setClock(currentClock);
+      }
     });
 
     it("monitor can pause but cannot resume — owner must resume", async () => {
@@ -1258,7 +1285,7 @@ describe("guardrails", () => {
       expect(policy.isActive).to.be.false;
       expect(policy.pausedBy.toBase58()).to.equal(mMonitor.publicKey.toBase58());
 
-      // Monitor tries to resume — should fail
+      // Monitor tries to resume — should fail with ResumeRequiresOwner
       try {
         await program.methods
           .resumeAgent()
@@ -1267,7 +1294,11 @@ describe("guardrails", () => {
           .rpc();
         expect.fail("Expected monitor resume to fail");
       } catch (err: any) {
-        expect(err).to.exist;
+        // has_one = owner @ ResumeRequiresOwner constraint rejects non-owner
+        const errStr = err.toString();
+        expect(
+          errStr.includes("ResumeRequiresOwner") || errStr.includes("ConstraintHasOne")
+        ).to.be.true;
       }
 
       // Verify still paused
