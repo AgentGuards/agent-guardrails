@@ -231,9 +231,15 @@ Eight key components: WalletProvider, PolicyCard, CreatePolicyWizard, SpendGauge
 
 ### 7.1 Swig — session key issuance
 
-**Flow:** Owner creates a Swig sub-account with a session key scoped to the Guardrails program. The session key becomes the `agent` pubkey in the PermissionPolicy. Swig enforces session expiry and signing restrictions at the wallet layer; Guardrails enforces program/amount restrictions at the contract layer. Defense in depth.
+**What Swig is:** An on-chain smart wallet program (PDA-based) with role-based access control and session key management. Not just a keypair — a programmable wallet that validates every action on-chain.
 
-**MVP integration point:** The `/agents/new` wizard includes a "Mint Swig session key" step that calls Swig's SDK to provision the key and auto-populates the agent pubkey field. If Swig CPI proves too complex in week 1, fallback is a plain ephemeral keypair stored encrypted in the server DB; we still demo against Swig-issued keys.
+**Flow:** Owner creates a Swig wallet → adds root role (Ed25519 authority) → creates a session key for the agent. The session key becomes the `agent` pubkey in the PermissionPolicy. The agent signs `guarded_execute` through Swig, which validates the session before Guardrails validates the policy. Defense in depth.
+
+**SDK:** `@swig-wallet/classic` — key methods: `getCreateSwigInstruction()`, `getCreateSessionInstructions()`, `getSignInstructions()`, `fetchSwig()`, `findRoleBySessionKey()`.
+
+**Session lifecycle:** Created with slot-based duration (e.g., 1,512,000 slots ≈ 7 days). Expires automatically. Revoked by creating a new session with an all-zero key. On-chain program rejects expired/invalid sessions.
+
+**Integration point:** The `/agents/new` wizard calls Swig SDK to provision the session key and auto-populates the agent pubkey field. See `docs/walkthrough.md` Phase 1 for the complete code flow.
 
 ### 7.2 Squads v4 — multisig escalation
 
