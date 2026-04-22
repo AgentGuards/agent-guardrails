@@ -228,4 +228,4 @@ Four event types pushed via `GET /api/events` (Server-Sent Events). Each event c
 | `new_transaction` | ingest.ts | Full GuardedTxn row | Prepend to `["transactions"]` |
 | `verdict` | judge.ts | Full AnomalyVerdict + signals | Update matching txn's verdict in `["transactions"]` |
 | `agent_paused` | executor.ts | Full Incident row | Prepend to `["incidents"]`, mark policy inactive in `["policies"]` |
-| `report_ready` | reporter.ts | `{ incidentId, fullReport }` | Patch `fullReport` into matching incident in `["incidents"]` |
+| `report_ready` | reporter.ts | `{ incidentId, policyPubkey, fullReport }` | Patch `fullReport` into matching incident in `["incidents"]` + `["incidents", policyPubkey]` |

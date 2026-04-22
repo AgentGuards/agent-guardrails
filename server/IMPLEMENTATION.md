@@ -370,7 +370,7 @@ async function generateReport(incidentId: string, policyPubkey: string) {
       data: { fullReport: report },
     });
 
-    sseEmitter.emit("report_ready", { incidentId, fullReport: report });
+    sseEmitter.emit("report_ready", { incidentId, policyPubkey, fullReport: report });
   } catch (err) {
     console.error("Report generation failed:", err);
     // Non-critical — incident is already recorded, pause is already active

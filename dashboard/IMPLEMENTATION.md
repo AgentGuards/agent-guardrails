@@ -235,6 +235,16 @@ Single EventSource connection to server. SSE events carry full payloads — inse
 
 ```typescript
 // lib/sse/useSSE.ts
+const API_URL = process.env.NEXT_PUBLIC_API_URL;
+
+// Helper: update a cache key only if it already exists (don't create empty caches)
+function updateIfExists<T>(queryClient: QueryClient, key: QueryKey, updater: (old: T[]) => T[]) {
+  const existing = queryClient.getQueryData<T[]>(key);
+  if (existing !== undefined) {
+    queryClient.setQueryData(key, updater(existing));
+  }
+}
+
 export function useSSE() {
   const queryClient = useQueryClient();
 
@@ -243,38 +253,47 @@ export function useSSE() {
 
     source.addEventListener("new_transaction", (e) => {
       const txn = JSON.parse(e.data);
+      // Update global transactions list
       queryClient.setQueryData(["transactions"], (old: any[]) => [txn, ...(old ?? [])]);
+      // Update policy-specific list if it's cached
+      updateIfExists(queryClient, ["transactions", txn.policyPubkey], (old: any[]) => [txn, ...old]);
     });
 
     source.addEventListener("verdict", (e) => {
       const verdict = JSON.parse(e.data);
-      // Update the matching transaction's verdict in cache
-      queryClient.setQueryData(["transactions"], (old: any[]) =>
-        (old ?? []).map((txn) =>
-          txn.id === verdict.txnId ? { ...txn, verdict } : txn
-        )
-      );
+      const patchVerdict = (old: any[]) =>
+        old.map((txn: any) => (txn.id === verdict.txnId ? { ...txn, verdict } : txn));
+      // Update global + policy-specific transaction caches
+      updateIfExists(queryClient, ["transactions"], patchVerdict);
+      updateIfExists(queryClient, ["transactions", verdict.policyPubkey], patchVerdict);
     });
 
     source.addEventListener("agent_paused", (e) => {
       const incident = JSON.parse(e.data);
+      // Update global incidents list
       queryClient.setQueryData(["incidents"], (old: any[]) => [incident, ...(old ?? [])]);
-      // Mark the policy as paused in cache
-      queryClient.setQueryData(["policies"], (old: any[]) =>
-        (old ?? []).map((p) =>
-          p.pubkey === incident.policyPubkey ? { ...p, isActive: false } : p
-        )
+      // Update policy-specific incidents if cached
+      updateIfExists(queryClient, ["incidents", incident.policyPubkey], (old: any[]) => [incident, ...old]);
+      // Mark the policy as paused in global policies cache
+      updateIfExists(queryClient, ["policies"], (old: any[]) =>
+        old.map((p: any) => (p.pubkey === incident.policyPubkey ? { ...p, isActive: false } : p))
       );
+      // Update single policy cache if it exists
+      const cachedPolicy = queryClient.getQueryData<any>(["policy", incident.policyPubkey]);
+      if (cachedPolicy) {
+        queryClient.setQueryData(["policy", incident.policyPubkey], { ...cachedPolicy, isActive: false });
+      }
     });
 
     source.addEventListener("report_ready", (e) => {
-      const { incidentId, fullReport } = JSON.parse(e.data);
-      // Patch the report into the cached incident
-      queryClient.setQueryData(["incidents"], (old: any[]) =>
-        (old ?? []).map((inc) =>
-          inc.id === incidentId ? { ...inc, fullReport } : inc
-        )
-      );
+      const { incidentId, fullReport, policyPubkey } = JSON.parse(e.data);
+      const patchReport = (old: any[]) =>
+        old.map((inc: any) => (inc.id === incidentId ? { ...inc, fullReport } : inc));
+      // Update global + policy-specific incident caches
+      updateIfExists(queryClient, ["incidents"], patchReport);
+      if (policyPubkey) {
+        updateIfExists(queryClient, ["incidents", policyPubkey], patchReport);
+      }
     });
 
     return () => source.close();
@@ -283,6 +302,14 @@ export function useSSE() {
 ```
 
 Mount in root layout or a top-level provider so it's active across all pages.
+
+**Query key convention:**
+- `["transactions"]` — global list (activity page)
+- `["transactions", policyPubkey]` — filtered by policy (agent detail page)
+- `["incidents"]` — global list (incidents page)
+- `["incidents", policyPubkey]` — filtered by policy (agent detail page)
+- `["policies"]` — all user's policies (agents list page)
+- `["policy", pubkey]` — single on-chain policy (agent detail page)
 
 ---
 
