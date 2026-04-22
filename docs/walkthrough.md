@@ -71,23 +71,20 @@ Alice is now authenticated. The server knows every API request from her browser 
 
 ## Phase 1: Agent Session Key (Swig)
 
-Before creating a Guardrails policy, Alice needs an agent session key. This is where **Swig** comes in — it's an on-chain smart wallet program on Solana that manages roles, permissions, and temporary session keys.
+Before creating a Guardrails policy, Alice needs an agent session key. **Swig** handles key provisioning — it's an on-chain smart wallet program that manages roles, permissions, and temporary session keys.
 
 ### What is Swig?
 
-Swig is a **PDA-based smart wallet** — not just a keypair, but a programmable on-chain account with:
+Swig is a **PDA-based smart wallet** on Solana with:
 - **Roles** — each role = an authority (who) + permissions (what they can do)
-- **Sessions** — temporary authority delegation with automatic expiry
-- **On-chain validation** — the Swig program itself verifies every action at signing time
+- **Sessions** — temporary keypairs with automatic on-chain expiry
+- **On-chain state** — Swig records which keys are active, queryable and revocable
 
-```
-Traditional wallet:     Keypair → signs anything, no restrictions
-Swig smart wallet:      PDA → role-based, permission-checked, session-scoped
-```
+**Important:** Swig is a **setup and management tool**, not a runtime component. The agent does NOT sign transactions through the Swig program. It signs `guarded_execute` directly with the session keypair.
 
 ### Step 1: Alice creates a Swig wallet
 
-When Alice first visits the dashboard and connects her Phantom wallet, a Swig wallet is created for her (or she connects to an existing one):
+When Alice first visits the dashboard, a Swig wallet is created for her:
 
 ```typescript
 import {
@@ -100,17 +97,12 @@ import {
 // Generate unique wallet ID
 const id = new Uint8Array(32);
 crypto.getRandomValues(id);
-
-// Derive the Swig wallet PDA
 const swigAddress = findSwigPda(id);
 
 // Alice's Phantom wallet is the root authority
 const rootAuthority = createEd25519AuthorityInfo(aliceWallet.publicKey);
-
-// Root can manage authorities (add/remove roles, create sessions)
 const rootActions = Actions.set().manageAuthority().get();
 
-// Create the Swig wallet on-chain
 const createSwigIx = await getCreateSwigInstruction({
   payer: aliceWallet.publicKey,
   id,
@@ -119,168 +111,83 @@ const createSwigIx = await getCreateSwigInstruction({
 });
 ```
 
-Now Alice has a Swig wallet where she is the root authority with full management permissions.
-
 ### Step 2: Alice creates a session key for the agent
 
-On the `/agents/new` page, Alice clicks "Create Session Key". The dashboard generates a new keypair for the agent and registers it as a **session** under Alice's root role:
+On `/agents/new`, Alice clicks "Create Session Key". The dashboard generates a keypair and registers it in Swig:
 
 ```typescript
-import {
-  fetchSwig,
-  getCreateSessionInstructions,
-  createEd25519SessionAuthorityInfo,
-} from "@swig-wallet/classic";
+import { fetchSwig, getCreateSessionInstructions } from "@swig-wallet/classic";
 
 // Generate the agent's session keypair
 const agentSessionKeypair = Keypair.generate();
-// This pubkey (J2HH...QAA) becomes the agent's identity
+// pubkey J2HH...QAA — this becomes the agent's identity
 
-// Fetch Alice's Swig wallet
 const swig = await fetchSwig(connection, swigAddress);
-
-// Find Alice's root role
 const rootRole = swig.findRolesByEd25519SignerPk(aliceWallet.publicKey)[0];
 
-// Create a session for the agent (duration: ~7 days in slots)
-// At ~400ms per slot: 7 days ≈ 1,512,000 slots
+// Register session in Swig (~7 days = 1,512,000 slots)
 const createSessionIx = await getCreateSessionInstructions(
   swig,
   rootRole.id,
   agentSessionKeypair.publicKey,
-  1_512_000n,  // duration in slots
+  1_512_000n,
 );
 
-// Alice signs this transaction (she's the root authority)
+// Alice signs (she's the root authority)
 await sendAndConfirmTransaction(connection, tx, [aliceWallet]);
 ```
 
-The session key `J2HH...QAA` is now registered on-chain in the Swig wallet with:
-- **Authority:** the agent's Ed25519 pubkey
-- **Permissions:** inherited from Alice's root role
-- **Expiry:** automatically expires after ~7 days (1,512,000 slots)
+The session key `J2HH...QAA` is now:
+- Registered in Swig's on-chain state (queryable, revocable)
+- Ready to be used as the `agent` field in a Guardrails policy
+- Given to the agent process (the secret key)
 
-### Step 3: How authenticity is verified
+### Step 3: What Swig does vs what Guardrails does
 
-You don't verify Swig session keys externally — **the Swig program itself is the verifier**. When the agent signs a transaction through Swig, the on-chain program checks:
+| Concern | Swig handles (setup) | Guardrails handles (runtime) |
+|---------|---------------------|------------------------------|
+| Key creation | Creates session keypair, records on-chain | Stores pubkey in `policy.agent` |
+| Key expiry | Tracks in Swig state (queryable by dashboard) | Enforces via `session_expiry` check on every txn |
+| Key revocation | Marks as revoked (zero-key method) | Owner calls `pause_agent` or `rotate_agent_key` |
+| Transaction signing | **Not involved at runtime** | Validates signer == `policy.agent` |
+| Funds custody | **Not involved** | Policy PDA holds funds, signs CPIs |
+| Permissions | Role-based (for Swig wallet actions) | Allow-list + budget + kill switch |
 
-```
-Transaction arrives signed by J2HH...QAA
-  │
-  ▼
-Swig Program (on-chain validation):
-  1. Is J2HH...QAA a registered session key for this wallet?
-     → Looks up role by session key in the Swig account
-     → If not found → REJECT (invalid session)
-
-  2. Has the session expired?
-     → Compare current_slot vs (session_start + duration)
-     → If expired → REJECT (session expired)
-
-  3. Does this role have permission for this action?
-     → Check role's action flags against the requested instruction
-     → If not permitted → REJECT (unauthorized action)
-
-  4. All checks pass → sign and execute the inner instruction
-```
-
-This is enforced by Solana's runtime — there's no way to bypass it. An expired or invalid session key simply cannot produce a valid transaction.
-
-### Step 4: How the agent uses the session key
-
-The agent process receives the session keypair and uses it to sign through Swig, which then calls Guardrails:
-
-```typescript
-// Inside the agent runtime
-const agentSessionKeypair = loadSessionKey(); // J2HH...QAA
-
-// Fetch the Swig wallet to find the agent's role
-const swig = await fetchSwig(connection, swigAddress);
-const role = swig.findRoleBySessionKey(agentSessionKeypair.publicKey);
-
-if (!role || !role.isSessionBased()) {
-  throw new Error("Session key not found or expired");
-}
-
-// Build the guarded_execute instruction (calls Guardrails program)
-const guardedExecuteIx = await guardrailsProgram.methods
-  .guardedExecute(targetProgram, instructionData, accountMetas, amountHint)
-  .accounts({ policy: policyPda, spendTracker, agent: agentSessionKeypair.publicKey, ... })
-  .instruction();
-
-// Sign through Swig — this wraps the instruction with Swig's permission check
-const signedIx = await getSignInstructions(
-  swig,
-  role.id,
-  [guardedExecuteIx],
-  false,
-  { payer: agentSessionKeypair.publicKey },
-);
-
-// Send the transaction — agent's session key pays fees
-await sendTransaction(connection, signedIx, agentSessionKeypair);
-```
-
-### The two-layer security model
+**Swig is NOT in the CPI chain.** The transaction flow is:
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│  Layer 1: SWIG (wallet layer)                                   │
-│                                                                 │
-│  ✓ Is this session key valid and not expired?                   │
-│  ✓ Does this role have permission for this action?              │
-│  ✓ Automatic expiry — no one needs to revoke manually          │
-│                                                                 │
-│  If invalid → transaction fails before reaching Guardrails      │
-└─────────────────────────┬───────────────────────────────────────┘
-                          │ (session valid, permission granted)
-                          ▼
-┌─────────────────────────────────────────────────────────────────┐
-│  Layer 2: GUARDRAILS (policy layer)                             │
-│                                                                 │
-│  ✓ Is the target program whitelisted?                           │
-│  ✓ Is the amount within per-tx and daily limits?                │
-│  ✓ Has the agent been paused by the AI judge?                   │
-│  ✓ Should this be escalated to Squads multisig?                 │
-│                                                                 │
-│  If any check fails → transaction rejected with specific error  │
-└─────────────────────────┬───────────────────────────────────────┘
-                          │ (all policy checks pass)
-                          ▼
-┌─────────────────────────────────────────────────────────────────┐
-│  Layer 3: AI JUDGE (monitoring layer, off-chain)                │
-│                                                                 │
-│  ✓ Is this transaction pattern normal?                          │
-│  ✓ Does it match the agent's historical behavior?               │
-│  ✓ If suspicious → FLAG or PAUSE the agent on-chain             │
-│                                                                 │
-│  Runs async after transaction — can pause within seconds        │
-└─────────────────────────────────────────────────────────────────┘
+Agent signs guarded_execute with session keypair (regular Ed25519 signature)
+  → Guardrails program validates signer == policy.agent
+  → Guardrails CPIs to target program (policy PDA signs via invoke_signed)
 ```
 
-**Defense in depth:** Even if one layer is bypassed, the others catch it. Swig prevents expired/unauthorized keys. Guardrails prevents overspending and wrong programs. The AI judge catches behavioral anomalies that rules can't express.
+No Swig program call happens during agent transactions. Swig's value is in the setup phase — creating, tracking, and revoking session keys with a clean UX.
+
+### Why the agent can't cheat (even without Swig at runtime)
+
+The session key is "just" an Ed25519 keypair, but:
+- It can't call Jupiter directly — it's not the authority on the PDA's token accounts
+- It can only call `guarded_execute` meaningfully — and Guardrails enforces everything
+- If the session is expired, Guardrails rejects at step 3 (`session_expiry` check)
+- If the agent is paused, Guardrails rejects at step 2 (`is_active` check)
+- Funds are in the PDA, not in the key — the key itself is worthless for theft
 
 ### Revoking a session
 
-If Alice suspects the agent is compromised, she can revoke the session immediately — either from the dashboard or by calling Swig directly:
+Alice can revoke from two places:
 
+**Via Swig (marks key as revoked in Swig state):**
 ```typescript
-// Revoke by creating a new session with an all-zero key
 const zeroKey = new Uint8Array(32).fill(0);
-const revokeIx = await getCreateSessionInstructions(
-  swig,
-  rootRole.id,
-  zeroKey,
-  1n,  // minimal duration
-);
-// Alice signs — session J2HH...QAA is now invalid
+const revokeIx = await getCreateSessionInstructions(swig, rootRole.id, zeroKey, 1n);
 ```
 
-Or she can use the Guardrails KillSwitchButton on the dashboard, which calls `pause_agent` — the agent can't transact even if the Swig session is still technically valid.
+**Via Guardrails (immediate on-chain freeze):**
+Alice clicks the KillSwitchButton → calls `pause_agent` → `is_active = false` → agent can't transact regardless of key validity.
 
 ### Key point: the agent key holds NO funds
 
-The session key is only used to sign `guarded_execute` calls. It doesn't hold SOL or tokens. Even if compromised, the attacker can only act within the policy's limits — and the AI judge can pause it.
+The session key only signs `guarded_execute` calls. It doesn't hold SOL or tokens. Even if compromised, the attacker can only act within the policy's limits — and the AI judge can pause it.
 
 ---
 
@@ -484,10 +391,10 @@ Any agent framework that produces `TransactionInstruction` objects can be wrappe
 │  │             │     │                  │     │  guarded_execute) │ │
 │  └─────────────┘     └──────────────────┘     └────────┬─────────┘ │
 │                                                        │           │
-│  Swig session key signs ──────────────────────────────┘           │
+│  Session key signs (regular Ed25519) ─────────────────┘           │
 └───────────────────────────────────────────────────────────────────┘
                                     │
-                                    ▼
+                                    ▼ (direct call, no Swig in between)
 ┌───────────────────────────────────────────────────────────────────┐
 │  Solana                                                           │
 │                                                                   │
@@ -508,7 +415,7 @@ Any agent framework that produces `TransactionInstruction` objects can be wrappe
 └───────────────────────────────────────────────────────────────────┘
 ```
 
-The agent thinks and decides. The `GuardedExecutor` routes every action through Guardrails. The program enforces limits on-chain. The server watches everything off-chain. Three layers, one integration point.
+The agent thinks and decides. The `GuardedExecutor` routes every action through Guardrails. The program enforces limits on-chain. The server watches everything off-chain. Swig handled key creation during setup — it's not in the runtime path.
 
 ---
 
@@ -968,3 +875,85 @@ T+66s  Agent → guarded_execute → On-chain REJECT (PolicyPaused)
 | **Squads escalation** | High-value oversight | Amount > threshold → requires multisig approval |
 
 Three layers of defense. The on-chain program is the first wall. The AI judge is the second. The kill switch is the emergency brake. Together, they contain a compromised agent before significant damage occurs.
+
+---
+
+## Summary: How Everything Fits Together
+
+### Setup (one-time)
+
+```
+Alice (owner)
+  ├─ Creates Swig wallet → generates session keypair (J2HH...QAA)
+  ├─ Creates Guardrails policy on-chain (agent = J2HH...QAA, limits, allow-list)
+  ├─ Funds policy PDA with SOL/tokens
+  └─ Gives session keypair to agent process
+```
+
+Swig = key provisioning and management tool. Tracks which keys are active, provides revocation. **Not involved at runtime.**
+
+### Runtime (every transaction)
+
+```
+Agent signs guarded_execute with session keypair (regular Ed25519)
+  │
+  │  NO Swig program in the middle
+  │
+  ▼
+Guardrails Program (on-chain):
+  1. Verify signer == policy.agent ← this is the session pubkey
+  2. Check is_active (not paused)
+  3. Check session_expiry (Guardrails enforces, not Swig)
+  4. Check target program ∈ allow-list
+  5. Check amount within per-tx + daily limits
+  6. CPI to target program (policy PDA signs via invoke_signed)
+  7. Update SpendTracker
+  8. Emit events → Helius
+  │
+  ▼
+Server (off-chain monitoring):
+  Helius webhook → ingest → prefilter → judge → executor/reporter
+  SSE push → Dashboard
+```
+
+### Who does what
+
+| Component | Role | When |
+|-----------|------|------|
+| **Swig** | Create session keys, track active/expired, revoke | Setup only |
+| **Guardrails Program** | Validate policy, enforce limits, CPI to target, emit events | Every transaction |
+| **Policy PDA** | Hold funds (SOL + tokens), sign CPIs via invoke_signed | Every transaction |
+| **Session Key** | Sign guarded_execute (regular Ed25519, no Swig at runtime) | Every transaction |
+| **Server** | Monitor events, prefilter, Claude judge, pause agent, generate reports | Async after each txn |
+| **Dashboard** | Display activity, SSE live updates, KillSwitch, create/edit policies | User-facing |
+
+### Why the agent can't escape
+
+```
+Can the agent call Jupiter directly?     → No. It's not the authority on PDA's token accounts.
+Can the agent overspend?                 → No. Guardrails checks per-tx and daily limits.
+Can the agent use a non-whitelisted program? → No. Step 4 rejects with ProgramNotWhitelisted.
+Can the agent operate after expiry?      → No. Step 3 rejects with SessionExpired.
+Can the agent keep going after pause?    → No. Step 2 rejects with PolicyPaused.
+Can the agent steal funds from the PDA?  → No. Only the PDA can sign for its own accounts.
+```
+
+### The CPI chain (what actually happens on Solana)
+
+```
+Transaction signers: [agentSessionKey]
+  │
+  Instruction 1: guardrails::guarded_execute
+    │  program validates policy
+    │
+    └─ CPI (invoke_signed with PDA seeds):
+       │
+       Instruction 2: jupiter::swap
+         │  Jupiter sees policy PDA as authority
+         │  moves tokens from PDA's accounts
+         └─ done
+
+  Events emitted: GuardedTxnExecuted → picked up by Helius
+```
+
+Two programs in the chain: Guardrails → Target. Not three. Swig is not in the CPI chain.

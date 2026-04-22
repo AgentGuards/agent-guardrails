@@ -231,13 +231,15 @@ Eight key components: WalletProvider, PolicyCard, CreatePolicyWizard, SpendGauge
 
 ### 7.1 Swig — session key issuance
 
-**What Swig is:** An on-chain smart wallet program (PDA-based) with role-based access control and session key management. Not just a keypair — a programmable wallet that validates every action on-chain.
+**What Swig is:** An on-chain smart wallet program (PDA-based) with role-based access control and session key management. Used for key provisioning and management — not in the runtime transaction path.
 
-**Flow:** Owner creates a Swig wallet → adds root role (Ed25519 authority) → creates a session key for the agent. The session key becomes the `agent` pubkey in the PermissionPolicy. The agent signs `guarded_execute` through Swig, which validates the session before Guardrails validates the policy. Defense in depth.
+**Flow:** Owner creates a Swig wallet → adds root role (Ed25519 authority) → creates a session key for the agent. The session key pubkey becomes the `agent` field in the PermissionPolicy. The agent then signs `guarded_execute` directly with the session keypair (regular Ed25519 signature). Swig is not in the CPI chain — Guardrails validates the signer and enforces session expiry itself.
 
-**SDK:** `@swig-wallet/classic` — key methods: `getCreateSwigInstruction()`, `getCreateSessionInstructions()`, `getSignInstructions()`, `fetchSwig()`, `findRoleBySessionKey()`.
+**SDK:** `@swig-wallet/classic` — setup methods: `getCreateSwigInstruction()`, `getCreateSessionInstructions()`, `fetchSwig()`, `findRoleBySessionKey()`.
 
-**Session lifecycle:** Created with slot-based duration (e.g., 1,512,000 slots ≈ 7 days). Expires automatically. Revoked by creating a new session with an all-zero key. On-chain program rejects expired/invalid sessions.
+**Session lifecycle:** Created with slot-based duration (e.g., 1,512,000 slots ≈ 7 days). Tracked in Swig's on-chain state (queryable by dashboard). Revoked by creating a new session with an all-zero key. Guardrails enforces its own `session_expiry` at runtime.
+
+**Swig vs Guardrails at runtime:** Swig handles setup (create, track, revoke keys). Guardrails handles runtime (validate signer, enforce limits, CPI). The agent signs `guarded_execute` directly — no `getSignInstructions()` needed at runtime.
 
 **Integration point:** The `/agents/new` wizard calls Swig SDK to provision the session key and auto-populates the agent pubkey field. See `docs/walkthrough.md` Phase 1 for the complete code flow.
 
