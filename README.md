@@ -242,6 +242,17 @@ The dashboard shows normal activity streaming in via SSE, then the attack: FLAG 
 | [docs/demo-runbook.md](docs/demo-runbook.md) | Demo day operator's guide |
 | [docs/walkthrough.md](docs/walkthrough.md) | End-to-end system walkthrough with demo example |
 
+## Contributing with AI Tools
+
+This project is built with Claude Code, but you can use any AI coding tool. Setup guides:
+
+- **Claude Code** — works out of the box, no setup needed
+- **Cursor** — [contributing/cursor-setup.md](contributing/cursor-setup.md)
+- **Codex (OpenAI)** — [contributing/codex-setup.md](contributing/codex-setup.md)
+- **VS Code + Copilot** — [contributing/vscode-setup.md](contributing/vscode-setup.md)
+
+See [contributing/README.md](contributing/README.md) for details.
+
 ## License
 
 Apache 2.0
