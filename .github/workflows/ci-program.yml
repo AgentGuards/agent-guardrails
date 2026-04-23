@@ -10,9 +10,13 @@ on:
     paths:
       - "program/**"
       - "sdk/idl/**"
+  pull_request_target:
+    paths:
+      - "program/**"
+      - "sdk/idl/**"
 
 concurrency:
-  group: ci-program-${{ github.ref }}
+  group: ci-program-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 env:
@@ -25,6 +29,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
       - name: Check formatting
         working-directory: program/programs/guardrails
@@ -35,6 +41,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
       - name: Cache Cargo
         uses: actions/cache@v4
@@ -60,6 +68,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -118,6 +128,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
