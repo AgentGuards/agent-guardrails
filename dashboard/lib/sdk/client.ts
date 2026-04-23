@@ -59,7 +59,12 @@ export class GuardrailsClient {
       );
     }
     this.programId = resolved;
-    this.program = new Program(IDL as any, provider);
+
+    // Override the IDL's embedded address with the resolved program ID so
+    // the Anchor Program instance and PDA derivation use the same ID.
+    // This avoids mismatches when deploying to different clusters.
+    const idlWithAddress = { ...IDL, address: resolved.toBase58() };
+    this.program = new Program(idlWithAddress as any, provider);
   }
 
   // -------------------------------------------------------------------------
