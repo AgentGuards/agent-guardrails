@@ -2,6 +2,7 @@
 
 import { useMemo } from "react";
 import { useWallet } from "@solana/wallet-adapter-react";
+import type { WalletName } from "@solana/wallet-adapter-base";
 import { shortAddress } from "@/lib/utils";
 
 export function WalletControls() {
@@ -39,7 +40,7 @@ export function WalletControls() {
         value={wallet?.adapter.name ?? ""}
         onChange={(event) => {
           if (event.target.value) {
-            select(event.target.value);
+            select(event.target.value as WalletName);
           }
         }}
       >

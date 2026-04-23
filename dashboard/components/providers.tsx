@@ -2,11 +2,10 @@
 
 import { useMemo, useState, type ReactNode } from "react";
 import { AnchorProvider } from "@coral-xyz/anchor";
-import { Connection, PublicKey, Transaction } from "@solana/web3.js";
+import { Connection, PublicKey } from "@solana/web3.js";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ConnectionProvider, WalletProvider, useWallet } from "@solana/wallet-adapter-react";
 import { PhantomWalletAdapter, SolflareWalletAdapter } from "@solana/wallet-adapter-wallets";
-import type { WalletContextState } from "@solana/wallet-adapter-react";
 import { useSSE } from "@/lib/sse/useSSE";
 
 const RPC_ENDPOINT = process.env.NEXT_PUBLIC_SOLANA_RPC_URL ?? "https://api.devnet.solana.com";
@@ -43,8 +42,6 @@ export function AppProviders({ children }: { children: ReactNode }) {
   );
 }
 
-type AnchorWalletLike = Pick<WalletContextState, "publicKey" | "signTransaction" | "signAllTransactions">;
-
 export function useAnchorProvider(): AnchorProvider | null {
   const wallet = useWallet();
 
@@ -54,13 +51,7 @@ export function useAnchorProvider(): AnchorProvider | null {
     }
 
     const connection = new Connection(RPC_ENDPOINT, "confirmed");
-    const anchorWallet: AnchorWalletLike = {
-      publicKey: wallet.publicKey,
-      signTransaction: wallet.signTransaction as (tx: Transaction) => Promise<Transaction>,
-      signAllTransactions: wallet.signAllTransactions as (txs: Transaction[]) => Promise<Transaction[]>,
-    };
-
-    return new AnchorProvider(connection, anchorWallet, {
+    return new AnchorProvider(connection, wallet as ConstructorParameters<typeof AnchorProvider>[1], {
       commitment: "confirmed",
     });
   }, [wallet.publicKey, wallet.signAllTransactions, wallet.signTransaction]);
