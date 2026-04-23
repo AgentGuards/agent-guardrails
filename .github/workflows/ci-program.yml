@@ -161,6 +161,10 @@ jobs:
           name: program-build
           path: program/target/deploy/
 
+      # Copy committed IDL to target/idl/ where tests expect it
+      - name: Setup IDL for tests
+        run: mkdir -p program/target/idl && cp sdk/idl/guardrails.json program/target/idl/
+
       # Run tests directly (not via `anchor test` which rebuilds IDL).
       # The .so artifact is already downloaded from the build job.
       - name: Test
