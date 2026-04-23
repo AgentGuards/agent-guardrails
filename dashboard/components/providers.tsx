@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, type ReactNode } from "react";
+import { type ComponentProps, type ComponentType, useMemo, useState, type ReactNode } from "react";
 import { AnchorProvider } from "@coral-xyz/anchor";
 import { Connection, PublicKey } from "@solana/web3.js";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -9,6 +9,8 @@ import { PhantomWalletAdapter, SolflareWalletAdapter } from "@solana/wallet-adap
 import { useSSE } from "@/lib/sse/useSSE";
 
 const RPC_ENDPOINT = process.env.NEXT_PUBLIC_SOLANA_RPC_URL ?? "https://api.devnet.solana.com";
+const SafeConnectionProvider = ConnectionProvider as unknown as ComponentType<ComponentProps<typeof ConnectionProvider>>;
+const SafeWalletProvider = WalletProvider as unknown as ComponentType<ComponentProps<typeof WalletProvider>>;
 
 function RealtimeBridge(): null {
   useSSE();
@@ -31,22 +33,23 @@ export function AppProviders({ children }: { children: ReactNode }) {
   const wallets = useMemo(() => [new PhantomWalletAdapter(), new SolflareWalletAdapter()], []);
 
   return (
-    <ConnectionProvider endpoint={RPC_ENDPOINT}>
-      <WalletProvider wallets={wallets} autoConnect>
+    <SafeConnectionProvider endpoint={RPC_ENDPOINT}>
+      <SafeWalletProvider wallets={wallets} autoConnect>
         <QueryClientProvider client={queryClient}>
           <RealtimeBridge />
           {children}
         </QueryClientProvider>
-      </WalletProvider>
-    </ConnectionProvider>
+      </SafeWalletProvider>
+    </SafeConnectionProvider>
   );
 }
 
 export function useAnchorProvider(): AnchorProvider | null {
   const wallet = useWallet();
+  const { publicKey, signTransaction, signAllTransactions } = wallet;
 
   const provider = useMemo(() => {
-    if (!wallet.publicKey || !wallet.signTransaction || !wallet.signAllTransactions) {
+    if (!publicKey || !signTransaction || !signAllTransactions) {
       return null;
     }
 
@@ -54,7 +57,7 @@ export function useAnchorProvider(): AnchorProvider | null {
     return new AnchorProvider(connection, wallet as ConstructorParameters<typeof AnchorProvider>[1], {
       commitment: "confirmed",
     });
-  }, [wallet.publicKey, wallet.signAllTransactions, wallet.signTransaction]);
+  }, [publicKey, signAllTransactions, signTransaction, wallet]);
 
   return provider;
 }
