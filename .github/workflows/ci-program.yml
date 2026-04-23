@@ -161,6 +161,8 @@ jobs:
           name: program-build
           path: program/target/deploy/
 
+      # Run tests directly (not via `anchor test` which rebuilds IDL).
+      # The .so artifact is already downloaded from the build job.
       - name: Test
         working-directory: program
-        run: anchor test --skip-local-validator --skip-deploy
+        run: node --import tsx/esm node_modules/mocha/bin/mocha.js -t 1000000 'tests/**/*.ts'
