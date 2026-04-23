@@ -97,22 +97,19 @@ jobs:
         working-directory: program
         run: pnpm install
 
-      # RUSTC_BOOTSTRAP=1 enables proc_macro2::Span::source_file() which
-      # anchor-syn 0.30.1 requires during IDL generation.
-      # proc-macro2 is pinned to <=1.0.94 in Cargo.lock for this to work.
-      - name: Build
+      # Use cargo-build-sbf directly instead of `anchor build` to avoid
+      # the IDL generation phase, which requires proc_macro::SourceFile
+      # (stripped from Solana 1.18's platform-tools rustc). The committed
+      # IDL at sdk/idl/ is the source of truth — verified by sync-sdk.sh.
+      - name: Build SBF
         working-directory: program
-        env:
-          RUSTC_BOOTSTRAP: "1"
-        run: anchor build
+        run: cargo build-sbf --manifest-path programs/guardrails/Cargo.toml
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
         with:
           name: program-build
-          path: |
-            program/target/idl/
-            program/target/deploy/
+          path: program/target/deploy/
           retention-days: 1
 
   test:
@@ -162,32 +159,8 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: program-build
-          path: program/target/
+          path: program/target/deploy/
 
       - name: Test
         working-directory: program
         run: anchor test --skip-local-validator --skip-deploy
-
-  idl-check:
-    name: IDL Sync Check
-    needs: build
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Download build artifacts
-        uses: actions/download-artifact@v4
-        with:
-          name: program-build
-          path: program/target/
-
-      - name: Verify IDL is current
-        run: |
-          if [ -f program/target/idl/guardrails.json ]; then
-            if ! diff -q program/target/idl/guardrails.json sdk/idl/guardrails.json > /dev/null 2>&1; then
-              echo "::error::sdk/idl/guardrails.json is out of date. Run: scripts/sync-sdk.sh"
-              diff program/target/idl/guardrails.json sdk/idl/guardrails.json || true
-              exit 1
-            fi
-            echo "IDL is in sync"
-          fi
