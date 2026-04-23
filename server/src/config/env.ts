@@ -12,8 +12,17 @@ function optional(name: string, fallback: string): string {
   return process.env[name] || fallback;
 }
 
+function port(name: string, fallback: string): number {
+  const raw = optional(name, fallback);
+  const parsed = Number(raw);
+  if (!Number.isInteger(parsed) || parsed < 1 || parsed > 65535) {
+    throw new Error(`Invalid env var ${name}: "${raw}" (expected integer 1-65535)`);
+  }
+  return parsed;
+}
+
 export const env = {
-  PORT: parseInt(optional("PORT", "8080"), 10),
+  PORT: port("PORT", "8080"),
   SOLANA_RPC_URL: required("SOLANA_RPC_URL"),
   GUARDRAILS_PROGRAM_ID: required("GUARDRAILS_PROGRAM_ID"),
   MONITOR_KEYPAIR: required("MONITOR_KEYPAIR"),

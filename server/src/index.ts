@@ -16,17 +16,17 @@ const app = express();
 
 app.use(corsMiddleware);
 app.use(cookieParser());
-app.use(express.json());
 
 // ---------------------------------------------------------------------------
 // Routes
 // ---------------------------------------------------------------------------
 
 // Worker module: Helius webhook ingestion + anomaly pipeline
+// Mounted before express.json() so webhook can access the raw body for HMAC verification.
 app.use(workerRouter);
 
 // API module: REST routes + SSE stream + SIWS auth (all under /api)
-app.use("/api", apiRouter);
+app.use("/api", express.json(), apiRouter);
 
 // ---------------------------------------------------------------------------
 // Start
