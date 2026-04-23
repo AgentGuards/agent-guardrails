@@ -172,9 +172,13 @@ jobs:
         with:
           swap-size-gb: 10
 
-      # Run tests directly (not via `anchor test` which rebuilds IDL).
-      # --max-old-space-size=6144: give Node.js more heap for LiteSVM's in-process VM
-      # --exit: force immediate exit after tests, bypassing native addon destructor crash
+      # Run each test file in its own Node process to isolate LiteSVM memory.
+      # LiteSVM's native addon crashes with bad_alloc when too much state
+      # accumulates in a single process on CI runners (7 GB RAM).
       - name: Test
         working-directory: program
-        run: node --max-old-space-size=6144 --import tsx/esm node_modules/mocha/bin/mocha.js -t 1000000 --exit 'tests/**/*.ts'
+        run: |
+          for f in tests/initialize-policy.ts tests/update-policy.ts tests/pause-agent.ts tests/resume-agent.ts tests/guarded-execute.ts tests/integration.ts; do
+            echo "=== Running $f ==="
+            node --max-old-space-size=4096 --import tsx/esm node_modules/mocha/bin/mocha.js -t 1000000 --exit "$f"
+          done
