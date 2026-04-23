@@ -1,5 +1,16 @@
 import { describe, expect, it } from "vitest";
-import { apiMode, fetchIncident, fetchIncidents, fetchPolicies, fetchPolicy, fetchTransactions } from "@/lib/api/client";
+import {
+  apiMode,
+  fetchIncident,
+  fetchIncidents,
+  fetchPolicies,
+  fetchPolicy,
+  fetchSession,
+  fetchTransactions,
+  logoutSession,
+  requestSiwsNonce,
+  verifySiwsSignature,
+} from "@/lib/api/client";
 import { INCIDENTS, POLICIES } from "@/lib/mock";
 
 describe("api client mock data", () => {
@@ -52,5 +63,36 @@ describe("api client mock data", () => {
       const secondPage = await fetchIncidents(undefined, firstPage.nextCursor, 1);
       expect(secondPage.items[0]?.id).not.toEqual(firstPage.items[0].id);
     }
+  });
+
+  it("returns a mock nonce/message payload", async () => {
+    const walletPubkey = POLICIES[0].owner;
+    const payload = await requestSiwsNonce(walletPubkey);
+    expect(payload.nonce).toBeTruthy();
+    expect(payload.message).toContain(walletPubkey);
+  });
+
+  it("verifies signatures in mock mode", async () => {
+    const verified = await verifySiwsSignature({
+      walletPubkey: POLICIES[0].owner,
+      message: "test message",
+      signature: "c2ln",
+    });
+    expect(verified.ok).toBe(true);
+
+    await expect(
+      verifySiwsSignature({
+        walletPubkey: POLICIES[0].owner,
+        message: "test message",
+        signature: "",
+      }),
+    ).rejects.toThrow("Missing signature");
+  });
+
+  it("supports session and logout helpers", async () => {
+    const session = await fetchSession();
+    expect(session.ok).toBe(true);
+    const logout = await logoutSession();
+    expect(logout.ok).toBe(true);
   });
 });

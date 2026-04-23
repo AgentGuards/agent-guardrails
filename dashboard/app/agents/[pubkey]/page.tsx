@@ -8,7 +8,7 @@ import { queryKeys } from "@/lib/api/query-keys";
 import { shortAddress, statusTone } from "@/lib/utils";
 
 export default function AgentDetailPage({ params }: { params: { pubkey: string } }) {
-  const { data: policy } = useQuery({
+  const { data: policy, isLoading: isPolicyLoading } = useQuery({
     queryKey: queryKeys.policyByPubkey(params.pubkey),
     queryFn: () => fetchPolicy(params.pubkey),
   });
@@ -20,6 +20,10 @@ export default function AgentDetailPage({ params }: { params: { pubkey: string }
     queryKey: queryKeys.incidentsByPolicy(params.pubkey),
     queryFn: () => fetchIncidents(params.pubkey),
   });
+
+  if (isPolicyLoading) {
+    return <AppShell title="Agent detail"><div className="card empty">Loading policy...</div></AppShell>;
+  }
 
   if (!policy) {
     return <AppShell title="Agent detail"><div className="card empty">Policy not found.</div></AppShell>;
