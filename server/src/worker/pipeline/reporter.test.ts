@@ -199,9 +199,7 @@ describe("generateReport", () => {
     ).rejects.toThrow("Claude API down");
   });
 
-  it("logs error on failure", async () => {
-    // The executor's .catch() logs the error. Let's verify the reporter
-    // itself logs on success (the console.log at the end of generateReport).
+  it("logs report generation on success", async () => {
     const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
 
     await generateReport("inc-8", "PolicyPda1111111111111111111111111");
