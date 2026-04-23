@@ -329,12 +329,18 @@ pub fn handler(ctx: Context<GuardedExecute>, args: GuardedExecuteArgs) -> Result
             // Step 11: CPI succeeded — update counters and emit success event
 
             // Update policy daily spend counter
-            ctx.accounts.policy.daily_spent_lamports =
-                ctx.accounts.policy.daily_spent_lamports.saturating_add(verified_amount);
+            ctx.accounts.policy.daily_spent_lamports = ctx
+                .accounts
+                .policy
+                .daily_spent_lamports
+                .saturating_add(verified_amount);
 
             // Update SpendTracker
-            ctx.accounts.spend_tracker.lamports_spent_24h =
-                ctx.accounts.spend_tracker.lamports_spent_24h.saturating_add(verified_amount);
+            ctx.accounts.spend_tracker.lamports_spent_24h = ctx
+                .accounts
+                .spend_tracker
+                .lamports_spent_24h
+                .saturating_add(verified_amount);
             ctx.accounts.spend_tracker.txn_count_24h =
                 ctx.accounts.spend_tracker.txn_count_24h.saturating_add(1);
             ctx.accounts.spend_tracker.last_txn_ts = now;
