@@ -3,17 +3,17 @@ import { cva, type VariantProps } from "class-variance-authority"
 import { cn } from "@/lib/utils"
 
 const badgeVariants = cva(
-  "inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2",
+  "inline-flex items-center rounded-[4px] border px-2 py-0.5 text-xs font-semibold font-mono transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2",
   {
     variants: {
       variant: {
-        default: "border-transparent bg-primary text-primary-foreground hover:bg-primary/80",
+        default: "bg-[var(--accent-dim)] text-[var(--badge-blue-text)] border-[rgba(59,130,246,0.35)]",
         secondary: "border-transparent bg-secondary text-secondary-foreground hover:bg-secondary/80",
-        destructive: "border-transparent bg-destructive text-destructive-foreground hover:bg-destructive/80",
-        outline: "text-foreground",
-        success: "border-transparent bg-emerald-500/20 text-emerald-400 border-emerald-500/30",
-        warning: "border-transparent bg-amber-500/20 text-amber-400 border-amber-500/30",
-        danger: "border-transparent bg-red-500/20 text-red-400 border-red-500/30",
+        destructive: "bg-[var(--red-dim)] text-[var(--badge-red-text)] border-[rgba(239,68,68,0.3)]",
+        outline: "text-foreground border-[var(--border-col)]",
+        success: "bg-[var(--green-dim)] text-[var(--badge-green-text)] border-[rgba(34,197,94,0.3)]",
+        warning: "bg-[var(--amber-dim)] text-[var(--badge-amber-text)] border-[rgba(245,158,11,0.3)]",
+        danger: "bg-[var(--red-dim)] text-[var(--badge-red-text)] border-[rgba(239,68,68,0.3)]",
         muted: "border-transparent bg-muted text-muted-foreground",
       },
     },

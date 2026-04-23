@@ -67,7 +67,7 @@ export default function AgentDetailPage({ params }: { params: { pubkey: string }
       </Link>
 
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="grid-bg relative flex items-center justify-between">
         <div className="flex items-center gap-3">
           <h1 className="text-2xl font-bold">{policy.label ?? shortenPubkey(policy.pubkey)}</h1>
           <Badge variant={statusVariant}>{statusLabel}</Badge>

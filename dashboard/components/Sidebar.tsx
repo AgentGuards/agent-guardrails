@@ -2,10 +2,8 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { Shield, Bot, Activity, AlertTriangle, Menu, LogOut } from "lucide-react"
-import { useUIStore } from "@/lib/stores/ui"
+import { Bot, Activity, AlertTriangle } from "lucide-react"
 import { useSiws } from "@/lib/providers/SiwsContext"
-import { cn } from "@/lib/utils"
 import { shortenPubkey } from "@/lib/utils"
 
 const NAV_ITEMS = [
@@ -15,86 +13,93 @@ const NAV_ITEMS = [
 ]
 
 export function Sidebar() {
-  const { sidebarOpen, toggleSidebar } = useUIStore()
   const { walletPubkey, isAuthenticated, signOut } = useSiws()
   const pathname = usePathname()
 
   return (
-    <div className={cn(
-      "flex flex-col bg-card border-r border-border transition-all duration-300",
-      sidebarOpen ? "w-64" : "w-16"
-    )}>
-      {/* Header */}
-      <div className="flex items-center h-16 px-4 border-b border-border">
-        <div className="rounded-lg bg-primary/20 p-2 shrink-0 shadow-sm shadow-primary/20">
-          <Shield className="h-5 w-5 text-primary" />
+    <aside style={{
+      background: 'var(--bg-1)',
+      borderRight: '1px solid var(--border-col)',
+      padding: '22px 14px',
+      display: 'flex',
+      flexDirection: 'column',
+      gap: '4px',
+      position: 'sticky',
+      top: 0,
+      height: '100vh',
+    }}>
+      {/* Brand */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '4px 10px 22px' }}>
+        <div style={{
+          width: '24px', height: '24px', borderRadius: '6px',
+          background: 'linear-gradient(135deg, #3b82f6, #8b5cf6)',
+          boxShadow: '0 0 14px rgba(59,130,246,0.35)',
+          position: 'relative', flexShrink: 0,
+        }}>
+          <div style={{
+            position: 'absolute', inset: '5px',
+            border: '1.5px solid rgba(255,255,255,0.9)',
+            borderRadius: '3px',
+          }} />
         </div>
-        <span
-          className={cn(
-            "ml-2 font-semibold text-sm overflow-hidden transition-all duration-300 whitespace-nowrap",
-            sidebarOpen ? "opacity-100 max-w-[160px]" : "opacity-0 max-w-0"
-          )}
-        >
-          Agent Guardrails
-        </span>
-        <button
-          onClick={toggleSidebar}
-          className="ml-auto rounded-md p-1.5 text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
-        >
-          <Menu className="h-4 w-4" />
-        </button>
+        <div>
+          <div style={{ fontWeight: 600, fontSize: '14px', letterSpacing: '-0.01em', color: 'var(--text)' }}>Agent Guardrails</div>
+          <div style={{ fontSize: '10px', color: 'var(--text-mute)', letterSpacing: '0.1em', textTransform: 'uppercase', fontFamily: 'ui-monospace, monospace' }}>GUARDRAILS</div>
+        </div>
       </div>
 
       {/* Nav */}
-      <nav className="flex-1 py-4 space-y-1 px-2">
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', flex: 1 }}>
+        <div style={{ fontSize: '10.5px', color: 'var(--text-mute)', letterSpacing: '0.1em', textTransform: 'uppercase', padding: '0 10px 6px', marginTop: '12px' }}>
+          Navigation
+        </div>
         {NAV_ITEMS.map(({ href, label, icon: Icon }) => {
           const active = pathname?.startsWith(href)
           return (
-            <Link
-              key={href}
-              href={href}
-              className={cn(
-                "flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors border-l-2",
-                active
-                  ? "bg-primary/10 text-primary border-l-primary"
-                  : "text-muted-foreground hover:bg-accent hover:text-foreground border-l-transparent"
-              )}
-            >
-              <Icon className="h-4 w-4 shrink-0" />
-              <span
-                className={cn(
-                  "overflow-hidden transition-all duration-300 whitespace-nowrap",
-                  sidebarOpen ? "opacity-100 max-w-[160px]" : "opacity-0 max-w-0"
-                )}
-              >
-                {label}
-              </span>
+            <Link key={href} href={href} style={{
+              display: 'flex', alignItems: 'center', gap: '10px',
+              padding: '7px 10px', borderRadius: '6px',
+              color: active ? 'var(--text)' : 'var(--text-dim)',
+              fontSize: '13px', textDecoration: 'none',
+              background: active ? 'var(--accent-dim)' : 'transparent',
+              boxShadow: active ? 'inset 0 0 0 1px rgba(59,130,246,0.3)' : 'none',
+              transition: 'background 0.15s, color 0.15s',
+            }}>
+              <Icon style={{ width: '14px', height: '14px', flexShrink: 0 }} />
+              <span style={{ flex: 1 }}>{label}</span>
+              {active && <div style={{ width: '4px', height: '4px', borderRadius: '50%', background: 'var(--accent)' }} />}
             </Link>
           )
         })}
-      </nav>
+      </div>
 
-      {/* Footer */}
+      {/* Wallet footer */}
       {isAuthenticated && walletPubkey && (
-        <div className="border-t border-border p-4">
-          <div className="flex items-center gap-2">
-            <div className="h-7 w-7 rounded-full bg-primary/20 flex items-center justify-center shrink-0">
-              <span className="text-xs font-semibold text-primary">
-                {walletPubkey.slice(0, 1).toUpperCase()}
-              </span>
+        <div style={{ borderTop: '1px solid var(--border-col)', paddingTop: '12px' }}>
+          <button
+            onClick={signOut}
+            style={{
+              display: 'flex', alignItems: 'center', gap: '8px',
+              padding: '8px 10px', borderRadius: '8px',
+              background: 'var(--bg-2)', width: '100%',
+              border: '1px solid var(--border-col)',
+              cursor: 'pointer', color: 'var(--text-dim)',
+            }}
+          >
+            <div style={{
+              width: '20px', height: '20px', borderRadius: '50%',
+              background: 'linear-gradient(135deg, #3b82f6, #22c55e)',
+              flexShrink: 0,
+            }} />
+            <div style={{ textAlign: 'left', minWidth: 0, flex: 1 }}>
+              <div style={{ fontSize: '11px', color: 'var(--text-mute)' }}>Connected</div>
+              <div style={{ fontSize: '12px', fontFamily: 'ui-monospace, monospace', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {shortenPubkey(walletPubkey)}
+              </div>
             </div>
-            <div className={cn("flex-1 min-w-0 overflow-hidden transition-all duration-300", sidebarOpen ? "opacity-100 max-w-[120px]" : "opacity-0 max-w-0")}>
-              <p className="text-xs text-muted-foreground truncate font-mono">{shortenPubkey(walletPubkey)}</p>
-            </div>
-            <button
-              onClick={signOut}
-              className="rounded-md p-1.5 text-muted-foreground hover:text-foreground hover:bg-accent transition-colors shrink-0"
-            >
-              <LogOut className="h-4 w-4" />
-            </button>
-          </div>
+          </button>
         </div>
       )}
-    </div>
+    </aside>
   )
 }

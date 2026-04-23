@@ -1,15 +1,15 @@
 "use client"
 
-import { useUIStore } from "@/lib/stores/ui"
 import { Sidebar } from "./Sidebar"
+import { Topbar } from "./Topbar"
 
 export function AppShell({ children }: { children: React.ReactNode }) {
-  const { sidebarOpen } = useUIStore()
   return (
-    <div className="flex h-screen bg-background overflow-hidden">
+    <div style={{ display: 'grid', gridTemplateColumns: '240px 1fr', minHeight: '100vh' }}>
       <Sidebar />
-      <div className="flex-1 flex flex-col overflow-hidden">
-        <main className="flex-1 overflow-auto p-6">
+      <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+        <Topbar />
+        <main style={{ flex: 1, overflowY: 'auto', padding: '28px' }}>
           {children}
         </main>
       </div>

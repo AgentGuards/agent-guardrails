@@ -46,7 +46,8 @@ export function TxnRow({ txn }: { txn: GuardedTxnWithVerdict }) {
 
   return (
     <div
-      className="txn-row-enter border-b border-border last:border-0 cursor-pointer hover:bg-white/5 transition-colors"
+      className="txn-row-enter cursor-pointer transition-colors"
+      style={{ borderBottom: '1px solid var(--border-col)' }}
       onClick={() => setExpanded(!expanded)}
     >
       <div className="flex items-center gap-3 px-4 py-3">
@@ -78,7 +79,7 @@ export function TxnRow({ txn }: { txn: GuardedTxnWithVerdict }) {
             transition={{ duration: 0.2, ease: "easeInOut" }}
             style={{ overflow: "hidden" }}
           >
-            <div className="px-4 pb-3 space-y-1.5 text-sm bg-muted/20">
+            <div className="px-4 pb-3 space-y-1.5 text-sm" style={{ background: 'var(--bg-2)' }}>
               {txn.verdict ? (
                 <>
                   <div className="flex gap-2">
