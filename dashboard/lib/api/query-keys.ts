@@ -1,4 +1,5 @@
 export const queryKeys = {
+  session: () => ["session"] as const,
   policies: () => ["policies"] as const,
   policyByPubkey: (pubkey: string) => ["policy", pubkey] as const,
   transactions: () => ["transactions"] as const,

@@ -2,12 +2,16 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useQueryClient } from "@tanstack/react-query";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { AppShell } from "@/components/dashboard-ui";
+import { queryKeys } from "@/lib/api/query-keys";
 import { requestSiwsNonce, verifySiwsSignature } from "@/lib/api/client";
+import { uint8ArrayToBase64 } from "@/lib/crypto/base64";
 
 export default function SignInPage() {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const { publicKey, signMessage } = useWallet();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -34,13 +38,15 @@ export default function SignInPage() {
       const { message } = await requestSiwsNonce(walletPubkey);
       const encodedMessage = new TextEncoder().encode(message);
       const signature = await signMessage(encodedMessage);
-      const signatureBase64 = btoa(String.fromCharCode(...signature));
+      const signatureBase64 = uint8ArrayToBase64(signature);
 
       await verifySiwsSignature({
         walletPubkey,
         message,
         signature: signatureBase64,
       });
+
+      await queryClient.invalidateQueries({ queryKey: queryKeys.session() });
 
       setSuccess("Signed in successfully. Redirecting to dashboard...");
       router.push("/");

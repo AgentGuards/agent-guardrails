@@ -1,4 +1,5 @@
 import { cleanup, render, screen } from "@testing-library/react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createElement } from "react";
 import type { ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -7,9 +8,13 @@ import { INCIDENTS, POLICIES, TRANSACTIONS, VERDICTS } from "@/lib/mock";
 const useQueryMock = vi.fn();
 const pushMock = vi.fn();
 
-vi.mock("@tanstack/react-query", () => ({
-  useQuery: (...args: unknown[]) => useQueryMock(...args),
-}));
+vi.mock("@tanstack/react-query", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@tanstack/react-query")>();
+  return {
+    ...actual,
+    useQuery: (...args: unknown[]) => useQueryMock(...args),
+  };
+});
 
 vi.mock("next/link", () => ({
   default: ({ href, children }: { href: string; children: ReactNode }) => createElement("a", { href }, children),
@@ -95,7 +100,10 @@ describe("phase 1 route smoke tests", () => {
 
   it("renders signin, agent detail, policy edit, and incident detail routes", async () => {
     const SignInPage = (await import("@/app/(auth)/signin/page")).default;
-    render(createElement(SignInPage));
+    const signInClient = new QueryClient();
+    render(
+      createElement(QueryClientProvider, { client: signInClient }, createElement(SignInPage)),
+    );
     expect(screen.getByText("Sign in")).toBeTruthy();
     cleanup();
 

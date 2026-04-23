@@ -5,8 +5,13 @@ import { AnchorProvider } from "@coral-xyz/anchor";
 import { Connection, PublicKey } from "@solana/web3.js";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ConnectionProvider, WalletProvider, useWallet } from "@solana/wallet-adapter-react";
+import { WalletModalProvider } from "@solana/wallet-adapter-react-ui";
 import type { Adapter } from "@solana/wallet-adapter-base";
 import { PhantomWalletAdapter, SolflareWalletAdapter } from "@solana/wallet-adapter-wallets";
+import { useQuery } from "@tanstack/react-query";
+import { fetchSession } from "@/lib/api/client";
+import { queryKeys } from "@/lib/api/query-keys";
+import { apiBaseUrl, isMockApiRuntime } from "@/lib/api/runtime";
 import { useSSE } from "@/lib/sse/useSSE";
 
 const RPC_ENDPOINT = process.env.NEXT_PUBLIC_SOLANA_RPC_URL ?? "https://api.devnet.solana.com";
@@ -33,6 +38,17 @@ function RealtimeBridge(): null {
   return null;
 }
 
+function SessionHydrator(): null {
+  useQuery({
+    queryKey: queryKeys.session(),
+    queryFn: fetchSession,
+    enabled: Boolean(apiBaseUrl()) && !isMockApiRuntime(),
+    staleTime: 60_000,
+    retry: 1,
+  });
+  return null;
+}
+
 export function AppProviders({ children }: { children: ReactNode }) {
   const [queryClient] = useState(
     () =>
@@ -51,10 +67,13 @@ export function AppProviders({ children }: { children: ReactNode }) {
   return (
     <SafeConnectionProvider endpoint={RPC_ENDPOINT}>
       <SafeWalletProvider wallets={wallets} autoConnect>
-        <QueryClientProvider client={queryClient}>
-          <RealtimeBridge />
-          {children}
-        </QueryClientProvider>
+        <WalletModalProvider>
+          <QueryClientProvider client={queryClient}>
+            <SessionHydrator />
+            <RealtimeBridge />
+            {children}
+          </QueryClientProvider>
+        </WalletModalProvider>
       </SafeWalletProvider>
     </SafeConnectionProvider>
   );

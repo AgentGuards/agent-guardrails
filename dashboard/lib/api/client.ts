@@ -1,3 +1,4 @@
+import { apiBaseUrl, isMockApiRuntime } from "@/lib/api/runtime";
 import { INCIDENTS, POLICIES, TRANSACTIONS, VERDICTS } from "@/lib/mock";
 import type {
   IncidentDetail,
@@ -8,11 +9,8 @@ import type {
   VerdictSummary,
 } from "@/lib/types/dashboard";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, "");
-const USE_MOCK_API =
-  process.env.NEXT_PUBLIC_USE_MOCK_API === "true" ||
-  process.env.NEXT_PUBLIC_USE_MOCK === "true" ||
-  !API_URL;
+const API_URL = apiBaseUrl();
+const USE_MOCK_API = isMockApiRuntime();
 export const apiMode = USE_MOCK_API ? "mock" : "http";
 
 type RequestMethod = "GET" | "POST";
@@ -164,7 +162,12 @@ export async function verifySiwsSignature(payload: {
   if (!USE_MOCK_API) {
     return withMockFallback(
       "verifySiwsSignature",
-      () => requestJson<{ ok: boolean; walletPubkey: string }>("/api/auth/siws/verify", "POST", payload),
+      () =>
+        requestJson<{ ok: boolean; walletPubkey: string }>("/api/auth/siws/verify", "POST", {
+          pubkey: payload.walletPubkey,
+          message: payload.message,
+          signature: payload.signature,
+        }),
       mockVerify,
     );
   }

@@ -1,5 +1,5 @@
 import { createElement } from "react";
-import { describe, expect, it, vi, beforeEach } from "vitest";
+import { describe, expect, it, vi, afterEach, beforeEach } from "vitest";
 import { render, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useSSE } from "@/lib/sse/useSSE";
@@ -41,7 +41,14 @@ describe("useSSE", () => {
   beforeEach(() => {
     MockEventSource.instances = [];
     process.env.NEXT_PUBLIC_API_URL = "http://localhost:8080";
+    delete process.env.NEXT_PUBLIC_USE_MOCK_API;
+    delete process.env.NEXT_PUBLIC_USE_MOCK;
     vi.stubGlobal("EventSource", MockEventSource);
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    delete process.env.NEXT_PUBLIC_API_URL;
   });
 
   it("patches transaction and incident caches from SSE events", async () => {
