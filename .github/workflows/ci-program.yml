@@ -51,11 +51,6 @@ jobs:
           sh -c "$(curl -sSfL https://release.anza.xyz/${{ env.SOLANA_VERSION }}/install)"
           echo "$HOME/.local/share/solana/install/active_release/bin" >> $GITHUB_PATH
 
-      # Ensure system Rust/Cargo (supports edition2024) takes precedence
-      # over the older toolchain bundled with Solana 1.18.x
-      - name: Prioritize system Rust
-        run: echo "$HOME/.cargo/bin" >> $GITHUB_PATH
-
       - name: Run Clippy
         working-directory: program/programs/guardrails
         run: cargo clippy -- -D warnings
@@ -76,9 +71,6 @@ jobs:
           sh -c "$(curl -sSfL https://release.anza.xyz/${{ env.SOLANA_VERSION }}/install)"
           echo "$HOME/.local/share/solana/install/active_release/bin" >> $GITHUB_PATH
 
-      - name: Prioritize system Rust
-        run: echo "$HOME/.cargo/bin" >> $GITHUB_PATH
-
       - name: Cache Solana CLI
         uses: actions/cache@v4
         with:
@@ -87,6 +79,11 @@ jobs:
 
       - name: Install Anchor CLI
         run: npm install -g @coral-xyz/anchor-cli@${{ env.ANCHOR_VERSION }}
+
+      # Pre-install platform-tools v1.52 so cargo-build-sbf uses Cargo 1.89+
+      # which supports lockfile v4 and edition2024 crates
+      - name: Install platform-tools
+        run: cargo-build-sbf --install-only --tools-version v1.52
 
       - name: Cache Cargo
         uses: actions/cache@v4
@@ -135,9 +132,6 @@ jobs:
           sh -c "$(curl -sSfL https://release.anza.xyz/${{ env.SOLANA_VERSION }}/install)"
           echo "$HOME/.local/share/solana/install/active_release/bin" >> $GITHUB_PATH
 
-      - name: Prioritize system Rust
-        run: echo "$HOME/.cargo/bin" >> $GITHUB_PATH
-
       - name: Cache Solana CLI
         uses: actions/cache@v4
         with:
@@ -146,6 +140,9 @@ jobs:
 
       - name: Install Anchor CLI
         run: npm install -g @coral-xyz/anchor-cli@${{ env.ANCHOR_VERSION }}
+
+      - name: Install platform-tools
+        run: cargo-build-sbf --install-only --tools-version v1.52
 
       - name: Cache Cargo
         uses: actions/cache@v4
