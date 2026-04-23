@@ -43,6 +43,7 @@ describe("POST /auth/siws/nonce", () => {
   let app: express.Express;
 
   beforeEach(() => {
+    vi.clearAllMocks();
     app = buildApp();
   });
 
@@ -131,6 +132,7 @@ describe("POST /auth/siws/verify", () => {
   let app: express.Express;
 
   beforeEach(() => {
+    vi.clearAllMocks();
     app = buildApp();
   });
 

@@ -190,15 +190,10 @@ describe("generateReport", () => {
     });
   });
 
-  it("never throws on error (catches internally)", async () => {
-    // generateReport is called fire-and-forget from executor, so any uncaught
-    // error would crash the process. The caller wraps it in .catch(), but the
-    // function itself should also be resilient. We test that calling code can
-    // safely catch any error:
+  it("rejects on Claude API error (executor .catch() handles it)", async () => {
     mockCreate.mockRejectedValue(new Error("Claude API down"));
 
-    // Should reject (the function propagates the error), but the caller's
-    // .catch() in executor will handle it.
+    // generateReport propagates the error — the executor's .catch() handles it
     await expect(
       generateReport("inc-7", "PolicyPda1111111111111111111111111"),
     ).rejects.toThrow("Claude API down");

@@ -218,6 +218,7 @@ describe("buildJudgeUserMessage", () => {
 
 describe("buildJudgeContext", () => {
   beforeEach(() => {
+    vi.clearAllMocks();
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2025-06-15T14:00:00.000Z"));
   });

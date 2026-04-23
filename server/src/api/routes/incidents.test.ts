@@ -37,6 +37,7 @@ describe("GET /api/incidents", () => {
   let app: express.Express;
 
   beforeEach(() => {
+    vi.clearAllMocks();
     app = createTestApp(WALLET, incidentsRouter, "/api/incidents");
   });
 
@@ -115,6 +116,7 @@ describe("GET /api/incidents/:id", () => {
   let app: express.Express;
 
   beforeEach(() => {
+    vi.clearAllMocks();
     app = createTestApp(WALLET, incidentsRouter, "/api/incidents");
   });
 
