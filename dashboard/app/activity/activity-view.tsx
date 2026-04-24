@@ -5,6 +5,7 @@ import { getErrorMessage } from "@/lib/api/client";
 import { usePoliciesQuery } from "@/lib/api/use-policies-query";
 import { useTransactionsQuery } from "@/lib/api/use-transactions-query";
 import { useActivityFiltersStore } from "@/lib/stores/activity-filters";
+import { shortAddress } from "@/lib/utils";
 
 export function ActivityView() {
   const { selectedPolicyPubkey, verdictFilter, setSelectedPolicy, setVerdictFilter } = useActivityFiltersStore();
@@ -33,7 +34,7 @@ export function ActivityView() {
 
   return (
     <AppShell title="Activity" subtitle="Global guarded transactions and AI verdicts.">
-      <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 16 }}>
+      <div className="mb-4 flex flex-wrap gap-2.5">
         <select
           className="input"
           value={selectedPolicyPubkey ?? ""}
@@ -43,7 +44,7 @@ export function ActivityView() {
           <option value="">All policies</option>
           {(policiesQuery.data ?? []).map((policy) => (
             <option key={policy.pubkey} value={policy.pubkey}>
-              {policy.label ?? policy.pubkey}
+              {policy.label ?? shortAddress(policy.pubkey)}
             </option>
           ))}
         </select>
@@ -61,7 +62,7 @@ export function ActivityView() {
       </div>
 
       {transactions.length ? (
-        <div style={{ display: "grid", gap: 12 }}>
+        <div className="grid gap-3">
           {transactions.map((transaction) => (
             <TransactionRow key={transaction.id} transaction={transaction} showAgent />
           ))}
