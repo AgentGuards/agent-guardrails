@@ -150,6 +150,30 @@ export class GuardrailsClient {
       .rpc();
   }
 
+  /** Creates a policy using the connected wallet as owner signer. */
+  async initializePolicyWithWallet(
+    agent: PublicKey,
+    args: InitializePolicyArgs,
+  ): Promise<string> {
+    const owner = this.program.provider.publicKey;
+    if (!owner) {
+      throw new Error("Connected wallet is required.");
+    }
+    const [policyPda] = this.findPolicyPda(owner, agent);
+    const [trackerPda] = this.findTrackerPda(policyPda);
+
+    return await (this.program.methods as any)
+      .initializePolicy(args)
+      .accounts({
+        owner,
+        agent,
+        policy: policyPda,
+        spendTracker: trackerPda,
+        systemProgram: SystemProgram.programId,
+      })
+      .rpc();
+  }
+
   /** Updates configurable fields on an existing policy. Owner-only. */
   async updatePolicy(
     owner: Keypair,
@@ -163,6 +187,25 @@ export class GuardrailsClient {
         policy: policyPda,
       })
       .signers([owner])
+      .rpc();
+  }
+
+  /** Updates policy fields using the connected wallet as owner signer. */
+  async updatePolicyWithWallet(
+    policyPda: PublicKey,
+    args: UpdatePolicyArgs,
+  ): Promise<string> {
+    const owner = this.program.provider.publicKey;
+    if (!owner) {
+      throw new Error("Connected wallet is required.");
+    }
+
+    return await (this.program.methods as any)
+      .updatePolicy(args)
+      .accounts({
+        owner,
+        policy: policyPda,
+      })
       .rpc();
   }
 
@@ -213,6 +256,26 @@ export class GuardrailsClient {
         policy: policyPda,
       })
       .signers([caller])
+      .rpc();
+  }
+
+  /** Pauses an agent using the connected wallet signer. */
+  async pauseAgentWithWallet(
+    policyPda: PublicKey,
+    reason: string | Buffer,
+  ): Promise<string> {
+    const caller = this.program.provider.publicKey;
+    if (!caller) {
+      throw new Error("Connected wallet is required.");
+    }
+    const reasonBuf = typeof reason === "string" ? Buffer.from(reason) : reason;
+
+    return await (this.program.methods as any)
+      .pauseAgent({ reason: reasonBuf })
+      .accounts({
+        caller,
+        policy: policyPda,
+      })
       .rpc();
   }
 
