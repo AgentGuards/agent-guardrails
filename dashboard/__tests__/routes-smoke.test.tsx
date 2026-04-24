@@ -46,6 +46,10 @@ vi.mock("@/components/providers", () => ({
   getProgramId: () => null,
 }));
 
+vi.mock("@/components/report-markdown", () => ({
+  ReportMarkdown: ({ markdown }: { markdown: string }) => createElement("div", undefined, markdown),
+}));
+
 vi.mock("@/components/dashboard-ui", () => ({
   AppShell: ({ title, children }: { title: string; children: ReactNode }) =>
     createElement("section", undefined, createElement("h1", undefined, title), children),
@@ -54,7 +58,6 @@ vi.mock("@/components/dashboard-ui", () => ({
   IncidentTable: ({ incidents }: { incidents: unknown[] }) =>
     createElement("div", undefined, `incidents:${incidents.length}`),
   IncidentTimeline: ({ items }: { items: unknown[] }) => createElement("div", undefined, `timeline:${items.length}`),
-  SimpleMarkdown: ({ markdown }: { markdown: string }) => createElement("div", undefined, markdown),
   SpendGauge: () => createElement("div", undefined, "gauge"),
   Metric: ({ label, value }: { label: string; value: ReactNode }) =>
     createElement("div", undefined, `${label}:${String(value)}`),

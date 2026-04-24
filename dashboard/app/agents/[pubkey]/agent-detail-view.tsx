@@ -44,7 +44,7 @@ export function AgentDetailView({ pubkey }: { pubkey: string }) {
       title={policy.label ?? "Agent Detail"}
       subtitle="Live status, spend view, and recent guarded activity."
     >
-      <div className="grid three">
+      <div className="layout-three">
         <Metric label="Policy" value={shortenedPolicyPubkey} />
         <Metric label="Status" value={policy.isActive ? "Active" : "Paused"} />
         <Metric label="Session expiry" value={new Date(policy.sessionExpiry).toLocaleString()} />

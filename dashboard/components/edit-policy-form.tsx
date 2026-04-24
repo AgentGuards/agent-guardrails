@@ -57,14 +57,14 @@ export function EditPolicyForm({ policyPubkey }: { policyPubkey: string }) {
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saveBanner, setSaveBanner] = useState<string | null>(null);
-  const [toastError, setToastError] = useState<string | null>(null);
+  const [toastError, setToastError] = useState<{ id: number; message: string } | null>(null);
   const initializedDraftForPubkeyRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (!toastError) return;
     const timeout = window.setTimeout(() => setToastError(null), 5000);
     return () => window.clearTimeout(timeout);
-  }, [toastError]);
+  }, [toastError?.id]);
 
   useEffect(() => {
     if (policyQuery.data && initializedDraftForPubkeyRef.current !== policyPubkey) {
@@ -161,7 +161,7 @@ export function EditPolicyForm({ policyPubkey }: { policyPubkey: string }) {
     } catch (e) {
       const message = getErrorMessage(e);
       setSaveError(message);
-      setToastError(message);
+      setToastError({ id: Date.now(), message });
     } finally {
       setSaving(false);
     }
@@ -175,7 +175,7 @@ export function EditPolicyForm({ policyPubkey }: { policyPubkey: string }) {
           aria-live="polite"
           className="fixed right-4 top-4 z-50 max-w-sm rounded-md border border-red-900/60 bg-red-950/95 px-4 py-3 text-sm text-red-200 shadow-lg"
         >
-          {toastError}
+          {toastError.message}
         </div>
       ) : null}
       {saveBanner ? (
