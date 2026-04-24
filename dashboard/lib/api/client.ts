@@ -1,5 +1,7 @@
 import { INCIDENTS, POLICIES, TRANSACTIONS, VERDICTS } from "@/lib/mock";
 import type {
+  ApiErrorPayload,
+  ApiListResponse,
   IncidentDetail,
   IncidentSummary,
   PaginatedResponse,
@@ -10,6 +12,20 @@ import type {
 const API_URL = process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, "");
 const USE_MOCK_API = process.env.NEXT_PUBLIC_USE_MOCK_API === "true" || !API_URL;
 export const apiMode = USE_MOCK_API ? "mock" : "http";
+const DEFAULT_TRANSACTIONS_LIMIT = 50;
+const DEFAULT_INCIDENTS_LIMIT = 25;
+
+function normalizeLimit(limit: number, fallback: number): number {
+  if (!Number.isFinite(limit) || limit <= 0) {
+    return fallback;
+  }
+  return Math.floor(limit);
+}
+
+function toQueryString(params: URLSearchParams): string {
+  const query = params.toString();
+  return query ? `?${query}` : "";
+}
 
 async function getJson<T>(path: string): Promise<T> {
   if (!API_URL) {
@@ -21,8 +37,14 @@ async function getJson<T>(path: string): Promise<T> {
   });
 
   if (!response.ok) {
-    const body = await response.text().catch(() => "");
-    throw new Error(`Request failed (${response.status})${body ? `: ${body}` : ""}`);
+    let errorMessage = "";
+    try {
+      const payload = (await response.json()) as ApiErrorPayload;
+      errorMessage = payload.error ?? payload.message ?? "";
+    } catch {
+      errorMessage = await response.text().catch(() => "");
+    }
+    throw new Error(`Request failed (${response.status})${errorMessage ? `: ${errorMessage}` : ""}`);
   }
 
   return response.json() as Promise<T>;
@@ -65,6 +87,28 @@ function sortIncidents(items: IncidentSummary[]): IncidentSummary[] {
   return [...items].sort(
     (left, right) => new Date(right.pausedAt).getTime() - new Date(left.pausedAt).getTime(),
   );
+}
+
+function normalizePaginatedResponse<T extends { id: string }>(
+  response: ApiListResponse<T>,
+  limit: number,
+): PaginatedResponse<T> {
+  if (Array.isArray(response)) {
+    return paginate(response, undefined, limit);
+  }
+  return response;
+}
+
+function normalizeIncidentDetail(detail: IncidentDetail): IncidentDetail {
+  return {
+    ...detail,
+    judgeVerdict: detail.judgeVerdict
+      ? {
+          ...detail.judgeVerdict,
+          signals: detail.judgeVerdict.signals ?? [],
+        }
+      : null,
+  };
 }
 
 function paginate<T extends { id: string }>(items: T[], before?: string, limit = 50): PaginatedResponse<T> {
@@ -124,44 +168,51 @@ export async function fetchPolicy(pubkey: string): Promise<PolicySummary> {
 export async function fetchTransactions(
   policyPubkey?: string,
   before?: string,
-  limit = 50,
+  limit = DEFAULT_TRANSACTIONS_LIMIT,
 ): Promise<PaginatedResponse<TransactionSummary>> {
+  const safeLimit = normalizeLimit(limit, DEFAULT_TRANSACTIONS_LIMIT);
   if (!USE_MOCK_API) {
     const params = new URLSearchParams();
     if (policyPubkey) params.set("policy", policyPubkey);
     if (before) params.set("before", before);
-    if (limit) params.set("limit", String(limit));
-    return getJson<PaginatedResponse<TransactionSummary>>(`/api/transactions?${params.toString()}`);
+    params.set("limit", String(safeLimit));
+    const response = await getJson<ApiListResponse<TransactionSummary>>(
+      `/api/transactions${toQueryString(params)}`,
+    );
+    return normalizePaginatedResponse(response, safeLimit);
   }
 
   const filtered = sortTransactions(buildTransactions()).filter((transaction) =>
     policyPubkey ? transaction.policyPubkey === policyPubkey : true,
   );
-  return paginate(filtered, before, limit);
+  return paginate(filtered, before, safeLimit);
 }
 
 export async function fetchIncidents(
   policyPubkey?: string,
   before?: string,
-  limit = 25,
+  limit = DEFAULT_INCIDENTS_LIMIT,
 ): Promise<PaginatedResponse<IncidentSummary>> {
+  const safeLimit = normalizeLimit(limit, DEFAULT_INCIDENTS_LIMIT);
   if (!USE_MOCK_API) {
     const params = new URLSearchParams();
     if (policyPubkey) params.set("policy", policyPubkey);
     if (before) params.set("before", before);
-    if (limit) params.set("limit", String(limit));
-    return getJson<PaginatedResponse<IncidentSummary>>(`/api/incidents?${params.toString()}`);
+    params.set("limit", String(safeLimit));
+    const response = await getJson<ApiListResponse<IncidentSummary>>(`/api/incidents${toQueryString(params)}`);
+    return normalizePaginatedResponse(response, safeLimit);
   }
 
   const filtered = sortIncidents(INCIDENTS).filter((incident) =>
     policyPubkey ? incident.policyPubkey === policyPubkey : true,
   );
-  return paginate(filtered, before, limit);
+  return paginate(filtered, before, safeLimit);
 }
 
 export async function fetchIncident(id: string): Promise<IncidentDetail> {
   if (!USE_MOCK_API) {
-    return getJson<IncidentDetail>(`/api/incidents/${id}`);
+    const detail = await getJson<IncidentDetail>(`/api/incidents/${id}`);
+    return normalizeIncidentDetail(detail);
   }
 
   const incident = INCIDENTS.find((item) => item.id === id);
@@ -174,7 +225,7 @@ export async function fetchIncident(id: string): Promise<IncidentDetail> {
     ? VERDICTS.find((item) => item.id === incident.judgeVerdictId) ?? null
     : null;
 
-  return {
+  return normalizeIncidentDetail({
     ...incident,
     policy: {
       pubkey: policy?.pubkey ?? incident.policyPubkey,
@@ -187,5 +238,5 @@ export async function fetchIncident(id: string): Promise<IncidentDetail> {
           signals: [],
         }
       : null,
-  };
+  });
 }

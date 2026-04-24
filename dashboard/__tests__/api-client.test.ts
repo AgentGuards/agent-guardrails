@@ -37,10 +37,19 @@ describe("api client mock data", () => {
     }
   });
 
+  it("falls back to default limits when invalid pagination limits are passed", async () => {
+    const txns = await fetchTransactions(undefined, undefined, 0);
+    expect(txns.items.length).toBeGreaterThan(0);
+
+    const incidents = await fetchIncidents(undefined, undefined, -10);
+    expect(incidents.items.length).toBeGreaterThan(0);
+  });
+
   it("returns incident detail and rejects unknown incident ids", async () => {
     const incident = await fetchIncident(INCIDENTS[0].id);
     expect(incident.id).toBe(INCIDENTS[0].id);
     expect(incident.policy.pubkey).toBe(INCIDENTS[0].policyPubkey);
+    expect(Array.isArray(incident.judgeVerdict?.signals ?? [])).toBe(true);
 
     await expect(fetchIncident("does-not-exist")).rejects.toThrow("Incident not found");
   });
