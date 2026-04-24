@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { PublicKey } from "@solana/web3.js";
@@ -23,10 +23,18 @@ export function KillSwitchButton({ policy }: { policy: PolicySummary }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [banner, setBanner] = useState<string | null>(null);
+  const [toastError, setToastError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!toastError) return;
+    const timeout = window.setTimeout(() => setToastError(null), 5000);
+    return () => window.clearTimeout(timeout);
+  }, [toastError]);
 
   const isOwner = Boolean(publicKey && publicKey.toBase58() === policy.owner);
   const walletReady = Boolean(provider && programId);
-  const visible = policy.isActive && isOwner;
+  const canPause = policy.isActive && isOwner;
+  const visible = isOwner && (policy.isActive || Boolean(banner));
 
   if (!visible) {
     return null;
@@ -60,7 +68,9 @@ export function KillSwitchButton({ policy }: { policy: PolicySummary }) {
       setOpen(false);
       setReason("");
     } catch (e) {
-      setError(getErrorMessage(e));
+      const message = getErrorMessage(e);
+      setError(message);
+      setToastError(message);
     } finally {
       setBusy(false);
     }
@@ -68,23 +78,34 @@ export function KillSwitchButton({ policy }: { policy: PolicySummary }) {
 
   return (
     <div className="mt-4">
+      {toastError ? (
+        <div
+          role="status"
+          aria-live="polite"
+          className="fixed right-4 top-4 z-50 max-w-sm rounded-md border border-red-900/60 bg-red-950/95 px-4 py-3 text-sm text-red-200 shadow-lg"
+        >
+          {toastError}
+        </div>
+      ) : null}
       {banner ? (
         <div className="mb-3 rounded-md border border-emerald-900/50 bg-emerald-950/30 px-3 py-2 text-sm text-emerald-200">
           {banner}
         </div>
       ) : null}
-      <button
-        type="button"
-        className="rounded-md border border-red-800 bg-red-950/40 px-4 py-2 text-sm font-medium text-red-200 hover:bg-red-950/70 disabled:cursor-not-allowed disabled:opacity-50"
-        disabled={!walletReady}
-        title={!walletReady ? "Connect owner wallet" : undefined}
-        onClick={() => {
-          setOpen(true);
-          setError(null);
-        }}
-      >
-        Pause agent (kill switch)
-      </button>
+      {canPause ? (
+        <button
+          type="button"
+          className="rounded-md border border-red-800 bg-red-950/40 px-4 py-2 text-sm font-medium text-red-200 hover:bg-red-950/70 disabled:cursor-not-allowed disabled:opacity-50"
+          disabled={!walletReady}
+          title={!walletReady ? "Connect owner wallet" : undefined}
+          onClick={() => {
+            setOpen(true);
+            setError(null);
+          }}
+        >
+          Pause agent (kill switch)
+        </button>
+      ) : null}
 
       {open ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">

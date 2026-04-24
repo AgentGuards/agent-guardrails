@@ -5,11 +5,19 @@ import type { PolicySummary } from "@/lib/types/dashboard";
 const DEFAULT_PUBKEY = new PublicKey(new Uint8Array(32));
 
 /** Map on-chain account to dashboard PolicySummary (API / mock shape). */
+type PolicySummaryTimestampOverrides = {
+  createdAt?: string;
+  updatedAt?: string;
+};
+
 export function permissionPolicyToSummary(
   policyPubkey: string,
   account: PermissionPolicy,
-  nowIso = new Date().toISOString(),
+  timestamps: PolicySummaryTimestampOverrides = {},
 ): PolicySummary {
+  const nowIso = new Date().toISOString();
+  const createdAt = timestamps.createdAt ?? nowIso;
+  const updatedAt = timestamps.updatedAt ?? nowIso;
   const sessionExpiryUnix = account.sessionExpiry.toNumber();
   const squadsPk = account.squadsMultisig;
 
@@ -30,7 +38,7 @@ export function permissionPolicyToSummary(
       : account.escalationThreshold.toString(),
     anomalyScore: account.anomalyScore,
     label: null,
-    createdAt: nowIso,
-    updatedAt: nowIso,
+    createdAt,
+    updatedAt,
   };
 }

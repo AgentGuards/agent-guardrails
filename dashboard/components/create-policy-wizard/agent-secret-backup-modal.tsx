@@ -4,7 +4,7 @@ import { useState } from "react";
 import type { Keypair } from "@solana/web3.js";
 
 function secretKeyBase64(kp: Keypair): string {
-  return Buffer.from(kp.secretKey).toString("base64");
+  return Buffer.from(JSON.stringify(Array.from(kp.secretKey))).toString("base64");
 }
 
 export function AgentSecretBackupModal({

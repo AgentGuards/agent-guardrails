@@ -26,9 +26,13 @@ export function parseAuthorizedMonitorsFromEnv(): PublicKey[] {
   return keys;
 }
 
+export function solToLamportsBn(sol: number): BN {
+  return new BN(Math.round(sol * LAMPORTS_PER_SOL));
+}
+
 export function buildInitializePolicyArgs(draft: CreatePolicyDraftInput): InitializePolicyArgs {
-  const maxTxLamports = new BN(Math.floor(draft.maxTxSol * LAMPORTS_PER_SOL));
-  const dailyBudgetLamports = new BN(Math.floor(draft.dailyBudgetSol * LAMPORTS_PER_SOL));
+  const maxTxLamports = solToLamportsBn(draft.maxTxSol);
+  const dailyBudgetLamports = solToLamportsBn(draft.dailyBudgetSol);
   const sessionExpiryMs = Date.now() + draft.sessionDays * 86_400_000;
   const sessionExpiry = new BN(Math.floor(sessionExpiryMs / 1000));
 
@@ -38,7 +42,7 @@ export function buildInitializePolicyArgs(draft: CreatePolicyDraftInput): Initia
   let escalationThreshold = new BN(0);
   if (draft.escalationEnabled) {
     squadsMultisig = new PublicKey(draft.squadsMultisig.trim());
-    escalationThreshold = new BN(Math.floor(draft.escalationThresholdSol * LAMPORTS_PER_SOL));
+    escalationThreshold = solToLamportsBn(draft.escalationThresholdSol);
   }
 
   const authorizedMonitors = parseAuthorizedMonitorsFromEnv();

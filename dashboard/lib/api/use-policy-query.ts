@@ -12,10 +12,10 @@ export function usePolicyQuery(pubkey: string) {
     queryFn: async () => {
       try {
         return await fetchPolicy(pubkey);
-      } catch {
+      } catch (error) {
         const cached = queryClient.getQueryData<PolicySummary>(queryKeys.policy(pubkey));
         if (cached) return cached;
-        throw new Error("Policy not found");
+        throw error instanceof Error ? error : new Error("Failed to load policy");
       }
     },
     enabled: Boolean(pubkey),

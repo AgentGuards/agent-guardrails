@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { PublicKey } from "@solana/web3.js";
@@ -25,6 +25,24 @@ function shortenPubkey(pubkey: string): string {
   return `${pubkey.slice(0, 4)}…${pubkey.slice(-4)}`;
 }
 
+async function fetchPolicyWithRetry(
+  client: GuardrailsClient,
+  policyPubkey: PublicKey,
+): Promise<Awaited<ReturnType<GuardrailsClient["fetchPolicy"]>>> {
+  const delaysMs = [0, 250, 500, 1000];
+  let lastResult: Awaited<ReturnType<GuardrailsClient["fetchPolicy"]>> = null;
+
+  for (const delayMs of delaysMs) {
+    if (delayMs > 0) {
+      await new Promise((resolve) => setTimeout(resolve, delayMs));
+    }
+    lastResult = await client.fetchPolicy(policyPubkey);
+    if (lastResult) return lastResult;
+  }
+
+  return lastResult;
+}
+
 export function EditPolicyForm({ policyPubkey }: { policyPubkey: string }) {
   const { publicKey } = useWallet();
   const provider = useAnchorProvider();
@@ -39,24 +57,30 @@ export function EditPolicyForm({ policyPubkey }: { policyPubkey: string }) {
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saveBanner, setSaveBanner] = useState<string | null>(null);
+  const initializedDraftForPubkeyRef = useRef<string | null>(null);
 
   useEffect(() => {
-    if (policyQuery.data) {
+    if (policyQuery.data && initializedDraftForPubkeyRef.current !== policyPubkey) {
       setDraft(policySummaryToDraft(policyQuery.data));
+      initializedDraftForPubkeyRef.current = policyPubkey;
     }
-  }, [policyQuery.data]);
+  }, [policyPubkey, policyQuery.data]);
 
   const policy = policyQuery.data;
   const isOwner = Boolean(publicKey && policy && publicKey.toBase58() === policy.owner);
   const walletReady = Boolean(publicKey && provider && programId);
 
   if (policyQuery.isLoading) {
-    return <div className="empty">Loading policy…</div>;
+    return (
+      <div className="rounded-md border border-zinc-800 bg-zinc-900/40 px-3 py-2 text-sm text-zinc-400">
+        Loading policy…
+      </div>
+    );
   }
 
   if (policyQuery.isError || !policy) {
     return (
-      <div className="empty">
+      <div className="rounded-md border border-red-900/50 bg-red-950/30 px-3 py-2 text-sm text-red-300">
         Unable to load policy:{" "}
         {policyQuery.error ? getErrorMessage(policyQuery.error) : "Unknown error"}
       </div>
@@ -64,7 +88,11 @@ export function EditPolicyForm({ policyPubkey }: { policyPubkey: string }) {
   }
 
   if (!draft) {
-    return <div className="empty">Preparing form…</div>;
+    return (
+      <div className="rounded-md border border-zinc-800 bg-zinc-900/40 px-3 py-2 text-sm text-zinc-400">
+        Preparing form…
+      </div>
+    );
   }
 
   const updateDraft = (partial: Partial<CreatePolicyDraftInput>) => {
@@ -101,10 +129,13 @@ export function EditPolicyForm({ policyPubkey }: { policyPubkey: string }) {
     const client = new GuardrailsClient(provider, programId);
     setSaving(true);
     try {
-      await client.updatePolicy(new PublicKey(policyPubkey), args);
-      const chain = await client.fetchPolicy(new PublicKey(policyPubkey));
+      const policyKey = new PublicKey(policyPubkey);
+      await client.updatePolicy(policyKey, args);
+      const chain = await fetchPolicyWithRetry(client, policyKey);
       if (!chain) throw new Error("Could not read policy after update.");
-      const summary = permissionPolicyToSummary(policyPubkey, chain);
+      const summary = permissionPolicyToSummary(policyPubkey, chain, {
+        createdAt: policy.createdAt,
+      });
 
       queryClient.setQueryData(queryKeys.policy(policyPubkey), summary);
       queryClient.setQueryData(queryKeys.policies(), (old: PolicySummary[] | undefined) => {

@@ -19,6 +19,8 @@ import {
   type GuardedExecuteArgs,
 } from "./types";
 
+const PAUSE_REASON_MAX_BYTES = 64;
+
 // ---------------------------------------------------------------------------
 // Resolve program ID from env vars (server: GUARDRAILS_PROGRAM_ID,
 // dashboard: NEXT_PUBLIC_GUARDRAILS_PROGRAM_ID) or require explicit param.
@@ -212,6 +214,9 @@ export class GuardrailsClient {
   ): Promise<string> {
     const caller = this.walletPublicKey();
     const reasonBuf = typeof reason === "string" ? Buffer.from(reason) : reason;
+    if (reasonBuf.byteLength > PAUSE_REASON_MAX_BYTES) {
+      throw new Error(`Pause reason exceeds ${PAUSE_REASON_MAX_BYTES} bytes`);
+    }
 
     return await (this.program.methods as any)
       .pauseAgent({ reason: reasonBuf })

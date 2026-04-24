@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { useWallet } from "@solana/wallet-adapter-react";
@@ -20,6 +20,18 @@ import { useCreatePolicyWizardStore, WIZARD_STEP_LABELS } from "@/lib/stores/cre
 import { getProgramId, useAnchorProvider } from "@/components/providers";
 import type { PolicySummary } from "@/lib/types/dashboard";
 
+const POLICY_READ_RETRIES = 5;
+const POLICY_READ_BASE_DELAY_MS = 250;
+
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function isIdempotentCreateError(error: unknown) {
+  const msg = getErrorMessage(error).toLowerCase();
+  return msg.includes("already in use") || msg.includes("already initialized");
+}
+
 export function CreatePolicyWizard() {
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -36,6 +48,18 @@ export function CreatePolicyWizard() {
   const [agentKeypair, setAgentKeypair] = useState<Keypair | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [toastError, setToastError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!toastError) return;
+    const timeout = window.setTimeout(() => setToastError(null), 5000);
+    return () => window.clearTimeout(timeout);
+  }, [toastError]);
+
+  const publishError = useCallback((message: string) => {
+    setSubmitError(message);
+    setToastError(message);
+  }, []);
 
   const runCreate = useCallback(
     async (agent: Keypair) => {
@@ -51,12 +75,22 @@ export function CreatePolicyWizard() {
       setSubmitting(true);
       setSubmitError(null);
       try {
-        await client.initializePolicy(agent.publicKey, args);
         const [policyPda] = client.findPolicyPda(publicKey, agent.publicKey);
         const pdaStr = policyPda.toBase58();
-        const chain = await client.fetchPolicy(policyPda);
+        try {
+          await client.initializePolicy(agent.publicKey, args);
+        } catch (e) {
+          // If account creation already landed, treat this as success and continue.
+          if (!isIdempotentCreateError(e)) throw e;
+        }
+
+        let chain = await client.fetchPolicy(policyPda);
+        for (let attempt = 0; !chain && attempt < POLICY_READ_RETRIES; attempt += 1) {
+          await sleep(POLICY_READ_BASE_DELAY_MS * (attempt + 1));
+          chain = await client.fetchPolicy(policyPda);
+        }
         if (!chain) {
-          throw new Error("Policy account not found immediately after creation.");
+          throw new Error("Policy account was not readable after creation. Please try again.");
         }
         const summary = permissionPolicyToSummary(pdaStr, chain);
 
@@ -73,12 +107,12 @@ export function CreatePolicyWizard() {
         resetWizard();
         router.push(`/agents/${pdaStr}`);
       } catch (e) {
-        setSubmitError(getErrorMessage(e));
+        publishError(getErrorMessage(e));
       } finally {
         setSubmitting(false);
       }
     },
-    [provider, publicKey, programId, queryClient, resetWizard, router],
+    [programId, provider, publicKey, publishError, queryClient, resetWizard, router],
   );
 
   const onCreateClick = () => {
@@ -91,11 +125,11 @@ export function CreatePolicyWizard() {
       return;
     }
     if (!publicKey) {
-      setSubmitError("Connect your wallet to create a policy.");
+      publishError("Connect your wallet to create a policy.");
       return;
     }
     if (!provider || !programId) {
-      setSubmitError("Wallet not ready or NEXT_PUBLIC_GUARDRAILS_PROGRAM_ID is missing.");
+      publishError("Wallet not ready or NEXT_PUBLIC_GUARDRAILS_PROGRAM_ID is missing.");
       return;
     }
     if (!agentKeypair) {
@@ -117,6 +151,15 @@ export function CreatePolicyWizard() {
 
   return (
     <div className="flex flex-col gap-6">
+      {toastError ? (
+        <div
+          role="status"
+          aria-live="polite"
+          className="fixed right-4 top-4 z-50 max-w-sm rounded-md border border-red-900/60 bg-red-950/95 px-4 py-3 text-sm text-red-200 shadow-lg"
+        >
+          {toastError}
+        </div>
+      ) : null}
       {agentKeypair ? (
         <AgentSecretBackupModal
           agentKeypair={agentKeypair}
