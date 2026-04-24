@@ -178,9 +178,9 @@ export function CreatePolicyWizard() {
               key={label}
               className={`rounded-md border px-3 py-1.5 text-sm ${
                 active
-                  ? "border-emerald-600 bg-emerald-950/30 text-emerald-200"
+                  ? "border-blue-600 bg-blue-950/40 text-blue-200"
                   : done
-                    ? "border-zinc-700 text-zinc-400"
+                    ? "border-blue-900/60 text-blue-200/80"
                     : "border-zinc-800 text-zinc-500"
               }`}
             >
@@ -196,7 +196,7 @@ export function CreatePolicyWizard() {
         </div>
       ) : null}
 
-      <div className="rounded-xl border border-zinc-800 bg-zinc-900/40 p-5">
+      <div className="rounded-xl border border-blue-900/40 bg-zinc-900/50 p-5 shadow-[0_20px_50px_-36px_rgba(59,130,246,0.65)]">
         <WizardStepPanels />
       </div>
 
@@ -212,7 +212,7 @@ export function CreatePolicyWizard() {
           {currentStep > 0 ? (
             <button
               type="button"
-              className="rounded-md border border-zinc-600 px-4 py-2 text-sm text-zinc-200 hover:bg-zinc-800"
+              className="button button-secondary"
               onClick={() => goBack()}
             >
               Back
@@ -221,7 +221,7 @@ export function CreatePolicyWizard() {
           {currentStep < 3 ? (
             <button
               type="button"
-              className="rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-500"
+              className="button button-primary"
               onClick={() => goNext()}
             >
               Next
@@ -230,7 +230,7 @@ export function CreatePolicyWizard() {
             <button
               type="button"
               disabled={!walletReady || submitting}
-              className="rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-50"
+              className="button button-primary disabled:cursor-not-allowed disabled:opacity-50"
               onClick={onCreateClick}
             >
               {submitting ? "Creating…" : "Create policy"}

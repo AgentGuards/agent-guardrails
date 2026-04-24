@@ -10,25 +10,15 @@
 
   body {
     @apply bg-zinc-950 text-zinc-100 antialiased;
+    background-image:
+      radial-gradient(circle at 10% -10%, rgba(59, 130, 246, 0.18), transparent 45%),
+      radial-gradient(circle at 100% 0%, rgba(14, 165, 233, 0.12), transparent 35%);
   }
 }
 
 @layer components {
-  /* --- App shell (simple pages: app-shell.tsx) --- */
-  .shell {
-    @apply mx-auto min-h-screen w-full max-w-7xl px-4 py-4 sm:px-6 sm:py-6;
-  }
-
   .topbar {
-    @apply mb-6 flex flex-wrap items-center justify-between gap-3 border-b border-zinc-800 pb-4;
-  }
-
-  .title {
-    @apply text-2xl font-semibold tracking-tight text-zinc-50;
-  }
-
-  .subtitle {
-    @apply text-sm text-zinc-400;
+    @apply mb-6 flex flex-wrap items-center justify-between gap-3 border-b border-zinc-800/70 pb-3;
   }
 
   .nav {
@@ -36,11 +26,19 @@
   }
 
   .nav-link {
-    @apply rounded-md border border-zinc-800 px-3 py-1.5 text-sm text-zinc-300 transition-colors hover:bg-zinc-900 hover:text-zinc-100;
+    @apply rounded-md border border-transparent px-3 py-1.5 text-sm text-zinc-400 transition-all duration-200 hover:border-blue-900/70 hover:bg-blue-950/35 hover:text-zinc-100;
   }
 
   .card {
-    @apply rounded-xl border border-zinc-800 bg-zinc-900/40 p-5;
+    @apply rounded-xl border border-blue-950/60 bg-zinc-900/50 p-5 shadow-[0_14px_40px_-26px_rgba(37,99,235,0.55)];
+  }
+
+  .card-interactive {
+    @apply transition-all duration-200;
+  }
+
+  .card-interactive:hover {
+    @apply -translate-y-[1px] border-blue-800/70 bg-zinc-900/70 shadow-[0_18px_48px_-24px_rgba(59,130,246,0.5)];
   }
 
   .empty {
@@ -57,7 +55,7 @@
   }
 
   .sidebar {
-    @apply fixed left-0 top-0 z-40 flex h-full w-[min(18rem,88vw)] -translate-x-full flex-col gap-4 border-r border-zinc-800 bg-zinc-950/95 p-4 shadow-xl backdrop-blur-sm transition-transform duration-200 ease-out md:static md:z-0 md:h-auto md:w-56 md:shrink-0 md:translate-x-0 md:border-r-0 md:bg-transparent md:p-0 md:shadow-none md:backdrop-blur-none;
+    @apply fixed left-0 top-0 z-40 flex h-full w-[min(15rem,84vw)] -translate-x-full flex-col gap-4 border-r border-blue-900/30 bg-[#060a14]/95 p-3 shadow-xl backdrop-blur-sm transition-transform duration-200 ease-out md:static md:z-0 md:h-auto md:w-44 md:shrink-0 md:translate-x-0 md:rounded-none md:border-r md:border-blue-900/30 md:border-l-0 md:border-t-0 md:border-b-0 md:bg-transparent md:p-3 md:shadow-none md:backdrop-blur-none;
   }
 
   .sidebar.is-open {
@@ -69,7 +67,7 @@
   }
 
   .main > .topbar {
-    @apply mb-6 flex flex-wrap items-start justify-between gap-3 border-b border-zinc-800 pb-4;
+    @apply mb-6 flex flex-wrap items-start justify-between gap-3 border-b border-blue-900/30 pb-4;
   }
 
   .page-title {
@@ -85,31 +83,55 @@
   }
 
   .brand {
-    @apply flex items-center gap-3;
+    @apply flex items-center gap-2;
   }
 
   .brand-mark {
-    @apply flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-600 text-lg font-bold text-white;
+    @apply flex h-7 w-7 items-center justify-center rounded-md bg-gradient-to-br from-blue-500 to-cyan-500 text-xs font-bold text-white shadow-[0_8px_18px_-8px_rgba(56,189,248,0.8)];
   }
 
   .brand-copy {
-    @apply flex flex-col text-sm leading-tight;
+    @apply flex flex-col text-xs leading-tight;
   }
 
   .brand-copy strong {
-    @apply text-zinc-100;
+    @apply text-zinc-100 text-sm;
   }
 
   .brand-copy span {
-    @apply text-xs text-zinc-500;
+    @apply text-xs text-blue-200/50;
   }
 
   .sidebar .nav {
-    @apply mb-0 flex flex-col gap-1;
+    @apply mb-0 flex flex-col gap-0.5;
   }
 
   .sidebar .nav-link.active {
-    @apply border-emerald-800 bg-emerald-950/50 text-emerald-200;
+    @apply border-blue-700/70 bg-blue-950/50 text-blue-200;
+  }
+
+  .nav-heading {
+    @apply mb-1 mt-2 px-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-zinc-500;
+  }
+
+  .sidebar-wallet {
+    @apply mt-auto flex items-center gap-2 rounded-lg border border-zinc-800/80 bg-zinc-900/40 p-2;
+  }
+
+  .sidebar-wallet-dot {
+    @apply h-3 w-3 rounded-full bg-cyan-400 shadow-[0_0_12px_rgba(34,211,238,0.85)];
+  }
+
+  .sidebar-wallet-copy {
+    @apply flex min-w-0 flex-col;
+  }
+
+  .sidebar-wallet-copy span {
+    @apply text-[10px] text-zinc-500;
+  }
+
+  .sidebar-wallet-copy strong {
+    @apply truncate text-xs text-zinc-300;
   }
 
   .button {
@@ -117,15 +139,27 @@
   }
 
   .button-secondary {
-    @apply border border-zinc-600 text-zinc-200 hover:bg-zinc-800;
+    @apply border border-blue-800/50 bg-zinc-900/50 text-zinc-200 hover:bg-blue-950/35 hover:text-blue-100;
   }
 
   .button-primary {
-    @apply bg-emerald-600 text-white hover:bg-emerald-500;
+    @apply bg-blue-600 text-white shadow-[0_10px_24px_-12px_rgba(59,130,246,0.8)] hover:bg-blue-500;
   }
 
   .wallet-strip {
     @apply min-w-0;
+  }
+
+  .status-pill {
+    @apply inline-flex items-center gap-1.5 rounded-full border border-zinc-800/90 bg-zinc-900/70 px-3 py-1 text-xs text-zinc-300;
+  }
+
+  .status-dot {
+    @apply h-1.5 w-1.5 rounded-full bg-emerald-400 shadow-[0_0_10px_rgba(74,222,128,0.9)];
+  }
+
+  .wallet-pill {
+    @apply inline-flex items-center rounded-full border border-zinc-800/90 bg-zinc-900/70 px-3 py-1 text-xs text-zinc-300;
   }
 
   .spread {
@@ -162,7 +196,7 @@
   }
 
   .row-card {
-    @apply rounded-xl border border-zinc-800 bg-zinc-900/40 p-4;
+    @apply rounded-xl border border-zinc-800/80 bg-zinc-900/45 p-4;
   }
 
   .row-main {
@@ -198,15 +232,19 @@
   }
 
   .table th {
-    @apply border-b border-zinc-700 px-3 py-2 font-medium text-zinc-400;
+    @apply border-b border-zinc-700/80 px-3 py-2 text-[11px] font-medium uppercase tracking-[0.12em] text-zinc-500;
   }
 
   .table td {
-    @apply border-b border-zinc-800 px-3 py-3 text-zinc-300;
+    @apply border-b border-zinc-800/85 px-3 py-3 text-zinc-300;
+  }
+
+  .table tbody tr {
+    @apply transition-colors duration-150 hover:bg-[rgba(23,37,84,0.28)];
   }
 
   .timeline {
-    @apply flex flex-col gap-4 border-l border-zinc-800 pl-4;
+    @apply flex flex-col gap-4 border-l border-blue-900/40 pl-4;
   }
 
   .timeline-item {
@@ -248,5 +286,40 @@
 
   .markdown pre {
     @apply mb-2 overflow-x-auto rounded-md bg-zinc-950 p-2 text-xs text-zinc-400;
+  }
+
+  .state-panel {
+    @apply rounded-xl border border-zinc-800/80 bg-zinc-900/35 backdrop-blur-[1px];
+  }
+
+  .input {
+    @apply rounded-md border border-zinc-800 bg-zinc-950/80 px-3 py-2 text-sm text-zinc-200 outline-none transition-colors focus:border-blue-700/70 focus:bg-zinc-950;
+  }
+
+  .loading-shimmer {
+    background-image: linear-gradient(110deg, rgba(39, 39, 42, 0.58) 8%, rgba(59, 130, 246, 0.17) 18%, rgba(39, 39, 42, 0.58) 33%);
+    background-size: 220% 100%;
+    animation: shimmer 1.3s linear infinite;
+  }
+
+  .content-enter {
+    animation: fade-in-up 220ms ease-out;
+  }
+}
+
+@keyframes shimmer {
+  to {
+    background-position-x: -220%;
+  }
+}
+
+@keyframes fade-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
   }
 }

@@ -32,13 +32,16 @@ export function AppShell({
 }) {
   const pathname = usePathname();
   const { sidebarOpen, toggleSidebar, setSidebarOpen } = useLayoutStore();
-  const links = [
-    { href: "/", label: "Overview" },
+  const monitorLinks = [
     { href: "/agents", label: "Agents" },
     { href: "/activity", label: "Activity" },
     { href: "/incidents", label: "Incidents" },
-    { href: "/signin", label: "Sign In" },
   ];
+  const setupLinks = [
+    { href: "/agents/new", label: "New agent" },
+    { href: "/signin", label: "Sign in" },
+  ];
+  const isLinkActive = (href: string) => (href === "/" ? pathname === "/" : pathname === href || pathname.startsWith(`${href}/`));
 
   return (
     <div className="shell-dash">
@@ -55,21 +58,42 @@ export function AppShell({
           <div className="brand-mark">G</div>
           <div className="brand-copy">
             <strong>Guardrails</strong>
-            <span>Agent oversight dashboard</span>
+            <span>Solana - devnet</span>
           </div>
         </div>
         <nav className="nav">
-          {links.map((link) => (
+          <div className="nav-heading">Monitor</div>
+          {monitorLinks.map((link) => (
             <Link
               key={link.href}
               href={link.href}
-              className={`nav-link ${pathname === link.href ? "active" : ""}`}
+              className={`nav-link ${isLinkActive(link.href) ? "active" : ""}`}
+              aria-current={isLinkActive(link.href) ? "page" : undefined}
+              onClick={() => setSidebarOpen(false)}
+            >
+              {link.label}
+            </Link>
+          ))}
+          <div className="nav-heading mt-4">Setup</div>
+          {setupLinks.map((link) => (
+            <Link
+              key={link.href}
+              href={link.href}
+              className={`nav-link ${isLinkActive(link.href) ? "active" : ""}`}
+              aria-current={isLinkActive(link.href) ? "page" : undefined}
               onClick={() => setSidebarOpen(false)}
             >
               {link.label}
             </Link>
           ))}
         </nav>
+        <div className="sidebar-wallet">
+          <div className="sidebar-wallet-dot" />
+          <div className="sidebar-wallet-copy">
+            <span>Connected wallet</span>
+            <strong>7xKX...gAsU</strong>
+          </div>
+        </div>
       </aside>
       <main className="main">
         <header className="topbar">
@@ -89,7 +113,7 @@ export function AppShell({
             <WalletControls />
           </div>
         </header>
-        {children}
+        <div className="content-enter">{children}</div>
       </main>
     </div>
   );
@@ -101,8 +125,12 @@ export function StatusChip({ tone, children }: { tone: "green" | "amber" | "red"
 
 export function PolicyCard({ policy }: { policy: PolicySummary }) {
   const tone = statusTone(policy);
+  const spent = lamportsToSol(policy.dailySpentLamports ?? "0");
+  const budget = lamportsToSol(policy.dailyBudgetLamports);
+  const spendPct = budget > 0 ? Math.min((spent / budget) * 100, 100) : 0;
+  const progressTone = spendPct >= 90 ? "bg-red-500" : spendPct >= 66 ? "bg-amber-400" : "bg-emerald-400";
   return (
-    <Link href={`/agents/${policy.pubkey}`} className="card">
+    <Link href={`/agents/${policy.pubkey}`} className="card card-interactive">
       <div className="spread">
         <div>
           <div className="card-title">Agent</div>
@@ -112,10 +140,18 @@ export function PolicyCard({ policy }: { policy: PolicySummary }) {
           {!policy.isActive ? "Paused" : new Date(policy.sessionExpiry).getTime() < Date.now() ? "Expired" : "Active"}
         </StatusChip>
       </div>
+      <div className="mt-4 text-xs text-zinc-500">Daily spend</div>
+      <div className="mt-1 flex items-center justify-between text-sm text-zinc-300">
+        <span>{spent.toFixed(2)}</span>
+        <span>/ {budget.toFixed(0)} SOL</span>
+      </div>
+      <div className="mt-2 h-1.5 rounded-full bg-zinc-800">
+        <div className={`h-full rounded-full ${progressTone}`} style={{ width: `${spendPct}%` }} />
+      </div>
       <div className="layout-three mt-4">
-        <Metric label="Daily budget" value={`${lamportsToSol(policy.dailyBudgetLamports)} SOL`} />
-        <Metric label="Per tx cap" value={`${lamportsToSol(policy.maxTxLamports)} SOL`} />
         <Metric label="Session" value={formatRelativeTime(policy.sessionExpiry)} />
+        <Metric label="Per tx cap" value={`${lamportsToSol(policy.maxTxLamports)} SOL`} />
+        <Metric label="Daily budget" value={`${budget.toFixed(0)} SOL`} />
       </div>
       <div className="muted" style={{ marginTop: 16 }}>
         Programs: {policy.allowedPrograms.slice(0, 3).map(programLabel).join(", ")}
@@ -194,7 +230,7 @@ export function TransactionRow({
   const verdict = effectiveVerdict(transaction.verdict?.verdict);
   const tone = verdictTone(verdict);
   return (
-    <div className="row-card">
+    <div className="row-card card-interactive">
       <div className="row-main">
         <div>
           <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
