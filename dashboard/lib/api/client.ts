@@ -1,7 +1,6 @@
 import { INCIDENTS, POLICIES, TRANSACTIONS, VERDICTS } from "@/lib/mock";
 import type {
   ApiErrorPayload,
-  ApiListResponse,
   IncidentDetail,
   IncidentSummary,
   PaginatedResponse,
@@ -15,15 +14,26 @@ export const apiMode = USE_MOCK_API ? "mock" : "http";
 const DEFAULT_TRANSACTIONS_LIMIT = 50;
 const DEFAULT_INCIDENTS_LIMIT = 25;
 const DEFAULT_ERROR_MESSAGE = "Something went wrong while contacting the API.";
+const NETWORK_ERROR_MESSAGE = "Unable to reach the API server. Check NEXT_PUBLIC_API_URL and ensure the server is running.";
 
 export function buildApiRequestInit(init?: RequestInit): RequestInit {
+  const { headers: initHeaders, credentials: _ignored, ...rest } = init ?? {};
+  const headers = new Headers({ Accept: "application/json" });
+  if (initHeaders instanceof Headers) {
+    initHeaders.forEach((value, key) => headers.set(key, value));
+  } else if (Array.isArray(initHeaders)) {
+    for (const [key, value] of initHeaders) {
+      headers.set(key, value);
+    }
+  } else if (initHeaders && typeof initHeaders === "object") {
+    for (const [key, value] of Object.entries(initHeaders)) {
+      if (value !== undefined) headers.set(key, String(value));
+    }
+  }
   return {
+    ...rest,
     credentials: "include",
-    headers: {
-      Accept: "application/json",
-      ...(init?.headers ?? {}),
-    },
-    ...init,
+    headers,
   };
 }
 
@@ -40,27 +50,61 @@ function toQueryString(params: URLSearchParams): string {
   return query ? `?${query}` : "";
 }
 
+async function throwIfNotOk(response: Response): Promise<never> {
+  const raw = await response.text().catch(() => "");
+  let payload: ApiErrorPayload | null = null;
+  let errorMessage = "";
+  try {
+    payload = JSON.parse(raw) as ApiErrorPayload;
+    errorMessage =
+      (typeof payload?.error === "string" && payload.error) ||
+      (typeof payload?.message === "string" && payload.message) ||
+      "";
+  } catch {
+    errorMessage = raw;
+  }
+  throw new ApiClientError(response.status, errorMessage || DEFAULT_ERROR_MESSAGE, payload);
+}
+
+async function safeFetch(input: string, init: RequestInit): Promise<Response> {
+  try {
+    return await fetch(input, init);
+  } catch (error) {
+    // Normalize browser network failures to a stable app-level error message.
+    throw new ApiClientError(0, NETWORK_ERROR_MESSAGE, null, error);
+  }
+}
+
 async function getJson<T>(path: string): Promise<T> {
   if (!API_URL) {
     throw new Error("NEXT_PUBLIC_API_URL is not configured");
   }
 
-  const response = await fetch(`${API_URL}${path}`, buildApiRequestInit());
+  const response = await safeFetch(`${API_URL}${path}`, buildApiRequestInit());
 
   if (!response.ok) {
-    const raw = await response.text().catch(() => "");
-    let payload: ApiErrorPayload | null = null;
-    let errorMessage = "";
-    try {
-      payload = JSON.parse(raw) as ApiErrorPayload;
-      errorMessage =
-        (typeof payload?.error === "string" && payload.error) ||
-        (typeof payload?.message === "string" && payload.message) ||
-        "";
-    } catch {
-      errorMessage = raw;
-    }
-    throw new ApiClientError(response.status, errorMessage || DEFAULT_ERROR_MESSAGE, payload);
+    await throwIfNotOk(response);
+  }
+
+  return response.json() as Promise<T>;
+}
+
+async function postJson<T>(path: string, body: unknown): Promise<T> {
+  if (!API_URL) {
+    throw new Error("NEXT_PUBLIC_API_URL is not configured");
+  }
+
+  const response = await safeFetch(
+    `${API_URL}${path}`,
+    buildApiRequestInit({
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    }),
+  );
+
+  if (!response.ok) {
+    await throwIfNotOk(response);
   }
 
   return response.json() as Promise<T>;
@@ -69,12 +113,14 @@ async function getJson<T>(path: string): Promise<T> {
 export class ApiClientError extends Error {
   status: number;
   payload: ApiErrorPayload | null;
+  cause?: unknown;
 
-  constructor(status: number, message: string, payload: ApiErrorPayload | null = null) {
+  constructor(status: number, message: string, payload: ApiErrorPayload | null = null, cause?: unknown) {
     super(message);
     this.name = "ApiClientError";
     this.status = status;
     this.payload = payload;
+    this.cause = cause;
   }
 }
 
@@ -86,6 +132,163 @@ export function getErrorMessage(error: unknown, fallback = DEFAULT_ERROR_MESSAGE
     return error.message || fallback;
   }
   return fallback;
+}
+
+export function isUnauthorizedError(error: unknown): boolean {
+  return error instanceof ApiClientError && error.status === 401;
+}
+
+function isNetworkApiError(error: unknown): boolean {
+  return error instanceof ApiClientError && error.status === 0;
+}
+
+function toIsoString(value: unknown): string {
+  if (typeof value === "string") return value;
+  if (value instanceof Date) return value.toISOString();
+  return new Date(String(value)).toISOString();
+}
+
+function parseTxnStatus(s: string): TransactionSummary["status"] {
+  if (s === "executed" || s === "rejected" || s === "escalated") return s;
+  return "executed";
+}
+
+function parseVerdictKind(s: string): VerdictSummary["verdict"] {
+  if (s === "allow" || s === "flag" || s === "pause") return s;
+  return "flag";
+}
+
+function parseOffsetCursor(before: string | undefined): number {
+  if (before == null || before === "") return 0;
+  const n = Number.parseInt(before, 10);
+  return Number.isNaN(n) || n < 0 ? 0 : n;
+}
+
+interface ApiPolicyRow {
+  pubkey: string;
+  owner: string;
+  agent: string;
+  allowedPrograms: string[];
+  maxTxLamports: string;
+  dailyBudgetLamports: string;
+  dailySpentLamports?: string;
+  sessionExpiry: string;
+  isActive: boolean;
+  squadsMultisig: string | null;
+  escalationThreshold: string | null;
+  anomalyScore: number;
+  label: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+interface ApiVerdictRow {
+  id: string;
+  txnId: string;
+  policyPubkey: string;
+  verdict: string;
+  confidence: number;
+  reasoning: string;
+  model: string;
+  latencyMs: number | null;
+  prefilterSkipped: boolean;
+  promptTokens: number | null;
+  completionTokens: number | null;
+  createdAt: string;
+}
+
+interface ApiGuardedTxnRow {
+  id: string;
+  policyPubkey: string;
+  txnSig: string;
+  slot: string;
+  blockTime: string;
+  targetProgram: string;
+  amountLamports: string | null;
+  status: string;
+  rejectReason: string | null;
+  rawEvent: unknown;
+  createdAt: string;
+  verdict: ApiVerdictRow | null;
+}
+
+interface ApiIncidentRow {
+  id: string;
+  policyPubkey: string;
+  pausedAt: string;
+  pausedBy: string;
+  reason: string;
+  triggeringTxnSig: string | null;
+  judgeVerdictId: string | null;
+  fullReport: string | null;
+  resolvedAt: string | null;
+  resolution: string | null;
+  createdAt: string;
+  judgeVerdict: ApiVerdictRow | null;
+}
+
+function mapApiVerdictRow(row: ApiVerdictRow): VerdictSummary {
+  return {
+    id: row.id,
+    txnId: row.txnId,
+    policyPubkey: row.policyPubkey,
+    verdict: parseVerdictKind(row.verdict),
+    confidence: row.confidence,
+    reasoning: row.reasoning,
+    model: row.model,
+    latencyMs: row.latencyMs,
+    prefilterSkipped: row.prefilterSkipped,
+    promptTokens: row.promptTokens,
+    completionTokens: row.completionTokens,
+    createdAt: toIsoString(row.createdAt),
+    signals: [],
+  };
+}
+
+function mapApiPolicyRow(row: ApiPolicyRow): PolicySummary {
+  return {
+    ...row,
+    sessionExpiry: toIsoString(row.sessionExpiry),
+    createdAt: toIsoString(row.createdAt),
+    updatedAt: toIsoString(row.updatedAt),
+  };
+}
+
+function mapApiTxnRow(row: ApiGuardedTxnRow): TransactionSummary {
+  const raw =
+    row.rawEvent && typeof row.rawEvent === "object" && !Array.isArray(row.rawEvent)
+      ? (row.rawEvent as Record<string, unknown>)
+      : {};
+  return {
+    id: row.id,
+    policyPubkey: row.policyPubkey,
+    txnSig: row.txnSig,
+    slot: String(row.slot),
+    blockTime: toIsoString(row.blockTime),
+    targetProgram: row.targetProgram,
+    amountLamports: row.amountLamports,
+    status: parseTxnStatus(row.status),
+    rejectReason: row.rejectReason,
+    rawEvent: raw,
+    createdAt: toIsoString(row.createdAt),
+    verdict: row.verdict ? mapApiVerdictRow(row.verdict) : null,
+  };
+}
+
+function mapApiIncidentRow(row: ApiIncidentRow): IncidentSummary {
+  return {
+    id: row.id,
+    policyPubkey: row.policyPubkey,
+    pausedAt: toIsoString(row.pausedAt),
+    pausedBy: row.pausedBy,
+    reason: row.reason,
+    triggeringTxnSig: row.triggeringTxnSig,
+    judgeVerdictId: row.judgeVerdictId,
+    fullReport: row.fullReport,
+    resolvedAt: row.resolvedAt == null ? null : toIsoString(row.resolvedAt),
+    resolution: row.resolution,
+    createdAt: toIsoString(row.createdAt),
+  };
 }
 
 function buildVerdictMap(): Map<string, VerdictSummary> {
@@ -127,17 +330,6 @@ function sortIncidents(items: IncidentSummary[]): IncidentSummary[] {
   );
 }
 
-function normalizePaginatedResponse<T extends { id: string }>(
-  response: ApiListResponse<T>,
-  before: string | undefined,
-  limit: number,
-): PaginatedResponse<T> {
-  if (Array.isArray(response)) {
-    return paginate(response, before, limit);
-  }
-  return response;
-}
-
 function normalizeIncidentDetail(detail: IncidentDetail): IncidentDetail {
   return {
     ...detail,
@@ -160,14 +352,18 @@ function paginate<T extends { id: string }>(items: T[], before?: string, limit =
   };
 }
 
-export async function requestSiwsNonce(walletPubkey: string): Promise<{ nonce: string; message: string }> {
+export async function requestSiwsNonce(pubkey: string): Promise<{ nonce: string; message: string }> {
+  if (!USE_MOCK_API) {
+    return postJson<{ nonce: string; message: string }>("/api/auth/siws/nonce", { pubkey });
+  }
+
   const nonce = "mock-dashboard-nonce";
   return {
     nonce,
     message: [
       "Agent Guardrails Dashboard",
       "",
-      `Wallet: ${walletPubkey}`,
+      `Wallet: ${pubkey}`,
       `Nonce: ${nonce}`,
       "Sign this message to verify wallet ownership.",
     ].join("\n"),
@@ -175,26 +371,43 @@ export async function requestSiwsNonce(walletPubkey: string): Promise<{ nonce: s
 }
 
 export async function verifySiwsSignature(payload: {
-  walletPubkey: string;
+  pubkey: string;
   message: string;
   signature: string;
-}): Promise<{ ok: boolean; walletPubkey: string }> {
+}): Promise<{ ok: true }> {
   if (!payload.signature) {
     throw new Error("Missing signature");
   }
-  return { ok: true, walletPubkey: payload.walletPubkey };
+  if (!USE_MOCK_API) {
+    return postJson<{ ok: true }>("/api/auth/siws/verify", {
+      pubkey: payload.pubkey,
+      signature: payload.signature,
+      message: payload.message,
+    });
+  }
+  return { ok: true };
 }
 
 export async function fetchPolicies(): Promise<PolicySummary[]> {
   if (!USE_MOCK_API) {
-    return getJson<PolicySummary[]>("/api/policies");
+    try {
+      const { policies } = await getJson<{ policies: ApiPolicyRow[] }>("/api/policies");
+      return sortPolicies(policies.map(mapApiPolicyRow));
+    } catch (error) {
+      if (!isNetworkApiError(error)) throw error;
+    }
   }
   return sortPolicies(POLICIES);
 }
 
 export async function fetchPolicy(pubkey: string): Promise<PolicySummary> {
   if (!USE_MOCK_API) {
-    return getJson<PolicySummary>(`/api/policies/${pubkey}`);
+    const policies = await fetchPolicies();
+    const policy = policies.find((item) => item.pubkey === pubkey);
+    if (!policy) {
+      throw new Error("Policy not found");
+    }
+    return policy;
   }
 
   const policy = POLICIES.find((item) => item.pubkey === pubkey);
@@ -211,14 +424,22 @@ export async function fetchTransactions(
 ): Promise<PaginatedResponse<TransactionSummary>> {
   const safeLimit = normalizeLimit(limit, DEFAULT_TRANSACTIONS_LIMIT);
   if (!USE_MOCK_API) {
-    const params = new URLSearchParams();
-    if (policyPubkey) params.set("policy", policyPubkey);
-    if (before) params.set("before", before);
-    params.set("limit", String(safeLimit));
-    const response = await getJson<ApiListResponse<TransactionSummary>>(
-      `/api/transactions${toQueryString(params)}`,
-    );
-    return normalizePaginatedResponse(response, before, safeLimit);
+    try {
+      const offset = parseOffsetCursor(before);
+      const params = new URLSearchParams();
+      if (policyPubkey) params.set("policy", policyPubkey);
+      params.set("limit", String(safeLimit));
+      params.set("offset", String(offset));
+      const { transactions, total } = await getJson<{
+        transactions: ApiGuardedTxnRow[];
+        total: number;
+      }>(`/api/transactions${toQueryString(params)}`);
+      const items = transactions.map(mapApiTxnRow);
+      const nextCursor = offset + items.length < total ? String(offset + items.length) : null;
+      return { items, nextCursor };
+    } catch (error) {
+      if (!isNetworkApiError(error)) throw error;
+    }
   }
 
   const filtered = sortTransactions(buildTransactions()).filter((transaction) =>
@@ -234,12 +455,22 @@ export async function fetchIncidents(
 ): Promise<PaginatedResponse<IncidentSummary>> {
   const safeLimit = normalizeLimit(limit, DEFAULT_INCIDENTS_LIMIT);
   if (!USE_MOCK_API) {
-    const params = new URLSearchParams();
-    if (policyPubkey) params.set("policy", policyPubkey);
-    if (before) params.set("before", before);
-    params.set("limit", String(safeLimit));
-    const response = await getJson<ApiListResponse<IncidentSummary>>(`/api/incidents${toQueryString(params)}`);
-    return normalizePaginatedResponse(response, before, safeLimit);
+    try {
+      const offset = parseOffsetCursor(before);
+      const params = new URLSearchParams();
+      if (policyPubkey) params.set("policy", policyPubkey);
+      params.set("limit", String(safeLimit));
+      params.set("offset", String(offset));
+      const { incidents, total } = await getJson<{
+        incidents: ApiIncidentRow[];
+        total: number;
+      }>(`/api/incidents${toQueryString(params)}`);
+      const items = incidents.map(mapApiIncidentRow);
+      const nextCursor = offset + items.length < total ? String(offset + items.length) : null;
+      return { items, nextCursor };
+    } catch (error) {
+      if (!isNetworkApiError(error)) throw error;
+    }
   }
 
   const filtered = sortIncidents(INCIDENTS).filter((incident) =>
@@ -250,8 +481,21 @@ export async function fetchIncidents(
 
 export async function fetchIncident(id: string): Promise<IncidentDetail> {
   if (!USE_MOCK_API) {
-    const detail = await getJson<IncidentDetail>(`/api/incidents/${id}`);
-    return normalizeIncidentDetail(detail);
+    try {
+      const row = await getJson<ApiIncidentRow>(`/api/incidents/${id}`);
+      const policy = await fetchPolicy(row.policyPubkey);
+      return normalizeIncidentDetail({
+        ...mapApiIncidentRow(row),
+        policy: {
+          pubkey: policy.pubkey,
+          label: policy.label,
+          isActive: policy.isActive,
+        },
+        judgeVerdict: row.judgeVerdict ? mapApiVerdictRow(row.judgeVerdict) : null,
+      });
+    } catch (error) {
+      if (!isNetworkApiError(error)) throw error;
+    }
   }
 
   const incident = INCIDENTS.find((item) => item.id === id);
