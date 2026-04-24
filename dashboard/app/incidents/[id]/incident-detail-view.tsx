@@ -1,7 +1,7 @@
 "use client";
 
 import { AppShell, IncidentTimeline, Metric, SimpleMarkdown, StatusChip } from "@/components/dashboard-ui";
-import { getErrorMessage } from "@/lib/api/client";
+import { QueryError, QueryLoading } from "@/components/query-states";
 import { useIncidentQuery } from "@/lib/api/use-incident-query";
 import { shortAddress } from "@/lib/utils";
 
@@ -11,7 +11,7 @@ export function IncidentDetailView({ id }: { id: string }) {
   if (incidentQuery.isLoading) {
     return (
       <AppShell title="Incident Detail" subtitle="Timeline and model reasoning for a specific pause.">
-        <div className="empty">Loading incident details...</div>
+        <QueryLoading message="Loading incident details…" />
       </AppShell>
     );
   }
@@ -19,7 +19,11 @@ export function IncidentDetailView({ id }: { id: string }) {
   if (incidentQuery.isError || !incidentQuery.data) {
     return (
       <AppShell title="Incident Detail" subtitle="Timeline and model reasoning for a specific pause.">
-        <div className="empty">Unable to load incident: {getErrorMessage(incidentQuery.error)}</div>
+        <QueryError
+          error={incidentQuery.error ?? new Error("Unknown error")}
+          title="Unable to load incident"
+          onRetry={() => void incidentQuery.refetch()}
+        />
       </AppShell>
     );
   }

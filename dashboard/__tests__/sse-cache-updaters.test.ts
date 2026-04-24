@@ -1,3 +1,4 @@
+import type { InfiniteData } from "@tanstack/react-query";
 import { QueryClient } from "@tanstack/react-query";
 import { describe, expect, it } from "vitest";
 import { queryKeys } from "@/lib/api/query-keys";
@@ -109,37 +110,66 @@ describe("updateIfExists", () => {
 });
 
 describe("applyNewTransactionEvent", () => {
+  const legacyGlobalKey = [...queryKeys.transactions(), 50] as const;
+  const legacyPolicyKey = [...queryKeys.transactionsByPolicy("P1"), 50] as const;
+
   it("prepends txn to existing paginated caches and dedupes by id", () => {
     const qc = new QueryClient();
     const existing = makeTxn("old", "P1");
-    qc.setQueryData(queryKeys.transactions(), makePaginatedTxns([existing]));
-    qc.setQueryData(queryKeys.transactionsByPolicy("P1"), makePaginatedTxns([existing]));
+    qc.setQueryData(legacyGlobalKey, makePaginatedTxns([existing]));
+    qc.setQueryData(legacyPolicyKey, makePaginatedTxns([existing]));
 
     const incoming = makeTxn("new", "P1");
     applyNewTransactionEvent(qc, incoming);
 
-    const global = qc.getQueryData<PaginatedResponse<TransactionSummary>>(queryKeys.transactions());
+    const global = qc.getQueryData<PaginatedResponse<TransactionSummary>>(legacyGlobalKey);
     expect(global?.items[0]?.id).toBe("new");
     expect(global?.items.some((t) => t.id === "old")).toBe(true);
 
     applyNewTransactionEvent(qc, { ...incoming, txnSig: "other" });
-    const g2 = qc.getQueryData<PaginatedResponse<TransactionSummary>>(queryKeys.transactions());
+    const g2 = qc.getQueryData<PaginatedResponse<TransactionSummary>>(legacyGlobalKey);
     expect(g2?.items.filter((t) => t.id === "new")).toHaveLength(1);
+  });
+
+  it("updates infinite transaction query caches (global and policy)", () => {
+    const qc = new QueryClient();
+    const existing = makeTxn("old", "P1");
+    const globalInf = queryKeys.transactionsInfinite(undefined, 50);
+    const policyInf = queryKeys.transactionsInfinite("P1", 50);
+    const seed: InfiniteData<PaginatedResponse<TransactionSummary>> = {
+      pages: [makePaginatedTxns([existing])],
+      pageParams: [undefined],
+    };
+    qc.setQueryData(globalInf, seed);
+    qc.setQueryData(policyInf, {
+      pages: [makePaginatedTxns([existing])],
+      pageParams: [undefined],
+    });
+
+    applyNewTransactionEvent(qc, makeTxn("new", "P1"));
+
+    const g = qc.getQueryData<InfiniteData<PaginatedResponse<TransactionSummary>>>(globalInf);
+    const p = qc.getQueryData<InfiniteData<PaginatedResponse<TransactionSummary>>>(policyInf);
+    expect(g?.pages[0]?.items[0]?.id).toBe("new");
+    expect(p?.pages[0]?.items[0]?.id).toBe("new");
   });
 
   it("skips when cache is missing", () => {
     const qc = new QueryClient();
     applyNewTransactionEvent(qc, makeTxn("n", "P1"));
-    expect(qc.getQueryData(queryKeys.transactions())).toBeUndefined();
+    expect(qc.getQueryData(legacyGlobalKey)).toBeUndefined();
   });
 });
 
 describe("applyVerdictEvent", () => {
+  const legacyGlobalKey = [...queryKeys.transactions(), 50] as const;
+  const legacyPolicyKey = [...queryKeys.transactionsByPolicy("P1"), 50] as const;
+
   it("patches matching txn in cached pages", () => {
     const qc = new QueryClient();
     const txn = makeTxn("t1", "P1");
-    qc.setQueryData(queryKeys.transactions(), makePaginatedTxns([txn]));
-    qc.setQueryData(queryKeys.transactionsByPolicy("P1"), makePaginatedTxns([txn]));
+    qc.setQueryData(legacyGlobalKey, makePaginatedTxns([txn]));
+    qc.setQueryData(legacyPolicyKey, makePaginatedTxns([txn]));
 
     applyVerdictEvent(qc, {
       id: "v1",
@@ -157,17 +187,20 @@ describe("applyVerdictEvent", () => {
       signals: ["s"],
     });
 
-    const updated = qc.getQueryData<PaginatedResponse<TransactionSummary>>(queryKeys.transactions());
+    const updated = qc.getQueryData<PaginatedResponse<TransactionSummary>>(legacyGlobalKey);
     expect(updated?.items[0]?.verdict?.verdict).toBe("pause");
     expect(updated?.items[0]?.verdict?.signals).toEqual(["s"]);
   });
 });
 
 describe("applyAgentPausedEvent", () => {
+  const incidentsListKey = [...queryKeys.incidents(), 50] as const;
+  const incidentsPolicyKey = [...queryKeys.incidentsByPolicy("P1"), 50] as const;
+
   it("prepends incident and marks policy inactive in caches", () => {
     const qc = new QueryClient();
-    qc.setQueryData(queryKeys.incidents(), { items: [], nextCursor: null });
-    qc.setQueryData(queryKeys.incidentsByPolicy("P1"), { items: [], nextCursor: null });
+    qc.setQueryData(incidentsListKey, { items: [], nextCursor: null });
+    qc.setQueryData(incidentsPolicyKey, { items: [], nextCursor: null });
     const policy: PolicySummary = {
       pubkey: "P1",
       owner: "O",
@@ -222,12 +255,14 @@ describe("applyAgentPausedEvent", () => {
     expect(policies?.[0]?.isActive).toBe(false);
     const one = qc.getQueryData<PolicySummary>(queryKeys.policy("P1"));
     expect(one?.isActive).toBe(false);
-    const incList = qc.getQueryData<PaginatedResponse<typeof detail>>(queryKeys.incidents());
+    const incList = qc.getQueryData<PaginatedResponse<typeof detail>>(incidentsListKey);
     expect(incList?.items[0]?.reason).toBe("paused");
   });
 });
 
 describe("applyReportReadyEvent", () => {
+  const incidentsListKey = [...queryKeys.incidents(), 50] as const;
+
   it("patches fullReport on list and detail caches", () => {
     const qc = new QueryClient();
     const listItem: IncidentSummary = {
@@ -243,7 +278,7 @@ describe("applyReportReadyEvent", () => {
       resolution: null,
       createdAt: "2026-01-01T00:00:00.000Z",
     };
-    qc.setQueryData(queryKeys.incidents(), {
+    qc.setQueryData(incidentsListKey, {
       items: [listItem],
       nextCursor: null,
     });
@@ -267,7 +302,7 @@ describe("applyReportReadyEvent", () => {
     applyReportReadyEvent(qc, { incidentId: "i1", policyPubkey: "P1", fullReport: "# Report" });
 
     const list = qc.getQueryData<PaginatedResponse<{ id: string; fullReport: string | null }>>(
-      queryKeys.incidents(),
+      incidentsListKey,
     );
     expect(list?.items[0]?.fullReport).toBe("# Report");
     const d = qc.getQueryData<IncidentDetail>(queryKeys.incident("i1"));
@@ -278,10 +313,11 @@ describe("applyReportReadyEvent", () => {
 describe("MAX_FEED_ITEMS cap", () => {
   it("caps prepended transaction feed length", () => {
     const qc = new QueryClient();
+    const legacyGlobalKey = [...queryKeys.transactions(), 50] as const;
     const items = Array.from({ length: MAX_FEED_ITEMS }, (_, i) => makeTxn(`t-${i}`, "P1"));
-    qc.setQueryData(queryKeys.transactions(), makePaginatedTxns(items));
+    qc.setQueryData(legacyGlobalKey, makePaginatedTxns(items));
     applyNewTransactionEvent(qc, makeTxn("t-new", "P1"));
-    const page = qc.getQueryData<PaginatedResponse<TransactionSummary>>(queryKeys.transactions());
+    const page = qc.getQueryData<PaginatedResponse<TransactionSummary>>(legacyGlobalKey);
     expect(page?.items).toHaveLength(MAX_FEED_ITEMS);
     expect(page?.items[0]?.id).toBe("t-new");
   });

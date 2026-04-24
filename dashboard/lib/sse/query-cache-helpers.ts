@@ -1,4 +1,4 @@
-import type { QueryClient, QueryKey } from "@tanstack/react-query";
+import type { InfiniteData, QueryClient, QueryKey } from "@tanstack/react-query";
 import { queryKeys } from "@/lib/api/query-keys";
 import type { GuardedTxn } from "@/lib/mock/transactions";
 import type {
@@ -136,41 +136,145 @@ function prependIncident(
   return { ...old, items };
 }
 
+function isTxnInfiniteData(
+  data: unknown,
+): data is InfiniteData<PaginatedResponse<TransactionSummary>> {
+  return (
+    typeof data === "object" &&
+    data !== null &&
+    "pages" in data &&
+    Array.isArray((data as InfiniteData<unknown>).pages)
+  );
+}
+
+function txnTotalItems(data: InfiniteData<PaginatedResponse<TransactionSummary>>): number {
+  return data.pages.reduce((n, p) => n + p.items.length, 0);
+}
+
+/** Collapse oversized infinite cache to a single capped page (newest first). */
+function collapseTxnInfiniteIfNeeded(
+  data: InfiniteData<PaginatedResponse<TransactionSummary>>,
+): InfiniteData<PaginatedResponse<TransactionSummary>> {
+  if (txnTotalItems(data) <= MAX_FEED_ITEMS) return data;
+  const merged = data.pages.flatMap((p) => p.items);
+  const seen = new Set<string>();
+  const deduped: TransactionSummary[] = [];
+  for (const t of merged) {
+    if (seen.has(t.id)) continue;
+    seen.add(t.id);
+    deduped.push(t);
+  }
+  deduped.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  const capped = deduped.slice(0, MAX_FEED_ITEMS);
+  return {
+    pageParams: [undefined],
+    pages: [{ items: capped, nextCursor: null }],
+  };
+}
+
+function prependTxnInfinite(
+  data: InfiniteData<PaginatedResponse<TransactionSummary>>,
+  txn: TransactionSummary,
+): InfiniteData<PaginatedResponse<TransactionSummary>> {
+  const first = data.pages[0];
+  if (!first) return data;
+  const newFirst = prependTxn(first, txn);
+  const next: InfiniteData<PaginatedResponse<TransactionSummary>> = {
+    ...data,
+    pages: [newFirst, ...data.pages.slice(1)],
+  };
+  return collapseTxnInfiniteIfNeeded(next);
+}
+
+function patchTxnVerdictInfinite(
+  data: InfiniteData<PaginatedResponse<TransactionSummary>>,
+  txnId: string,
+  verdict: VerdictSummary,
+): InfiniteData<PaginatedResponse<TransactionSummary>> {
+  return {
+    ...data,
+    pages: data.pages.map((p) => patchTxnVerdict(p, txnId, verdict)),
+  };
+}
+
+function isGlobalTxnQueryKey(key: QueryKey): boolean {
+  if (key[0] !== "transactions") return false;
+  if (key[1] === "infinite" && key[2] === "all") return true;
+  return key.length === 2 && typeof key[1] === "number";
+}
+
+function isPolicyTxnQueryKey(key: QueryKey, policyPubkey: string): boolean {
+  if (key[0] !== "transactions") return false;
+  if (key[1] === "infinite" && key[2] === policyPubkey) return true;
+  return typeof key[1] === "string" && key[1] === policyPubkey && typeof key[2] === "number";
+}
+
+function patchTransactionQueries(
+  queryClient: QueryClient,
+  keyPredicate: (key: QueryKey) => boolean,
+  applyInfinite: (
+    d: InfiniteData<PaginatedResponse<TransactionSummary>>,
+  ) => InfiniteData<PaginatedResponse<TransactionSummary>>,
+  applyPaged: (d: PaginatedResponse<TransactionSummary>) => PaginatedResponse<TransactionSummary>,
+): void {
+  queryClient.setQueriesData<
+    InfiniteData<PaginatedResponse<TransactionSummary>> | PaginatedResponse<TransactionSummary>
+  >({ predicate: (q) => keyPredicate(q.queryKey) }, (old) => {
+    if (old === undefined) return old;
+    if (isTxnInfiniteData(old)) return applyInfinite(old);
+    return applyPaged(old as PaginatedResponse<TransactionSummary>);
+  });
+}
+
 export function applyNewTransactionEvent(queryClient: QueryClient, raw: unknown): void {
   const summary = sseNewTxnToSummary(raw);
-  updateIfExists<PaginatedResponse<TransactionSummary>>(queryClient, queryKeys.transactions(), (old) =>
-    prependTxn(old, summary),
-  );
-  updateIfExists<PaginatedResponse<TransactionSummary>>(
+  patchTransactionQueries(
     queryClient,
-    queryKeys.transactionsByPolicy(summary.policyPubkey),
-    (old) => prependTxn(old, summary),
+    isGlobalTxnQueryKey,
+    (d) => prependTxnInfinite(d, summary),
+    (d) => prependTxn(d, summary),
+  );
+  patchTransactionQueries(
+    queryClient,
+    (k) => isPolicyTxnQueryKey(k, summary.policyPubkey),
+    (d) => prependTxnInfinite(d, summary),
+    (d) => prependTxn(d, summary),
   );
 }
 
 export function applyVerdictEvent(queryClient: QueryClient, raw: unknown): void {
   const verdict = sseVerdictToSummary(raw);
-  const patch = (old: PaginatedResponse<TransactionSummary>) =>
+  const patchPaged = (old: PaginatedResponse<TransactionSummary>) =>
     patchTxnVerdict(old, verdict.txnId, verdict);
-  updateIfExists<PaginatedResponse<TransactionSummary>>(queryClient, queryKeys.transactions(), patch);
-  updateIfExists<PaginatedResponse<TransactionSummary>>(
+  const patchInf = (old: InfiniteData<PaginatedResponse<TransactionSummary>>) =>
+    patchTxnVerdictInfinite(old, verdict.txnId, verdict);
+  patchTransactionQueries(queryClient, isGlobalTxnQueryKey, patchInf, patchPaged);
+  patchTransactionQueries(
     queryClient,
-    queryKeys.transactionsByPolicy(verdict.policyPubkey),
-    patch,
+    (k) => isPolicyTxnQueryKey(k, verdict.policyPubkey),
+    patchInf,
+    patchPaged,
   );
+}
+
+function setIncidentListQueriesData(
+  queryClient: QueryClient,
+  filterKey: QueryKey,
+  updater: (old: PaginatedResponse<IncidentSummary>) => PaginatedResponse<IncidentSummary>,
+): void {
+  queryClient.setQueriesData<PaginatedResponse<IncidentSummary>>({ queryKey: filterKey }, (old) => {
+    if (old === undefined) return old;
+    return updater(old);
+  });
 }
 
 export function applyAgentPausedEvent(queryClient: QueryClient, raw: unknown): void {
   const incident = sseAgentPausedToIncidentSummary(raw);
   const policyPubkey = incident.policyPubkey;
 
-  updateIfExists<PaginatedResponse<IncidentSummary>>(queryClient, queryKeys.incidents(), (old) =>
+  setIncidentListQueriesData(queryClient, queryKeys.incidents(), (old) => prependIncident(old, incident));
+  setIncidentListQueriesData(queryClient, queryKeys.incidentsByPolicy(policyPubkey), (old) =>
     prependIncident(old, incident),
-  );
-  updateIfExists<PaginatedResponse<IncidentSummary>>(
-    queryClient,
-    queryKeys.incidentsByPolicy(policyPubkey),
-    (old) => prependIncident(old, incident),
   );
 
   updateIfExists<PolicySummary[]>(queryClient, queryKeys.policies(), (old) =>
@@ -200,13 +304,9 @@ export function applyReportReadyEvent(queryClient: QueryClient, raw: unknown): v
     items: old.items.map((inc) => (inc.id === incidentId ? { ...inc, fullReport } : inc)),
   });
 
-  updateIfExists<PaginatedResponse<IncidentSummary>>(queryClient, queryKeys.incidents(), patchList);
+  setIncidentListQueriesData(queryClient, queryKeys.incidents(), patchList);
   if (policyPubkey) {
-    updateIfExists<PaginatedResponse<IncidentSummary>>(
-      queryClient,
-      queryKeys.incidentsByPolicy(policyPubkey),
-      patchList,
-    );
+    setIncidentListQueriesData(queryClient, queryKeys.incidentsByPolicy(policyPubkey), patchList);
   }
 
   updateIfExists<IncidentDetail>(queryClient, queryKeys.incident(incidentId), (old) => ({
