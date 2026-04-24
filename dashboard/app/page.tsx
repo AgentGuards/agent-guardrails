@@ -1,12 +1,14 @@
 import Link from "next/link";
-import { AppShell } from "@/components/dashboard-ui";
+import { WalletControls } from "@/components/wallet-controls";
 
 export default function Home() {
   return (
-    <AppShell
-      title="Agent Guardrails Protocol"
-      subtitle="Solana policy controls for autonomous agents."
-    >
+    <main className="landing-shell">
+      <header className="landing-topbar">
+        <div className="text-sm text-zinc-400">Home</div>
+        <WalletControls />
+      </header>
+      <h1 className="sr-only">Agent Guardrails Protocol</h1>
       <section className="card relative overflow-hidden">
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_20%_0%,rgba(59,130,246,0.2),transparent_45%)]" />
         <div className="relative z-10 grid gap-8 lg:grid-cols-[1.4fr_1fr] lg:items-center">
@@ -73,6 +75,6 @@ export default function Home() {
           </p>
         </article>
       </section>
-    </AppShell>
+    </main>
   );
 }

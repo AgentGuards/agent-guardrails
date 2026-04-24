@@ -31,7 +31,7 @@ export function AppShell({
   children: ReactNode;
 }) {
   const pathname = usePathname();
-  const { sidebarOpen, toggleSidebar, setSidebarOpen } = useLayoutStore();
+  const { sidebarOpen, sidebarCollapsed, toggleSidebar, toggleSidebarCollapsed, setSidebarOpen } = useLayoutStore();
   const monitorLinks = [
     { href: "/agents", label: "Agents" },
     { href: "/activity", label: "Activity" },
@@ -53,7 +53,7 @@ export function AppShell({
           onClick={() => setSidebarOpen(false)}
         />
       ) : null}
-      <aside className={`sidebar${sidebarOpen ? " is-open" : ""}`}>
+      <aside className={`sidebar${sidebarOpen ? " is-open" : ""}${sidebarCollapsed ? " is-collapsed" : ""}`}>
         <div className="brand">
           <div className="brand-mark">G</div>
           <div className="brand-copy">
@@ -61,6 +61,14 @@ export function AppShell({
             <span>Solana - devnet</span>
           </div>
         </div>
+        <button
+          type="button"
+          className="sidebar-collapse-btn hidden md:inline-flex"
+          aria-label={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+          onClick={toggleSidebarCollapsed}
+        >
+          {sidebarCollapsed ? "Expand" : "Collapse"}
+        </button>
         <nav className="nav">
           <div className="nav-heading">Monitor</div>
           {monitorLinks.map((link) => (
@@ -70,8 +78,9 @@ export function AppShell({
               className={`nav-link ${isLinkActive(link.href) ? "active" : ""}`}
               aria-current={isLinkActive(link.href) ? "page" : undefined}
               onClick={() => setSidebarOpen(false)}
+              title={link.label}
             >
-              {link.label}
+              <span className="nav-label">{link.label}</span>
             </Link>
           ))}
           <div className="nav-heading mt-4">Setup</div>
@@ -82,8 +91,9 @@ export function AppShell({
               className={`nav-link ${isLinkActive(link.href) ? "active" : ""}`}
               aria-current={isLinkActive(link.href) ? "page" : undefined}
               onClick={() => setSidebarOpen(false)}
+              title={link.label}
             >
-              {link.label}
+              <span className="nav-label">{link.label}</span>
             </Link>
           ))}
         </nav>
