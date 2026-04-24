@@ -1,4 +1,12 @@
-// TODO: Agent detail — live status, spend gauge, recent txns, controls
+import { AppShell } from "@/components/app-shell";
+
 export default function AgentDetailPage({ params }: { params: { pubkey: string } }) {
-  return <div>Agent: {params.pubkey}</div>;
+  return (
+    <AppShell
+      title="Agent Detail"
+      subtitle="Live status, spend view, and recent guarded activity."
+    >
+      <div className="empty">Agent pubkey: {params.pubkey}</div>
+    </AppShell>
+  );
 }
