@@ -24,8 +24,18 @@ export function AgentsOverview() {
   }
 
   if (!data?.length) {
-    return <div className="empty">No policies found yet.</div>;
+    return (
+      <div className="rounded-lg border border-zinc-800 bg-zinc-950 p-4 text-sm text-zinc-400">
+        No policies found yet.
+      </div>
+    );
   }
 
-  return <div className="grid three">{data.map((policy) => <PolicyCard key={policy.pubkey} policy={policy} />)}</div>;
+  return (
+    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+      {data.map((policy) => (
+        <PolicyCard key={policy.pubkey} policy={policy} />
+      ))}
+    </div>
+  );
 }

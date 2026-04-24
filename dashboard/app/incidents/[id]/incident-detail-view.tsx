@@ -3,6 +3,7 @@
 import { AppShell, IncidentTimeline, Metric, SimpleMarkdown, StatusChip } from "@/components/dashboard-ui";
 import { getErrorMessage } from "@/lib/api/client";
 import { useIncidentQuery } from "@/lib/api/use-incident-query";
+import { shortAddress } from "@/lib/utils";
 
 export function IncidentDetailView({ id }: { id: string }) {
   const incidentQuery = useIncidentQuery(id);
@@ -60,7 +61,7 @@ export function IncidentDetailView({ id }: { id: string }) {
   return (
     <AppShell title="Incident Detail" subtitle="Timeline and model reasoning for a specific pause.">
       <div className="grid three">
-        <Metric label="Policy" value={incident.policy.label ?? incident.policy.pubkey} />
+        <Metric label="Policy" value={incident.policy.label ?? shortAddress(incident.policy.pubkey)} />
         <Metric label="Paused by" value={incident.pausedBy} />
         <Metric
           label="Status"
@@ -68,12 +69,12 @@ export function IncidentDetailView({ id }: { id: string }) {
         />
       </div>
 
-      <div style={{ marginTop: 16 }}>
+      <div className="mt-4">
         <IncidentTimeline items={timelineItems} />
       </div>
 
       {incident.fullReport ? (
-        <div className="card" style={{ marginTop: 16 }}>
+        <div className="card mt-4">
           <div className="card-title">Incident report</div>
           <SimpleMarkdown markdown={incident.fullReport} />
         </div>

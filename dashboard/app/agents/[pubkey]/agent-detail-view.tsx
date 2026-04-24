@@ -30,6 +30,8 @@ export function AgentDetailView({ pubkey }: { pubkey: string }) {
   const policy = policyQuery.data;
   const transactions = transactionsQuery.data?.items ?? [];
   const incidents = incidentsQuery.data?.items ?? [];
+  const shortenedPolicyPubkey =
+    policy.pubkey.length > 8 ? `${policy.pubkey.slice(0, 4)}...${policy.pubkey.slice(-4)}` : policy.pubkey;
 
   return (
     <AppShell
@@ -37,20 +39,24 @@ export function AgentDetailView({ pubkey }: { pubkey: string }) {
       subtitle="Live status, spend view, and recent guarded activity."
     >
       <div className="grid three">
-        <Metric label="Policy" value={policy.pubkey} />
+        <Metric label="Policy" value={shortenedPolicyPubkey} />
         <Metric label="Status" value={policy.isActive ? "Active" : "Paused"} />
         <Metric label="Session expiry" value={new Date(policy.sessionExpiry).toLocaleString()} />
       </div>
 
-      <div className="card" style={{ marginTop: 16 }}>
+      <div className="card mt-4">
         <div className="card-title">Daily spend</div>
         <SpendGauge spentLamports="0" budgetLamports={policy.dailyBudgetLamports} />
       </div>
 
-      <div className="card" style={{ marginTop: 16 }}>
+      <div className="card mt-4">
         <div className="card-title">Recent transactions</div>
-        {transactions.length ? (
-          <div style={{ display: "grid", gap: 12 }}>
+        {transactionsQuery.isLoading ? (
+          <div className="empty">Loading transactions...</div>
+        ) : transactionsQuery.isError ? (
+          <div className="empty">Unable to load transactions: {getErrorMessage(transactionsQuery.error)}</div>
+        ) : transactions.length ? (
+          <div className="grid gap-3">
             {transactions.map((transaction) => (
               <TransactionRow key={transaction.id} transaction={transaction} />
             ))}
@@ -60,9 +66,15 @@ export function AgentDetailView({ pubkey }: { pubkey: string }) {
         )}
       </div>
 
-      <div style={{ marginTop: 16 }}>
+      <div className="mt-4">
         <div className="card-title">Related incidents</div>
-        <IncidentTable incidents={incidents} />
+        {incidentsQuery.isLoading ? (
+          <div className="empty">Loading incidents...</div>
+        ) : incidentsQuery.isError ? (
+          <div className="empty">Unable to load incidents: {getErrorMessage(incidentsQuery.error)}</div>
+        ) : (
+          <IncidentTable incidents={incidents} />
+        )}
       </div>
     </AppShell>
   );
