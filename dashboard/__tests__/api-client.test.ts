@@ -1,5 +1,15 @@
 import { describe, expect, it } from "vitest";
-import { apiMode, fetchIncident, fetchIncidents, fetchPolicies, fetchPolicy, fetchTransactions } from "@/lib/api/client";
+import {
+  ApiClientError,
+  apiMode,
+  buildApiRequestInit,
+  fetchIncident,
+  fetchIncidents,
+  fetchPolicies,
+  fetchPolicy,
+  fetchTransactions,
+  getErrorMessage,
+} from "@/lib/api/client";
 import { INCIDENTS, POLICIES } from "@/lib/mock";
 
 describe("api client mock data", () => {
@@ -37,10 +47,19 @@ describe("api client mock data", () => {
     }
   });
 
+  it("falls back to default limits when invalid pagination limits are passed", async () => {
+    const txns = await fetchTransactions(undefined, undefined, 0);
+    expect(txns.items.length).toBeGreaterThan(0);
+
+    const incidents = await fetchIncidents(undefined, undefined, -10);
+    expect(incidents.items.length).toBeGreaterThan(0);
+  });
+
   it("returns incident detail and rejects unknown incident ids", async () => {
     const incident = await fetchIncident(INCIDENTS[0].id);
     expect(incident.id).toBe(INCIDENTS[0].id);
     expect(incident.policy.pubkey).toBe(INCIDENTS[0].policyPubkey);
+    expect(Array.isArray(incident.judgeVerdict?.signals ?? [])).toBe(true);
 
     await expect(fetchIncident("does-not-exist")).rejects.toThrow("Incident not found");
   });
@@ -52,5 +71,29 @@ describe("api client mock data", () => {
       const secondPage = await fetchIncidents(undefined, firstPage.nextCursor, 1);
       expect(secondPage.items[0]?.id).not.toEqual(firstPage.items[0].id);
     }
+  });
+});
+
+describe("api client http mode behavior", () => {
+  it("builds request init with cookie credentials and JSON Accept header", () => {
+    const requestInit = buildApiRequestInit();
+    expect(requestInit).toMatchObject({
+      credentials: "include",
+      headers: {
+        Accept: "application/json",
+      },
+    });
+  });
+
+  it("normalizes ApiClientError message", () => {
+    const err = new ApiClientError(401, "Unauthorized");
+    expect(getErrorMessage(err)).toBe("Unauthorized");
+  });
+});
+
+describe("error helper", () => {
+  it("returns normalized messages from unknown error values", () => {
+    expect(getErrorMessage("bad")).toContain("Something went wrong");
+    expect(getErrorMessage(new Error("Known error"))).toBe("Known error");
   });
 });

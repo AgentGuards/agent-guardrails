@@ -28,3 +28,11 @@ export interface PaginatedResponse<T> {
   items: T[];
   nextCursor: string | null;
 }
+
+export interface ApiErrorPayload {
+  error?: string;
+  message?: string;
+  details?: string;
+}
+
+export type ApiListResponse<T> = PaginatedResponse<T> | T[];
