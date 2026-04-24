@@ -2,20 +2,21 @@
 
 import { AppShell, IncidentTable, Metric, SpendGauge, TransactionRow } from "@/components/dashboard-ui";
 import { KillSwitchButton } from "@/components/kill-switch-button";
+import { QueryEmpty, QueryError, QueryLoading } from "@/components/query-states";
 import { getErrorMessage } from "@/lib/api/client";
+import { useInfiniteTransactionsQuery } from "@/lib/api/use-infinite-transactions-query";
 import { useIncidentsQuery } from "@/lib/api/use-incidents-query";
 import { usePolicyQuery } from "@/lib/api/use-policy-query";
-import { useTransactionsQuery } from "@/lib/api/use-transactions-query";
 
 export function AgentDetailView({ pubkey }: { pubkey: string }) {
   const policyQuery = usePolicyQuery(pubkey);
-  const transactionsQuery = useTransactionsQuery(pubkey, 10);
+  const transactionsQuery = useInfiniteTransactionsQuery(pubkey, 10);
   const incidentsQuery = useIncidentsQuery(pubkey, 10);
 
   if (policyQuery.isLoading) {
     return (
       <AppShell title="Agent Detail" subtitle="Live status, spend view, and recent guarded activity.">
-        <div className="empty">Loading agent details...</div>
+        <QueryLoading message="Loading agent details…" />
       </AppShell>
     );
   }
@@ -23,7 +24,11 @@ export function AgentDetailView({ pubkey }: { pubkey: string }) {
   if (policyQuery.isError || !policyQuery.data) {
     return (
       <AppShell title="Agent Detail" subtitle="Live status, spend view, and recent guarded activity.">
-        <div className="empty">Unable to load agent: {getErrorMessage(policyQuery.error)}</div>
+        <QueryError
+          error={policyQuery.error ?? new Error("Unknown error")}
+          title="Unable to load agent"
+          onRetry={() => void policyQuery.refetch()}
+        />
       </AppShell>
     );
   }
@@ -39,7 +44,7 @@ export function AgentDetailView({ pubkey }: { pubkey: string }) {
       title={policy.label ?? "Agent Detail"}
       subtitle="Live status, spend view, and recent guarded activity."
     >
-      <div className="grid three">
+      <div className="layout-three">
         <Metric label="Policy" value={shortenedPolicyPubkey} />
         <Metric label="Status" value={policy.isActive ? "Active" : "Paused"} />
         <Metric label="Session expiry" value={new Date(policy.sessionExpiry).toLocaleString()} />
@@ -58,26 +63,52 @@ export function AgentDetailView({ pubkey }: { pubkey: string }) {
       <div className="card mt-4">
         <div className="card-title">Recent transactions</div>
         {transactionsQuery.isLoading ? (
-          <div className="empty">Loading transactions...</div>
+          <QueryLoading message="Loading transactions…" />
         ) : transactionsQuery.isError ? (
-          <div className="empty">Unable to load transactions: {getErrorMessage(transactionsQuery.error)}</div>
+          <QueryError
+            error={transactionsQuery.error}
+            onRetry={() => void transactionsQuery.refetch()}
+          />
         ) : transactions.length ? (
-          <div className="grid gap-3">
-            {transactions.map((transaction) => (
-              <TransactionRow key={transaction.id} transaction={transaction} />
-            ))}
-          </div>
+          <>
+            {transactionsQuery.data?.isCapped ? (
+              <p className="mb-3 text-xs text-zinc-500">
+                Showing {transactions.length} transactions (newest first, feed capped).
+              </p>
+            ) : (
+              <p className="mb-3 text-xs text-zinc-500">
+                Showing {transactions.length} transaction{transactions.length === 1 ? "" : "s"} (newest first).
+              </p>
+            )}
+            <div className="grid gap-3">
+              {transactions.map((transaction) => (
+                <TransactionRow key={transaction.id} transaction={transaction} />
+              ))}
+            </div>
+            {transactionsQuery.hasNextPage ? (
+              <div className="mt-4 flex justify-center">
+                <button
+                  type="button"
+                  className="rounded-md border border-zinc-600 px-4 py-2 text-sm text-zinc-200 hover:bg-zinc-800 disabled:opacity-50"
+                  disabled={transactionsQuery.isFetchingNextPage}
+                  onClick={() => void transactionsQuery.fetchNextPage()}
+                >
+                  {transactionsQuery.isFetchingNextPage ? "Loading…" : "Load more"}
+                </button>
+              </div>
+            ) : null}
+          </>
         ) : (
-          <div className="empty">No transactions yet.</div>
+          <QueryEmpty title="No transactions yet." description="Guarded activity for this policy will appear here." />
         )}
       </div>
 
       <div className="mt-4">
         <div className="card-title">Related incidents</div>
         {incidentsQuery.isLoading ? (
-          <div className="empty">Loading incidents...</div>
+          <QueryLoading message="Loading incidents…" />
         ) : incidentsQuery.isError ? (
-          <div className="empty">Unable to load incidents: {getErrorMessage(incidentsQuery.error)}</div>
+          <QueryError error={incidentsQuery.error} onRetry={() => void incidentsQuery.refetch()} />
         ) : (
           <IncidentTable incidents={incidents} />
         )}

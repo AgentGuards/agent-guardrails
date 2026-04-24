@@ -1,21 +1,22 @@
 "use client";
 
 import { AppShell, TransactionRow } from "@/components/dashboard-ui";
+import { QueryEmpty, QueryError, QueryLoading } from "@/components/query-states";
 import { getErrorMessage } from "@/lib/api/client";
+import { useInfiniteTransactionsQuery } from "@/lib/api/use-infinite-transactions-query";
 import { usePoliciesQuery } from "@/lib/api/use-policies-query";
-import { useTransactionsQuery } from "@/lib/api/use-transactions-query";
 import { useActivityFiltersStore } from "@/lib/stores/activity-filters";
 import { shortAddress } from "@/lib/utils";
 
 export function ActivityView() {
   const { selectedPolicyPubkey, verdictFilter, setSelectedPolicy, setVerdictFilter } = useActivityFiltersStore();
   const policiesQuery = usePoliciesQuery();
-  const transactionsQuery = useTransactionsQuery(selectedPolicyPubkey ?? undefined, 50);
+  const transactionsQuery = useInfiniteTransactionsQuery(selectedPolicyPubkey ?? undefined, 50);
 
   if (transactionsQuery.isLoading) {
     return (
       <AppShell title="Activity" subtitle="Global guarded transactions and AI verdicts.">
-        <div className="empty">Loading activity feed...</div>
+        <QueryLoading message="Loading activity feed…" listSkeleton />
       </AppShell>
     );
   }
@@ -23,7 +24,7 @@ export function ActivityView() {
   if (transactionsQuery.isError) {
     return (
       <AppShell title="Activity" subtitle="Global guarded transactions and AI verdicts.">
-        <div className="empty">Unable to load activity: {getErrorMessage(transactionsQuery.error)}</div>
+        <QueryError error={transactionsQuery.error} onRetry={() => void transactionsQuery.refetch()} />
       </AppShell>
     );
   }
@@ -32,8 +33,21 @@ export function ActivityView() {
     verdictFilter === "all" ? true : item.verdict?.verdict === verdictFilter,
   );
 
+  const policiesError =
+    policiesQuery.isError && !policiesQuery.data?.length ? getErrorMessage(policiesQuery.error) : null;
+
   return (
     <AppShell title="Activity" subtitle="Global guarded transactions and AI verdicts.">
+      {policiesError ? (
+        <div className="mb-4">
+          <QueryError
+            error={policiesQuery.error}
+            title="Could not load policy filter list"
+            onRetry={() => void policiesQuery.refetch()}
+          />
+        </div>
+      ) : null}
+
       <div className="mb-4 flex flex-wrap gap-2.5">
         <select
           className="input"
@@ -61,6 +75,11 @@ export function ActivityView() {
         </select>
       </div>
 
+      <p className="mb-3 text-xs text-zinc-500">
+        {transactionsQuery.data?.items.length ?? 0} loaded (newest first)
+        {transactionsQuery.data?.isCapped ? "; feed capped" : ""}. Filters narrow the list below.
+      </p>
+
       {transactions.length ? (
         <div className="grid gap-3">
           {transactions.map((transaction) => (
@@ -68,8 +87,24 @@ export function ActivityView() {
           ))}
         </div>
       ) : (
-        <div className="empty">No transactions match the current filters.</div>
+        <QueryEmpty
+          title="No transactions match the current filters."
+          description="Try another policy or verdict, or load older activity below."
+        />
       )}
+
+      {transactionsQuery.hasNextPage ? (
+        <div className="mt-6 flex justify-center">
+          <button
+            type="button"
+            className="rounded-md border border-zinc-600 px-4 py-2 text-sm text-zinc-200 hover:bg-zinc-800 disabled:opacity-50"
+            disabled={transactionsQuery.isFetchingNextPage}
+            onClick={() => void transactionsQuery.fetchNextPage()}
+          >
+            {transactionsQuery.isFetchingNextPage ? "Loading…" : "Load more"}
+          </button>
+        </div>
+      ) : null}
     </AppShell>
   );
 }

@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { INCIDENTS, POLICIES, TRANSACTIONS, VERDICTS } from "@/lib/mock";
 
 const useQueryMock = vi.fn();
+const useInfiniteQueryMock = vi.fn();
 const pushMock = vi.fn();
 
 const setQueryDataMock = vi.fn();
@@ -12,6 +13,7 @@ const getQueryDataMock = vi.fn();
 
 vi.mock("@tanstack/react-query", () => ({
   useQuery: (...args: unknown[]) => useQueryMock(...args),
+  useInfiniteQuery: (...args: unknown[]) => useInfiniteQueryMock(...args),
   useQueryClient: () => ({
     setQueryData: setQueryDataMock,
     getQueryData: getQueryDataMock,
@@ -44,6 +46,10 @@ vi.mock("@/components/providers", () => ({
   getProgramId: () => null,
 }));
 
+vi.mock("@/components/report-markdown", () => ({
+  ReportMarkdown: ({ markdown }: { markdown: string }) => createElement("div", undefined, markdown),
+}));
+
 vi.mock("@/components/dashboard-ui", () => ({
   AppShell: ({ title, children }: { title: string; children: ReactNode }) =>
     createElement("section", undefined, createElement("h1", undefined, title), children),
@@ -52,7 +58,6 @@ vi.mock("@/components/dashboard-ui", () => ({
   IncidentTable: ({ incidents }: { incidents: unknown[] }) =>
     createElement("div", undefined, `incidents:${incidents.length}`),
   IncidentTimeline: ({ items }: { items: unknown[] }) => createElement("div", undefined, `timeline:${items.length}`),
-  SimpleMarkdown: ({ markdown }: { markdown: string }) => createElement("div", undefined, markdown),
   SpendGauge: () => createElement("div", undefined, "gauge"),
   Metric: ({ label, value }: { label: string; value: ReactNode }) =>
     createElement("div", undefined, `${label}:${String(value)}`),
@@ -81,6 +86,16 @@ vi.mock("@/lib/stores/activity-filters", () => ({
 beforeEach(() => {
   useQueryMock.mockReset();
   useQueryMock.mockReturnValue({ data: undefined, isLoading: false });
+  useInfiniteQueryMock.mockReset();
+  useInfiniteQueryMock.mockReturnValue({
+    data: undefined,
+    isLoading: false,
+    isError: false,
+    refetch: vi.fn(),
+    fetchNextPage: vi.fn(),
+    hasNextPage: false,
+    isFetchingNextPage: false,
+  });
   pushMock.mockReset();
   setQueryDataMock.mockReset();
   getQueryDataMock.mockReset();
@@ -93,10 +108,6 @@ afterEach(() => {
 describe("phase 1 route smoke tests", () => {
   it("renders landing and agents routes", async () => {
     const Home = (await import("@/app/page")).default;
-    useQueryMock
-      .mockReturnValueOnce({ data: POLICIES })
-      .mockReturnValueOnce({ data: { items: TRANSACTIONS } })
-      .mockReturnValueOnce({ data: { items: INCIDENTS } });
     render(createElement(Home));
     expect(screen.getByText("Agent Guardrails Protocol")).toBeTruthy();
     cleanup();
@@ -115,9 +126,22 @@ describe("phase 1 route smoke tests", () => {
     cleanup();
 
     const ActivityPage = (await import("@/app/activity/page")).default;
-    useQueryMock
-      .mockReturnValueOnce({ data: POLICIES })
-      .mockReturnValueOnce({ data: { items: TRANSACTIONS.map((item, idx) => ({ ...item, verdict: VERDICTS[idx] ?? null })) } });
+    useQueryMock.mockReturnValueOnce({ data: POLICIES });
+    useInfiniteQueryMock.mockReturnValueOnce({
+      data: {
+        items: TRANSACTIONS.map((item, idx) => ({ ...item, verdict: VERDICTS[idx] ?? null })),
+        isCapped: false,
+        totalMerged: TRANSACTIONS.length,
+        hasNextPageRaw: false,
+      },
+      isLoading: false,
+      isError: false,
+      error: null,
+      refetch: vi.fn(),
+      fetchNextPage: vi.fn(),
+      hasNextPage: false,
+      isFetchingNextPage: false,
+    });
     render(createElement(ActivityPage));
     expect(screen.getByRole("heading", { name: "Activity" })).toBeTruthy();
     cleanup();
@@ -136,15 +160,34 @@ describe("phase 1 route smoke tests", () => {
 
     const AgentDetailPage = (await import("@/app/agents/[pubkey]/page")).default;
     useQueryMock
-      .mockReturnValueOnce({ data: POLICIES[0] })
-      .mockReturnValueOnce({ data: { items: TRANSACTIONS } })
-      .mockReturnValueOnce({ data: { items: INCIDENTS } });
+      .mockReturnValueOnce({ data: POLICIES[0], isLoading: false, isError: false, refetch: vi.fn() })
+      .mockReturnValueOnce({ data: { items: INCIDENTS }, isLoading: false, isError: false, refetch: vi.fn() });
+    useInfiniteQueryMock.mockReturnValueOnce({
+      data: {
+        items: TRANSACTIONS,
+        isCapped: false,
+        totalMerged: TRANSACTIONS.length,
+        hasNextPageRaw: false,
+      },
+      isLoading: false,
+      isError: false,
+      error: null,
+      refetch: vi.fn(),
+      fetchNextPage: vi.fn(),
+      hasNextPage: false,
+      isFetchingNextPage: false,
+    });
     render(createElement(AgentDetailPage, { params: { pubkey: POLICIES[0].pubkey } }));
     expect(screen.getByRole("heading", { name: POLICIES[0].label as string })).toBeTruthy();
     cleanup();
 
     const EditPolicyPage = (await import("@/app/agents/[pubkey]/policy/page")).default;
-    useQueryMock.mockReturnValueOnce({ data: POLICIES[0], isLoading: false, isError: false });
+    useQueryMock.mockReturnValueOnce({
+      data: POLICIES[0],
+      isLoading: false,
+      isError: false,
+      refetch: vi.fn(),
+    });
     render(createElement(EditPolicyPage, { params: { pubkey: POLICIES[0].pubkey } }));
     expect(screen.getByText("Edit Policy")).toBeTruthy();
     cleanup();
@@ -157,6 +200,8 @@ describe("phase 1 route smoke tests", () => {
         judgeVerdict: null,
       },
       isLoading: false,
+      isError: false,
+      refetch: vi.fn(),
     });
     render(createElement(IncidentDetailPage, { params: { id: INCIDENTS[0].id } }));
     expect(screen.getByRole("heading", { name: "Incident Detail" })).toBeTruthy();

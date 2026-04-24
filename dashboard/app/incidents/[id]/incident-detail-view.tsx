@@ -1,7 +1,8 @@
 "use client";
 
-import { AppShell, IncidentTimeline, Metric, SimpleMarkdown, StatusChip } from "@/components/dashboard-ui";
-import { getErrorMessage } from "@/lib/api/client";
+import { AppShell, IncidentTimeline, Metric, StatusChip } from "@/components/dashboard-ui";
+import { ReportMarkdown } from "@/components/report-markdown";
+import { QueryError, QueryLoading } from "@/components/query-states";
 import { useIncidentQuery } from "@/lib/api/use-incident-query";
 import { shortAddress } from "@/lib/utils";
 
@@ -11,7 +12,7 @@ export function IncidentDetailView({ id }: { id: string }) {
   if (incidentQuery.isLoading) {
     return (
       <AppShell title="Incident Detail" subtitle="Timeline and model reasoning for a specific pause.">
-        <div className="empty">Loading incident details...</div>
+        <QueryLoading message="Loading incident details…" />
       </AppShell>
     );
   }
@@ -19,7 +20,11 @@ export function IncidentDetailView({ id }: { id: string }) {
   if (incidentQuery.isError || !incidentQuery.data) {
     return (
       <AppShell title="Incident Detail" subtitle="Timeline and model reasoning for a specific pause.">
-        <div className="empty">Unable to load incident: {getErrorMessage(incidentQuery.error)}</div>
+        <QueryError
+          error={incidentQuery.error ?? new Error("Unknown error")}
+          title="Unable to load incident"
+          onRetry={() => void incidentQuery.refetch()}
+        />
       </AppShell>
     );
   }
@@ -60,7 +65,7 @@ export function IncidentDetailView({ id }: { id: string }) {
 
   return (
     <AppShell title="Incident Detail" subtitle="Timeline and model reasoning for a specific pause.">
-      <div className="grid three">
+      <div className="layout-three">
         <Metric label="Policy" value={incident.policy.label ?? shortAddress(incident.policy.pubkey)} />
         <Metric label="Paused by" value={incident.pausedBy} />
         <Metric
@@ -76,7 +81,7 @@ export function IncidentDetailView({ id }: { id: string }) {
       {incident.fullReport ? (
         <div className="card mt-4">
           <div className="card-title">Incident report</div>
-          <SimpleMarkdown markdown={incident.fullReport} />
+          <ReportMarkdown markdown={incident.fullReport} />
         </div>
       ) : null}
     </AppShell>

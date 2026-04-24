@@ -15,9 +15,14 @@ export function parseAuthorizedMonitorsFromEnv(): PublicKey[] {
     .map((s) => s.trim())
     .filter(Boolean);
   const keys: PublicKey[] = [];
+  const seen = new Set<string>();
   for (const p of parts) {
     try {
-      keys.push(new PublicKey(p));
+      const key = new PublicKey(p);
+      const keyStr = key.toBase58();
+      if (seen.has(keyStr)) continue;
+      seen.add(keyStr);
+      keys.push(key);
     } catch {
       // skip invalid
     }

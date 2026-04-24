@@ -31,7 +31,7 @@ export function AppShell({
   children: ReactNode;
 }) {
   const pathname = usePathname();
-  const { sidebarOpen, toggleSidebar } = useLayoutStore();
+  const { sidebarOpen, toggleSidebar, setSidebarOpen } = useLayoutStore();
   const links = [
     { href: "/", label: "Overview" },
     { href: "/agents", label: "Agents" },
@@ -41,8 +41,16 @@ export function AppShell({
   ];
 
   return (
-    <div className="shell">
-      <aside className="sidebar" style={{ display: sidebarOpen ? "block" : "none" }}>
+    <div className="shell-dash">
+      {sidebarOpen ? (
+        <button
+          type="button"
+          className="sidebar-backdrop"
+          aria-label="Close navigation"
+          onClick={() => setSidebarOpen(false)}
+        />
+      ) : null}
+      <aside className={`sidebar${sidebarOpen ? " is-open" : ""}`}>
         <div className="brand">
           <div className="brand-mark">G</div>
           <div className="brand-copy">
@@ -52,7 +60,12 @@ export function AppShell({
         </div>
         <nav className="nav">
           {links.map((link) => (
-            <Link key={link.href} href={link.href} className={`nav-link ${pathname === link.href ? "active" : ""}`}>
+            <Link
+              key={link.href}
+              href={link.href}
+              className={`nav-link ${pathname === link.href ? "active" : ""}`}
+              onClick={() => setSidebarOpen(false)}
+            >
               {link.label}
             </Link>
           ))}
@@ -60,13 +73,17 @@ export function AppShell({
       </aside>
       <main className="main">
         <header className="topbar">
-          <div>
+          <div className="min-w-0 pr-2">
             <div className="page-title">{title}</div>
             {subtitle ? <div className="page-subtitle">{subtitle}</div> : null}
           </div>
           <div className="toolbar">
-            <button className="button button-secondary" type="button" onClick={toggleSidebar}>
-              {sidebarOpen ? "Hide nav" : "Show nav"}
+            <button
+              className="button button-secondary md:hidden"
+              type="button"
+              onClick={toggleSidebar}
+            >
+              {sidebarOpen ? "Hide nav" : "Menu"}
             </button>
             {actions}
             <WalletControls />
@@ -95,7 +112,7 @@ export function PolicyCard({ policy }: { policy: PolicySummary }) {
           {!policy.isActive ? "Paused" : new Date(policy.sessionExpiry).getTime() < Date.now() ? "Expired" : "Active"}
         </StatusChip>
       </div>
-      <div className="grid three" style={{ marginTop: 16 }}>
+      <div className="layout-three mt-4">
         <Metric label="Daily budget" value={`${lamportsToSol(policy.dailyBudgetLamports)} SOL`} />
         <Metric label="Per tx cap" value={`${lamportsToSol(policy.maxTxLamports)} SOL`} />
         <Metric label="Session" value={formatRelativeTime(policy.sessionExpiry)} />
@@ -133,8 +150,8 @@ export function SpendGauge({ spentLamports, budgetLamports }: { spentLamports: s
   }
 
   return (
-    <div style={{ width: "100%", height: 220 }}>
-      <ResponsiveContainer>
+    <div className="mx-auto max-h-[min(220px,50vw)] w-full max-w-full">
+      <ResponsiveContainer width="100%" height={220}>
         <RadialBarChart
           innerRadius="72%"
           outerRadius="100%"
@@ -189,16 +206,16 @@ export function TransactionRow({
             {transaction.verdict?.reasoning ?? "No anomaly reasoning stored for this transaction."}
           </div>
         </div>
-        <div style={{ textAlign: "right" }}>
-          <div className="metric-value" style={{ fontSize: "1rem" }}>
+        <div className="min-w-0 shrink-0 text-left sm:text-right">
+          <div className="metric-value text-base">
             {transaction.amountLamports ? `${lamportsToSol(transaction.amountLamports).toFixed(2)} SOL` : "—"}
           </div>
           <div className="muted">{formatRelativeTime(transaction.blockTime)}</div>
         </div>
       </div>
-      <div className="spread muted" style={{ marginTop: 12 }}>
-        <span className="mono">{shortAddress(transaction.txnSig, 10, 8)}</span>
-        <span>{formatDateTime(transaction.blockTime)}</span>
+      <div className="spread muted mt-3 gap-x-4">
+        <span className="mono min-w-0 break-all">{shortAddress(transaction.txnSig, 10, 8)}</span>
+        <span className="shrink-0 whitespace-nowrap">{formatDateTime(transaction.blockTime)}</span>
       </div>
     </div>
   );
@@ -228,48 +245,34 @@ export function IncidentTable({ incidents }: { incidents: IncidentSummary[] }) {
   }
 
   return (
-    <div className="card">
-      <table className="table">
-        <thead>
-          <tr>
-            <th>Agent</th>
-            <th>Reason</th>
-            <th>Paused at</th>
-            <th>Status</th>
-          </tr>
-        </thead>
-        <tbody>
-          {incidents.map((incident) => (
-            <tr key={incident.id}>
-              <td>
-                <Link href={`/incidents/${incident.id}`}>{policyLabel(incident.policyPubkey)}</Link>
-              </td>
-              <td>{incident.reason}</td>
-              <td>{formatDateTime(incident.pausedAt)}</td>
-              <td>
-                <StatusChip tone={incident.resolvedAt ? "green" : "red"}>{incident.resolvedAt ? "Resolved" : "Active"}</StatusChip>
-              </td>
+    <div className="card p-0 sm:p-5">
+      <div className="table-scroll">
+        <table className="table">
+          <thead>
+            <tr>
+              <th>Agent</th>
+              <th>Reason</th>
+              <th>Paused at</th>
+              <th>Status</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {incidents.map((incident) => (
+              <tr key={incident.id}>
+                <td className="max-w-[10rem] truncate sm:max-w-none sm:whitespace-normal">
+                  <Link href={`/incidents/${incident.id}`}>{policyLabel(incident.policyPubkey)}</Link>
+                </td>
+                <td className="max-w-[12rem] truncate sm:max-w-none sm:whitespace-normal">{incident.reason}</td>
+                <td className="whitespace-nowrap">{formatDateTime(incident.pausedAt)}</td>
+                <td>
+                  <StatusChip tone={incident.resolvedAt ? "green" : "red"}>{incident.resolvedAt ? "Resolved" : "Active"}</StatusChip>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }
 
-export function SimpleMarkdown({ markdown }: { markdown: string }) {
-  const lines = markdown.split("\n");
-  return (
-    <div className="markdown">
-      {lines.map((line, index) => {
-        if (line.startsWith("# ")) return <h1 key={index}>{line.slice(2)}</h1>;
-        if (line.startsWith("## ")) return <h2 key={index}>{line.slice(3)}</h2>;
-        if (line.startsWith("### ")) return <h3 key={index}>{line.slice(4)}</h3>;
-        if (line.startsWith("- ")) return <li key={index}>{line.slice(2)}</li>;
-        if (line.startsWith("|")) return <pre key={index}>{line}</pre>;
-        if (!line.trim()) return <br key={index} />;
-        return <p key={index}>{line}</p>;
-      })}
-    </div>
-  );
-}

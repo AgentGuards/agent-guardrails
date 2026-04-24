@@ -9,7 +9,10 @@ import type {
   VerdictSummary,
 } from "@/lib/types/dashboard";
 const API_URL = process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, "");
-const USE_MOCK_API = process.env.NEXT_PUBLIC_USE_MOCK_API === "true" || !API_URL;
+const USE_MOCK_API =
+  process.env.NEXT_PUBLIC_USE_MOCK_API === "true" ||
+  process.env.NEXT_PUBLIC_USE_MOCK === "true" ||
+  !API_URL;
 export const apiMode = USE_MOCK_API ? "mock" : "http";
 const DEFAULT_TRANSACTIONS_LIMIT = 50;
 const DEFAULT_INCIDENTS_LIMIT = 25;

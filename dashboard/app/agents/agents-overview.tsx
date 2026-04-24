@@ -1,33 +1,42 @@
 "use client";
 
-import { usePoliciesQuery } from "@/lib/api/use-policies-query";
-import { getErrorMessage } from "@/lib/api/client";
+import Link from "next/link";
 import { PolicyCard } from "@/components/dashboard-ui";
+import { QueryEmpty, QueryError, QueryLoading } from "@/components/query-states";
+import { getErrorMessage } from "@/lib/api/client";
+import { usePoliciesQuery } from "@/lib/api/use-policies-query";
 
 export function AgentsOverview() {
-  const { data, isLoading, isError, error } = usePoliciesQuery();
+  const { data, isLoading, isError, error, refetch } = usePoliciesQuery();
 
   if (isLoading) {
-    return (
-      <div className="rounded-lg border border-zinc-800 bg-zinc-950 p-4 text-sm text-zinc-300">
-        Loading policies...
-      </div>
-    );
+    return <QueryLoading message="Loading policies…" listSkeleton />;
   }
 
   if (isError) {
     return (
-      <div className="rounded-lg border border-rose-900/60 bg-zinc-950 p-4 text-sm text-rose-300">
-        Unable to load policies: {getErrorMessage(error)}
-      </div>
+      <QueryError
+        error={error}
+        title="Unable to load policies"
+        onRetry={() => void refetch()}
+      />
     );
   }
 
   if (!data?.length) {
     return (
-      <div className="rounded-lg border border-zinc-800 bg-zinc-950 p-4 text-sm text-zinc-400">
-        No policies found yet.
-      </div>
+      <QueryEmpty
+        title="No policies found yet."
+        description="Create a policy on-chain to see it listed here."
+        action={
+          <Link
+            href="/agents/new"
+            className="rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-500"
+          >
+            New policy
+          </Link>
+        }
+      />
     );
   }
 

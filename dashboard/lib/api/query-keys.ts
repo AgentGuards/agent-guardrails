@@ -8,6 +8,9 @@ export const queryKeys = {
   // Transaction reads
   transactions: () => ["transactions"] as const,
   transactionsByPolicy: (policyPubkey: string) => ["transactions", policyPubkey] as const,
+  /** Infinite-query feed: `['transactions','infinite', policyKey | 'all', pageSize]` */
+  transactionsInfinite: (policyPubkey: string | undefined, pageSize: number) =>
+    ["transactions", "infinite", policyPubkey ?? "all", pageSize] as const,
 
   // Incident reads
   incidents: () => ["incidents"] as const,

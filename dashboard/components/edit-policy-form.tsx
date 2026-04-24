@@ -22,7 +22,7 @@ import type { PolicySummary } from "@/lib/types/dashboard";
 
 function shortenPubkey(pubkey: string): string {
   if (pubkey.length <= 8) return pubkey;
-  return `${pubkey.slice(0, 4)}…${pubkey.slice(-4)}`;
+  return `${pubkey.slice(0, 4)}...${pubkey.slice(-4)}`;
 }
 
 async function fetchPolicyWithRetry(
@@ -57,7 +57,14 @@ export function EditPolicyForm({ policyPubkey }: { policyPubkey: string }) {
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saveBanner, setSaveBanner] = useState<string | null>(null);
+  const [toastError, setToastError] = useState<{ id: number; message: string } | null>(null);
   const initializedDraftForPubkeyRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!toastError) return;
+    const timeout = window.setTimeout(() => setToastError(null), 5000);
+    return () => window.clearTimeout(timeout);
+  }, [toastError?.id]);
 
   useEffect(() => {
     if (policyQuery.data && initializedDraftForPubkeyRef.current !== policyPubkey) {
@@ -140,13 +147,21 @@ export function EditPolicyForm({ policyPubkey }: { policyPubkey: string }) {
       queryClient.setQueryData(queryKeys.policy(policyPubkey), summary);
       queryClient.setQueryData(queryKeys.policies(), (old: PolicySummary[] | undefined) => {
         if (!old?.length) return [summary];
-        return old.map((row) => (row.pubkey === policyPubkey ? summary : row));
+        let found = false;
+        const next = old.map((row) => {
+          if (row.pubkey !== policyPubkey) return row;
+          found = true;
+          return summary;
+        });
+        return found ? next : [summary, ...next];
       });
 
       setDraft(policySummaryToDraft(summary));
       setSaveBanner("Policy updated on-chain. Cache refreshed.");
     } catch (e) {
-      setSaveError(getErrorMessage(e));
+      const message = getErrorMessage(e);
+      setSaveError(message);
+      setToastError({ id: Date.now(), message });
     } finally {
       setSaving(false);
     }
@@ -154,6 +169,15 @@ export function EditPolicyForm({ policyPubkey }: { policyPubkey: string }) {
 
   return (
     <div className="flex flex-col gap-6">
+      {toastError ? (
+        <div
+          role="status"
+          aria-live="polite"
+          className="fixed right-4 top-4 z-50 max-w-sm rounded-md border border-red-900/60 bg-red-950/95 px-4 py-3 text-sm text-red-200 shadow-lg"
+        >
+          {toastError.message}
+        </div>
+      ) : null}
       {saveBanner ? (
         <div className="rounded-md border border-emerald-900/50 bg-emerald-950/30 px-3 py-2 text-sm text-emerald-200">
           {saveBanner}

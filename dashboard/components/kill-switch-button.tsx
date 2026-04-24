@@ -40,8 +40,9 @@ export function KillSwitchButton({ policy }: { policy: PolicySummary }) {
     return null;
   }
 
-  const reasonBytes = new TextEncoder().encode(reason.trim());
-  const reasonOk = reasonBytes.length > 0 && reasonBytes.length <= REASON_MAX;
+  const trimmedReason = reason.trim();
+  const reasonByteLength = new TextEncoder().encode(trimmedReason).length;
+  const reasonOk = reasonByteLength > 0 && reasonByteLength <= REASON_MAX;
 
   const onConfirm = async () => {
     if (!reasonOk || !provider || !programId) return;
@@ -50,8 +51,7 @@ export function KillSwitchButton({ policy }: { policy: PolicySummary }) {
     setBanner(null);
     try {
       const client = new GuardrailsClient(provider, programId);
-      const trimmed = reason.trim().slice(0, REASON_MAX);
-      await client.pauseAgent(new PublicKey(policy.pubkey), trimmed);
+      await client.pauseAgent(new PublicKey(policy.pubkey), trimmedReason);
 
       const now = new Date().toISOString();
       queryClient.setQueryData(queryKeys.policy(policy.pubkey), (prev: PolicySummary | undefined) =>
@@ -115,15 +115,17 @@ export function KillSwitchButton({ policy }: { policy: PolicySummary }) {
               This stops all guarded transactions immediately. Only the policy owner can resume later.
             </p>
             <label className="mt-4 flex flex-col gap-1 text-sm text-zinc-400">
-              Reason (required, max {REASON_MAX} characters)
+              Reason (required, max {REASON_MAX} bytes)
               <textarea
                 className="min-h-[80px] rounded-md border border-zinc-700 bg-zinc-950 px-3 py-2 text-zinc-100"
                 value={reason}
-                maxLength={REASON_MAX}
                 onChange={(e) => setReason(e.target.value)}
                 placeholder="Why are you pausing?"
               />
             </label>
+            <p className={`text-xs ${reasonByteLength > REASON_MAX ? "text-red-400" : "text-zinc-500"}`}>
+              {reasonByteLength}/{REASON_MAX} bytes
+            </p>
             {error ? <p className="mt-2 text-sm text-red-400">{error}</p> : null}
             <div className="mt-6 flex justify-end gap-2">
               <button
