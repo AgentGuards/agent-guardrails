@@ -30,8 +30,9 @@ async function main() {
   const [policyPda] = client.findPolicyPda(owner.publicKey, staker.publicKey);
   const [trackerPda] = client.findTrackerPda(policyPda);
 
-  // Simulates a Marinade/staking pool address
-  const stakingPool = Keypair.generate().publicKey;
+  // Use the funder wallet as destination (must be a funded account on-chain)
+  const funder = keypairFromArray(keys.funder);
+  const stakingPool = funder.publicKey;
 
   console.log(`\n[staker] Starting staker agent`);
   console.log(`  Agent:   ${shortKey(staker.publicKey)}`);

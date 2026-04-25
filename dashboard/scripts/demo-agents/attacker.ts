@@ -32,8 +32,9 @@ async function main() {
   const [policyPda] = client.findPolicyPda(owner.publicKey, attacker.publicKey);
   const [trackerPda] = client.findTrackerPda(policyPda);
 
-  // Drain destination — simulates the attacker's external wallet
-  const drainWallet = Keypair.generate().publicKey;
+  // Use the funder wallet as drain destination (must be a funded account on-chain)
+  const funder = keypairFromArray(keys.funder);
+  const drainWallet = funder.publicKey;
 
   console.log(`\n[attacker] Starting attacker agent`);
   console.log(`  Agent:   ${shortKey(attacker.publicKey)}`);

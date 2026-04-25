@@ -37,6 +37,7 @@ export interface DemoKeys {
   trader: number[];
   staker: number[];
   attacker: number[];
+  funder: number[];
 }
 
 export function saveDemoKeys(keys: DemoKeys): void {

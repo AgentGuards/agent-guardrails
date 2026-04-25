@@ -4,23 +4,42 @@
 // Creates three agents (trader, staker, attacker) with policies under one owner.
 // Saves all keypairs to .demo-keys.json for the agent scripts to load.
 
-import { Keypair, LAMPORTS_PER_SOL, SystemProgram } from "@solana/web3.js";
+import { Keypair, LAMPORTS_PER_SOL, SystemProgram, Transaction, sendAndConfirmTransaction } from "@solana/web3.js";
 import { BN } from "@coral-xyz/anchor";
+import * as fs from "fs";
+import * as os from "os";
+import * as path from "path";
 import {
   saveDemoKeys,
   getConnection,
   getClient,
   shortKey,
-  airdropSol,
   sleep,
 } from "./demo-helpers";
 
 const SEVEN_DAYS_SECONDS = 7 * 24 * 60 * 60;
 
+/** Load the Solana CLI default keypair to fund demo accounts. */
+function loadFunderKeypair(): Keypair {
+  const keypairPath = process.env.FUNDER_KEYPAIR
+    ?? path.join(os.homedir(), ".config", "solana", "mywallet.json");
+  const raw = JSON.parse(fs.readFileSync(keypairPath, "utf-8"));
+  return Keypair.fromSecretKey(Uint8Array.from(raw));
+}
+
 async function main() {
   console.log("\n=== Agent Guardrails — Demo Setup ===\n");
 
   const connection = getConnection();
+  const funder = loadFunderKeypair();
+  console.log(`[demo] Funder: ${shortKey(funder.publicKey)}`);
+
+  const funderBalance = await connection.getBalance(funder.publicKey);
+  console.log(`[demo] Funder balance: ${(funderBalance / LAMPORTS_PER_SOL).toFixed(2)} SOL`);
+
+  if (funderBalance < 1 * LAMPORTS_PER_SOL) {
+    throw new Error("Funder needs at least 1 SOL to set up demo");
+  }
 
   // -------------------------------------------------------------------------
   // Step 1: Generate keypairs
@@ -40,21 +59,20 @@ async function main() {
   console.log(`  Attacker: ${shortKey(attacker.publicKey)}`);
 
   // -------------------------------------------------------------------------
-  // Step 2: Airdrop SOL to owner and agent keypairs
+  // Step 2: Fund keypairs from funder wallet
   // -------------------------------------------------------------------------
 
-  // Owner needs SOL for: rent (3 policies × 2 PDAs) + funding PDAs + tx fees
-  await airdropSol(connection, owner.publicKey, 5);
-  await sleep(1000);
+  console.log("\n[demo] Funding keypairs from funder wallet…");
 
-  // Agents need SOL for tx fees (they sign the outer transaction)
-  for (const [, kp] of [["trader", trader], ["staker", staker], ["attacker", attacker]] as const) {
-    await airdropSol(connection, (kp as Keypair).publicKey, 1);
-    await sleep(1000);
-  }
-
-  // Monitor needs SOL for pause_agent tx fees
-  await airdropSol(connection, monitor.publicKey, 1);
+  const fundingTx = new Transaction().add(
+    SystemProgram.transfer({ fromPubkey: funder.publicKey, toPubkey: owner.publicKey, lamports: Math.floor(0.5 * LAMPORTS_PER_SOL) }),
+    SystemProgram.transfer({ fromPubkey: funder.publicKey, toPubkey: trader.publicKey, lamports: Math.floor(0.1 * LAMPORTS_PER_SOL) }),
+    SystemProgram.transfer({ fromPubkey: funder.publicKey, toPubkey: staker.publicKey, lamports: Math.floor(0.1 * LAMPORTS_PER_SOL) }),
+    SystemProgram.transfer({ fromPubkey: funder.publicKey, toPubkey: attacker.publicKey, lamports: Math.floor(0.1 * LAMPORTS_PER_SOL) }),
+    SystemProgram.transfer({ fromPubkey: funder.publicKey, toPubkey: monitor.publicKey, lamports: Math.floor(0.1 * LAMPORTS_PER_SOL) }),
+  );
+  await sendAndConfirmTransaction(connection, fundingTx, [funder]);
+  console.log("  ✓ All keypairs funded");
 
   // -------------------------------------------------------------------------
   // Step 3: Create policies
@@ -113,9 +131,9 @@ async function main() {
   console.log("\n[demo] Funding policy PDAs…");
 
   const fundingPlan: [string, Keypair, number][] = [
-    ["trader", trader, 3],
-    ["staker", staker, 2],
-    ["attacker", attacker, 3],
+    ["trader", trader, 0.1],
+    ["staker", staker, 0.1],
+    ["attacker", attacker, 0.1],
   ];
 
   for (const [label, agentKp, amount] of fundingPlan) {
@@ -125,7 +143,7 @@ async function main() {
       SystemProgram.transfer({
         fromPubkey: owner.publicKey,
         toPubkey: policyPda,
-        lamports: amount * LAMPORTS_PER_SOL,
+        lamports: Math.floor(amount * LAMPORTS_PER_SOL),
       }),
     );
 
@@ -134,7 +152,29 @@ async function main() {
   }
 
   // -------------------------------------------------------------------------
-  // Step 5: Save keypairs
+  // Step 5: Insert policies into the server database
+  // -------------------------------------------------------------------------
+
+  console.log("\n[demo] Inserting policies into server database…");
+
+  const { execSync } = await import("child_process");
+  const dbUrl = process.env.DATABASE_URL ?? "postgresql://adilshaikh@localhost:5432/guardrails_dev";
+
+  const policyRows: { label: string; agent: Keypair; maxTx: number; dailyBudget: number }[] = [
+    { label: "Yield Bot (trader)", agent: trader, maxTx: 2, dailyBudget: 20 },
+    { label: "Staking Agent (staker)", agent: staker, maxTx: 1, dailyBudget: 10 },
+    { label: "Alpha Scanner (attacker)", agent: attacker, maxTx: 2, dailyBudget: 20 },
+  ];
+
+  for (const row of policyRows) {
+    const [pda] = client.findPolicyPda(owner.publicKey, row.agent.publicKey);
+    const sql = `INSERT INTO policies (pubkey, owner, agent, allowed_programs, max_tx_lamports, daily_budget_lamports, session_expiry, is_active, escalation_threshold, anomaly_score, label, created_at, updated_at) VALUES ('${pda.toBase58()}', '${owner.publicKey.toBase58()}', '${row.agent.publicKey.toBase58()}', '{${SystemProgram.programId.toBase58()}}', ${row.maxTx * LAMPORTS_PER_SOL}, ${row.dailyBudget * LAMPORTS_PER_SOL}, '${new Date((now + SEVEN_DAYS_SECONDS) * 1000).toISOString()}', true, 0, 0, '${row.label}', NOW(), NOW()) ON CONFLICT (pubkey) DO NOTHING;`;
+    execSync(`psql "${dbUrl}" -c "${sql}"`, { stdio: "pipe" });
+    console.log(`  ✓ ${row.label} → ${shortKey(pda)}`);
+  }
+
+  // -------------------------------------------------------------------------
+  // Step 6: Save keypairs
   // -------------------------------------------------------------------------
 
   saveDemoKeys({
@@ -143,6 +183,7 @@ async function main() {
     trader: Array.from(trader.secretKey),
     staker: Array.from(staker.secretKey),
     attacker: Array.from(attacker.secretKey),
+    funder: Array.from(funder.secretKey),
   });
 
   // -------------------------------------------------------------------------
@@ -160,11 +201,8 @@ async function main() {
   console.log(`  Attacker: ${attackerPda.toBase58()}`);
   console.log(`\nOwner:   ${owner.publicKey.toBase58()}`);
   console.log(`Monitor: ${monitor.publicKey.toBase58()}`);
-  console.log("\nNext steps:");
-  console.log("  1. Configure Helius webhook → server /webhook endpoint");
-  console.log("  2. Start server: cd server && pnpm dev");
-  console.log("  3. Start dashboard: cd dashboard && npm run dev");
-  console.log("  4. Run demo: npm run demo:simulate");
+  console.log(`Funder:  ${funder.publicKey.toBase58()}`);
+  console.log("\nReady to test: npm run demo:trader");
 }
 
 main().catch((err) => {

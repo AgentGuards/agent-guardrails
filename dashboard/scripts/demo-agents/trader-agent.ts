@@ -31,8 +31,9 @@ async function main() {
   const [policyPda] = client.findPolicyPda(owner.publicKey, trader.publicKey);
   const [trackerPda] = client.findTrackerPda(policyPda);
 
-  // Generate a random destination (simulates swap output address)
-  const destination = Keypair.generate().publicKey;
+  // Use the funder wallet as destination (must be a funded account on-chain)
+  const funder = keypairFromArray(keys.funder);
+  const destination = funder.publicKey;
 
   console.log(`\n[trader] Starting trader agent`);
   console.log(`  Agent:   ${shortKey(trader.publicKey)}`);

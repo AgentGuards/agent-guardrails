@@ -30,6 +30,16 @@ const ANTHROPIC_API_KEY = optionalKey("ANTHROPIC_API_KEY");
 const OPENAI_API_KEY = optionalKey("OPENAI_API_KEY");
 const GEMINI_API_KEY = optionalKey("GEMINI_API_KEY");
 
+// Webhook auth — at least one method must be set.
+const HELIUS_WEBHOOK_SECRET = optionalKey("HELIUS_WEBHOOK_SECRET");
+const HELIUS_AUTH_HEADER = optionalKey("HELIUS_AUTH_HEADER");
+
+if (!HELIUS_WEBHOOK_SECRET && !HELIUS_AUTH_HEADER) {
+  throw new Error(
+    "At least one webhook auth method required: HELIUS_WEBHOOK_SECRET or HELIUS_AUTH_HEADER",
+  );
+}
+
 if (!ANTHROPIC_API_KEY && !OPENAI_API_KEY && !GEMINI_API_KEY) {
   throw new Error(
     "At least one LLM API key required: ANTHROPIC_API_KEY, OPENAI_API_KEY, or GEMINI_API_KEY",
@@ -41,7 +51,8 @@ export const env = {
   SOLANA_RPC_URL: required("SOLANA_RPC_URL"),
   GUARDRAILS_PROGRAM_ID: required("GUARDRAILS_PROGRAM_ID"),
   MONITOR_KEYPAIR: required("MONITOR_KEYPAIR"),
-  HELIUS_WEBHOOK_SECRET: required("HELIUS_WEBHOOK_SECRET"),
+  HELIUS_WEBHOOK_SECRET,
+  HELIUS_AUTH_HEADER,
   ANTHROPIC_API_KEY,
   OPENAI_API_KEY,
   GEMINI_API_KEY,

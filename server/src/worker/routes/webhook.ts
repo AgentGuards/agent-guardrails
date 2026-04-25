@@ -10,26 +10,44 @@ import { judgeTransaction } from "../pipeline/judge.js";
 import { executePause } from "../pipeline/executor.js";
 
 /**
- * Verify the Helius webhook signature.
- * Helius sends the HMAC-SHA256 of the raw body in the Authorization header.
+ * Verify the Helius webhook request.
+ * Supports two modes:
+ *   1. Static auth header — HELIUS_AUTH_HEADER set, Authorization must match exactly
+ *   2. HMAC-SHA256 — HELIUS_WEBHOOK_SECRET set, Authorization = HMAC of raw body
+ * If both are set, static header is checked first.
  */
-function verifySignature(rawBody: Buffer, authHeader: string | undefined): boolean {
+function verifyWebhook(rawBody: Buffer, authHeader: string | undefined): boolean {
   if (!authHeader) return false;
 
-  const expected = createHmac("sha256", env.HELIUS_WEBHOOK_SECRET)
-    .update(rawBody)
-    .digest("base64");
-
-  // Constant-time comparison to prevent timing attacks
-  try {
-    return timingSafeEqual(
-      Buffer.from(authHeader),
-      Buffer.from(expected),
-    );
-  } catch {
-    // Buffers of different length throw — signature is invalid
-    return false;
+  // Mode 1: Static auth header comparison
+  if (env.HELIUS_AUTH_HEADER) {
+    try {
+      return timingSafeEqual(
+        Buffer.from(authHeader),
+        Buffer.from(env.HELIUS_AUTH_HEADER),
+      );
+    } catch {
+      return false;
+    }
   }
+
+  // Mode 2: HMAC-SHA256 signature verification
+  if (env.HELIUS_WEBHOOK_SECRET) {
+    const expected = createHmac("sha256", env.HELIUS_WEBHOOK_SECRET)
+      .update(rawBody)
+      .digest("base64");
+
+    try {
+      return timingSafeEqual(
+        Buffer.from(authHeader),
+        Buffer.from(expected),
+      );
+    } catch {
+      return false;
+    }
+  }
+
+  return false;
 }
 
 /**
@@ -81,7 +99,7 @@ export async function webhookHandler(req: Request, res: Response): Promise<void>
   // The raw body buffer is stored by the verify callback in worker/index.ts
   const rawBody = (req as Request & { rawBody?: Buffer }).rawBody;
 
-  if (!rawBody || !verifySignature(rawBody, req.headers.authorization)) {
+  if (!rawBody || !verifyWebhook(rawBody, req.headers.authorization)) {
     res.status(401).json({ error: "Invalid webhook signature" });
     return;
   }

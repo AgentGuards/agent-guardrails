@@ -45,3 +45,6 @@ program/target/
 # Demo keypairs (contain secret keys — never commit)
 .demo-keys.json
 
+# Local testing notes (per-developer, not committed)
+TESTING-NOTES.md
+
