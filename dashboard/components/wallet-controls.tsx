@@ -1,17 +1,22 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
+import { usePathname, useRouter } from "next/navigation";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { useWalletModal } from "@solana/wallet-adapter-react-ui";
 import { useSiwsAuthStore } from "@/lib/stores/siws-auth";
 import { shortAddress } from "@/lib/utils";
 
 export function WalletControls() {
+  const router = useRouter();
+  const pathname = usePathname();
   const walletAdapter = useWallet();
   const { setVisible } = useWalletModal();
   const siwsWallet = useSiwsAuthStore((s) => s.siwsWallet);
   const siwsSignedInAt = useSiwsAuthStore((s) => s.siwsSignedInAt);
-  const isSigninPage = typeof window !== "undefined" && window.location.pathname === "/signin";
+  const [connectError, setConnectError] = useState<string | null>(null);
+  const isSigninPage = pathname === "/signin";
   let connectedWalletPubkey: string | null = null;
   let wallet = "Not connected";
   let connected = false;
@@ -29,6 +34,13 @@ export function WalletControls() {
     Boolean(connectedWalletPubkey) && Boolean(siwsWallet) && connectedWalletPubkey === siwsWallet;
   const isSiwsSignedIn = Boolean(siwsSignedInAt) && siwsMatchesConnectedWallet;
   const signedInLabel = siwsWallet ? shortAddress(siwsWallet, 4, 4) : wallet;
+
+  useEffect(() => {
+    if (!connectError) return;
+    const timeout = window.setTimeout(() => setConnectError(null), 4000);
+    return () => window.clearTimeout(timeout);
+  }, [connectError]);
+
   return (
     <div className="min-w-0 flex items-center gap-2">
       <span className="inline-flex items-center gap-2 rounded-full border border-zinc-800/60 bg-zinc-900/60 px-3 py-1.5 text-xs font-medium text-zinc-300 backdrop-blur-sm">
@@ -66,12 +78,32 @@ export function WalletControls() {
             void walletAdapter
               .connect()
               .then(() => {
-                if (typeof window !== "undefined" && window.location.pathname !== "/signin") {
-                  window.location.assign("/signin");
+                if (pathname !== "/signin") {
+                  router.push("/signin");
                 }
               })
-              .catch(() => {
-                // Ignore rejected connects from cancel/close actions.
+              .catch((error: unknown) => {
+                const message = error instanceof Error ? error.message : "Unable to connect wallet.";
+                // Skip noisy toasts for explicit user cancellation.
+                if (/rejected|declined|cancelled|canceled/i.test(message)) {
+                  return;
+                }
+                setConnectError(message);
+              });
+          }}
+        >
+          Connect wallet
+        </button>
+      )}
+      {connectError ? (
+        <span className="inline-flex items-center rounded-full border border-red-900/60 bg-red-950/35 px-3 py-1.5 text-xs font-medium text-red-200">
+          {connectError}
+        </span>
+      ) : null}
+    </div>
+  );
+}
+     setConnectToastError(getErrorMessage(error));
               });
           }}
         >
