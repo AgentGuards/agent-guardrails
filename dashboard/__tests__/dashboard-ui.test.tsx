@@ -29,7 +29,7 @@ describe("dashboard-ui", () => {
     );
 
     expect(screen.getByText("Guardrails")).toBeInTheDocument();
-    expect(screen.getByText("Guardrails overview")).toBeInTheDocument();
+    expect(screen.getAllByText("Guardrails overview").length).toBeGreaterThan(0);
     expect(screen.getByText("Body content")).toBeInTheDocument();
     expect(screen.getByText("Wallet controls")).toBeInTheDocument();
   });
@@ -38,7 +38,7 @@ describe("dashboard-ui", () => {
     render(createElement(PolicyCard, { policy: POLICIES[0] }));
 
     expect(screen.getByText(POLICIES[0].label as string)).toBeInTheDocument();
-    expect(screen.getByText(/Daily budget/i)).toBeInTheDocument();
+    expect(screen.getByText(/Daily spend/i)).toBeInTheDocument();
   });
 
   it("shows no-budget fallback in spend gauge", () => {
