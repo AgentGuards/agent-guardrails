@@ -41,6 +41,12 @@ export default function Home() {
           <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
             <LandingConnectWalletButton />
             <Link
+              href="/signin"
+              className="inline-flex items-center justify-center rounded-lg border border-blue-700/50 bg-blue-950/30 px-4 py-2.5 text-sm font-medium text-blue-100 transition hover:border-blue-600/70 hover:bg-blue-900/40"
+            >
+              Sign in with Solana
+            </Link>
+            <Link
               href="/incidents"
               className="inline-flex items-center justify-center rounded-lg border border-[#2a3142] bg-transparent px-4 py-2.5 text-sm font-medium text-zinc-200 transition hover:border-[#384056] hover:bg-[#10131c]"
             >
