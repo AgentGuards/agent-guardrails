@@ -5,6 +5,11 @@
 //! frequent counter updates from `guarded_execute` do not trigger realloc
 //! on the larger policy account.
 //!
+//! NOTE: `lamports_spent_24h` here duplicates `daily_spent_lamports` on the
+//! PermissionPolicy. The policy field is authoritative for on-chain budget
+//! enforcement. This tracker is informational — used by the server pipeline
+//! for enriched anomaly detection queries. Both are updated in guarded_execute.
+//!
 //! PDA seeds: `["tracker", policy_pubkey]`
 
 use anchor_lang::prelude::*;

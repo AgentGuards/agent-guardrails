@@ -49,7 +49,8 @@ pub fn handler(ctx: Context<UpdateAnomalyScore>, args: UpdateAnomalyScoreArgs) -
         GuardrailsError::UnauthorizedPauser
     );
 
-    policy.anomaly_score = args.score;
+    // Clamp to documented 0-100 range
+    policy.anomaly_score = args.score.min(100);
 
     msg!(
         "Anomaly score updated to {} for policy {}",

@@ -48,7 +48,8 @@ authRouter.post("/siws/nonce", nonceLimiter, async (req, res) => {
       },
     });
 
-    const message = `Sign this message to authenticate with Agent Guardrails.\n\nWallet: ${pubkey}\nNonce: ${nonce}`;
+    const domain = env.CORS_ORIGIN;
+    const message = `Sign this message to authenticate with Agent Guardrails.\n\nDomain: ${domain}\nChain: solana:devnet\nWallet: ${pubkey}\nNonce: ${nonce}`;
 
     res.json({ nonce, message });
   } catch (err) {
@@ -82,26 +83,9 @@ authRouter.post("/siws/verify", async (req, res) => {
     }
     const nonce = nonceMatch[1];
 
-    // Find the auth session
-    const session = await prisma.authSession.findFirst({
-      where: {
-        walletPubkey: pubkey,
-        nonce,
-        signedAt: null,
-        expiresAt: { gt: new Date() },
-      },
-      orderBy: { createdAt: "desc" },
-    });
-
-    if (!session) {
-      res.status(401).json({ error: "Invalid or expired nonce" });
-      return;
-    }
-
-    // Verify Ed25519 signature
+    // Verify Ed25519 signature first (before touching DB)
     const messageBytes = new TextEncoder().encode(message);
     const signatureBytes = Buffer.from(signature, "base64");
-    // Solana pubkeys are always base58-encoded
     const pubkeyBuffer = decodeBase58(pubkey);
 
     const valid = nacl.sign.detached.verify(
@@ -115,11 +99,22 @@ authRouter.post("/siws/verify", async (req, res) => {
       return;
     }
 
-    // Mark session as signed
-    await prisma.authSession.update({
-      where: { id: session.id },
+    // Atomically claim the session — updateMany with signedAt: null prevents
+    // TOCTOU race where two concurrent requests claim the same nonce.
+    const claimed = await prisma.authSession.updateMany({
+      where: {
+        walletPubkey: pubkey,
+        nonce,
+        signedAt: null,
+        expiresAt: { gt: new Date() },
+      },
       data: { signedAt: new Date() },
     });
+
+    if (claimed.count === 0) {
+      res.status(401).json({ error: "Invalid or expired nonce" });
+      return;
+    }
 
     // Issue JWT
     const token = jwt.sign({ walletPubkey: pubkey }, env.JWT_SECRET, {

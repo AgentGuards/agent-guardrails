@@ -123,12 +123,27 @@ pub fn handler(ctx: Context<InitializePolicy>, args: InitializePolicyArgs) -> Re
         GuardrailsError::TxLimitExceedsDailyBudget
     );
 
+    // If Squads multisig is set, escalation_threshold must be > 0 to avoid
+    // every non-zero transaction triggering escalation (making the agent unusable)
+    if args.squads_multisig.is_some() {
+        require!(
+            args.escalation_threshold > 0,
+            GuardrailsError::TxLimitExceedsDailyBudget // reuse existing error
+        );
+    }
+
+    // --- Deduplicate lists ---
+    let mut allowed_programs = args.allowed_programs;
+    allowed_programs.dedup();
+    let mut authorized_monitors = args.authorized_monitors;
+    authorized_monitors.dedup();
+
     // --- Populate PermissionPolicy ---
 
     let policy = &mut ctx.accounts.policy;
     policy.owner = ctx.accounts.owner.key();
     policy.agent = ctx.accounts.agent.key();
-    policy.allowed_programs = args.allowed_programs;
+    policy.allowed_programs = allowed_programs;
     policy.max_tx_lamports = args.max_tx_lamports;
     policy.max_tx_token_units = args.max_tx_token_units;
     policy.daily_budget_lamports = args.daily_budget_lamports;
@@ -140,7 +155,7 @@ pub fn handler(ctx: Context<InitializePolicy>, args: InitializePolicyArgs) -> Re
     policy.paused_reason = [0u8; 64]; // No reason — not paused
     policy.squads_multisig = args.squads_multisig;
     policy.escalation_threshold = args.escalation_threshold;
-    policy.authorized_monitors = args.authorized_monitors;
+    policy.authorized_monitors = authorized_monitors;
     policy.anomaly_score = 0; // Clean slate
     policy.bump = ctx.bumps.policy;
 

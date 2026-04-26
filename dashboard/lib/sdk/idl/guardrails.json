@@ -415,7 +415,51 @@
         153,
         115
       ],
-      "accounts": [],
+      "accounts": [
+        {
+          "name": "owner",
+          "docs": [
+            "Only the owner can rotate the agent key."
+          ],
+          "signer": true,
+          "relations": [
+            "policy"
+          ]
+        },
+        {
+          "name": "policy",
+          "docs": [
+            "The PermissionPolicy PDA. Accounts defined now so the IDL is correct",
+            "when the handler is eventually implemented."
+          ],
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  112,
+                  111,
+                  108,
+                  105,
+                  99,
+                  121
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "policy.owner",
+                "account": "PermissionPolicy"
+              },
+              {
+                "kind": "account",
+                "path": "policy.agent",
+                "account": "PermissionPolicy"
+              }
+            ]
+          }
+        }
+      ],
       "args": []
     },
     {
@@ -1180,14 +1224,6 @@
               "Unix timestamp from the Solana clock at execution time."
             ],
             "type": "i64"
-          },
-          {
-            "name": "txn_sig",
-            "docs": [
-              "Base58-encoded transaction signature. String is fine in events since",
-              "they are log data, not account data."
-            ],
-            "type": "string"
           }
         ]
       }

@@ -30,11 +30,14 @@ app.use(workerRouter);
 // API module: REST routes + SSE stream + SIWS auth (all under /api)
 app.use("/api", express.json(), apiRouter);
 
+// Health check — used by load balancers and deployment readiness probes
+app.get("/health", (_req, res) => res.json({ ok: true }));
+
 // ---------------------------------------------------------------------------
 // Start
 // ---------------------------------------------------------------------------
 
-app.listen(env.PORT, () => {
+const server = app.listen(env.PORT, () => {
   console.log(`[guardrails-server] listening on port ${env.PORT}`);
 
   // Clean up expired auth sessions every 5 minutes
@@ -56,3 +59,14 @@ app.listen(env.PORT, () => {
     }
   }, 5 * 60 * 1000);
 });
+
+// Graceful shutdown — close DB connections and stop accepting requests
+for (const signal of ["SIGTERM", "SIGINT"] as const) {
+  process.on(signal, () => {
+    console.log(`[guardrails-server] ${signal} received, shutting down…`);
+    server.close(async () => {
+      await prisma.$disconnect();
+      process.exit(0);
+    });
+  });
+}

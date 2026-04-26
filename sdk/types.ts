@@ -101,7 +101,6 @@ export interface GuardedTxnExecutedEvent {
   targetProgram: PublicKey;
   amount: BN;
   timestamp: BN;
-  txnSig: string;
 }
 
 export interface GuardedTxnRejectedEvent {

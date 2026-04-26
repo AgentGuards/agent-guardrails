@@ -25,9 +25,8 @@ pub struct GuardedTxnExecuted {
     pub amount: u64,
     /// Unix timestamp from the Solana clock at execution time.
     pub timestamp: i64,
-    /// Base58-encoded transaction signature. String is fine in events since
-    /// they are log data, not account data.
-    pub txn_sig: String,
+    // txn_sig removed — not available on-chain during execution.
+    // Server populates from Helius webhook transaction metadata.
 }
 
 /// Emitted when `guarded_execute` rejects a transaction — either during

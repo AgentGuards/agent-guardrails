@@ -482,7 +482,6 @@ pub fn handler(ctx: Context<GuardedExecute>, args: GuardedExecuteArgs) -> Result
         target_program: target_program_key,
         amount: verified_amount,
         timestamp: now,
-        txn_sig: String::new(),
     });
 
     Ok(())
