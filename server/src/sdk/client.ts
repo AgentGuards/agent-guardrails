@@ -17,7 +17,10 @@ import {
   type InitializePolicyArgs,
   type UpdatePolicyArgs,
   type GuardedExecuteArgs,
+  type WrapSolArgs,
 } from "./types";
+
+const TOKEN_PROGRAM_ID = new PublicKey("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA");
 
 const PAUSE_REASON_MAX_BYTES = 64;
 
@@ -236,6 +239,49 @@ export class GuardrailsClient {
         owner,
         policy: policyPda,
       })
+      .rpc();
+  }
+
+  /**
+   * Wraps native SOL from the policy PDA into wSOL in the PDA's ATA.
+   * Callable by owner or agent (callerKeypair must be one of them).
+   */
+  async wrapSol(
+    policyPda: PublicKey,
+    wsolAta: PublicKey,
+    args: WrapSolArgs,
+    callerKeypair: Keypair,
+  ): Promise<string> {
+    return await (this.program.methods as any)
+      .wrapSol(args)
+      .accounts({
+        caller: callerKeypair.publicKey,
+        policy: policyPda,
+        wsolAta,
+        tokenProgram: TOKEN_PROGRAM_ID,
+      })
+      .signers([callerKeypair])
+      .rpc();
+  }
+
+  /**
+   * Unwraps wSOL back to native SOL on the policy PDA by closing the ATA.
+   * Callable by owner or agent.
+   */
+  async unwrapSol(
+    policyPda: PublicKey,
+    wsolAta: PublicKey,
+    callerKeypair: Keypair,
+  ): Promise<string> {
+    return await (this.program.methods as any)
+      .unwrapSol()
+      .accounts({
+        caller: callerKeypair.publicKey,
+        policy: policyPda,
+        wsolAta,
+        tokenProgram: TOKEN_PROGRAM_ID,
+      })
+      .signers([callerKeypair])
       .rpc();
   }
 }

@@ -20,7 +20,9 @@ pub use instructions::initialize_policy::*;
 pub use instructions::pause_agent::*;
 pub use instructions::resume_agent::*;
 pub use instructions::rotate_agent_key::*;
+pub use instructions::unwrap_sol::*;
 pub use instructions::update_policy::*;
+pub use instructions::wrap_sol::*;
 
 declare_id!("ENzC6oJhL2bVELvRCZqN4JizFNPTCTfMR5Gz1YJb4u76");
 
@@ -73,5 +75,17 @@ pub mod guardrails {
     /// guarded_execute step 8 for MVP. This is a no-op.
     pub fn escalate_to_squads(ctx: Context<EscalateToSquads>) -> Result<()> {
         instructions::escalate_to_squads::handler(ctx)
+    }
+
+    /// Wraps native SOL from the policy PDA into wSOL in the PDA's ATA.
+    /// Callable by the policy owner or agent.
+    pub fn wrap_sol(ctx: Context<WrapSol>, args: WrapSolArgs) -> Result<()> {
+        instructions::wrap_sol::handler(ctx, args)
+    }
+
+    /// Unwraps wSOL back to native SOL on the policy PDA by closing the ATA.
+    /// Callable by the policy owner or agent.
+    pub fn unwrap_sol(ctx: Context<UnwrapSol>) -> Result<()> {
+        instructions::unwrap_sol::handler(ctx)
     }
 }

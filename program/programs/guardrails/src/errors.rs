@@ -41,6 +41,15 @@ pub enum GuardrailsError {
     #[msg("CPI to target program failed")]
     CpiExecutionFailed,
 
+    #[msg("Insufficient lamports in policy PDA (must retain rent-exempt minimum)")]
+    InsufficientLamports,
+    #[msg("Caller is not the policy owner or agent")]
+    UnauthorizedCaller,
+    #[msg("Invalid wSOL token account (wrong mint, owner, or program)")]
+    InvalidWsolAccount,
+    #[msg("input_account_index is out of bounds for remaining_accounts")]
+    InvalidInputAccountIndex,
+
     // --- Phase 4 errors ---
     #[msg("This instruction is not yet implemented")]
     NotYetImplemented,

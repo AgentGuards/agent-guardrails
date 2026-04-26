@@ -10,7 +10,9 @@ pub mod initialize_policy;
 pub mod pause_agent;
 pub mod resume_agent;
 pub mod rotate_agent_key;
+pub mod unwrap_sol;
 pub mod update_policy;
+pub mod wrap_sol;
 
 // Note: lib.rs uses `pub use instructions::initialize_policy::*` etc. to
 // re-export types at crate root (required by the #[program] macro).

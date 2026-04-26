@@ -89,10 +89,9 @@ export function buildTransferIxData(lamports: bigint): Buffer {
 /**
  * Execute a guarded System Program SOL transfer from the policy PDA to a destination.
  *
- * remaining_accounts layout for System Program transfer CPI:
- *   [0] policy PDA (writable) — source, will be marked as signer by handler
- *   [1] destination (writable) — recipient
- *   [2] System Program — target program for invoke_signed resolution
+ * The on-chain handler detects System Program as target and does a direct
+ * lamport transfer (no CPI) — avoiding the "from must not carry data" issue.
+ * remaining_accounts only needs the destination.
  */
 export async function guardedSolTransfer(
   client: GuardrailsClient,
@@ -112,11 +111,10 @@ export async function guardedSolTransfer(
     {
       instructionData: ixData,
       amountHint: new BN(lamports),
+      inputAccountIndex: null,
     },
     [
-      { pubkey: policyPda, isSigner: false, isWritable: true },
       { pubkey: destination, isSigner: false, isWritable: true },
-      { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
     ],
   );
 }

@@ -419,6 +419,78 @@
       "args": []
     },
     {
+      "name": "unwrap_sol",
+      "docs": [
+        "Unwraps wSOL back to native SOL on the policy PDA by closing the ATA.",
+        "Callable by the policy owner or agent."
+      ],
+      "discriminator": [
+        99,
+        40,
+        14,
+        105,
+        45,
+        107,
+        172,
+        201
+      ],
+      "accounts": [
+        {
+          "name": "caller",
+          "docs": [
+            "Either the agent or the owner can call this.",
+            "Validated in handler body."
+          ],
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "policy",
+          "docs": [
+            "The PermissionPolicy PDA. Receives lamports from the closed ATA."
+          ],
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  112,
+                  111,
+                  108,
+                  105,
+                  99,
+                  121
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "policy.owner",
+                "account": "PermissionPolicy"
+              },
+              {
+                "kind": "account",
+                "path": "policy.agent",
+                "account": "PermissionPolicy"
+              }
+            ]
+          }
+        },
+        {
+          "name": "wsol_ata",
+          "docs": [
+            "The wSOL ATA to close. All lamports go back to the policy PDA."
+          ],
+          "writable": true
+        },
+        {
+          "name": "token_program",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        }
+      ],
+      "args": []
+    },
+    {
       "name": "update_policy",
       "docs": [
         "Updates configurable fields on an existing PermissionPolicy.",
@@ -487,6 +559,88 @@
           "type": {
             "defined": {
               "name": "UpdatePolicyArgs"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "wrap_sol",
+      "docs": [
+        "Wraps native SOL from the policy PDA into wSOL in the PDA's ATA.",
+        "Callable by the policy owner or agent."
+      ],
+      "discriminator": [
+        47,
+        62,
+        155,
+        172,
+        131,
+        205,
+        37,
+        201
+      ],
+      "accounts": [
+        {
+          "name": "caller",
+          "docs": [
+            "Either the agent or the owner can call this.",
+            "Validated in handler body (caller == policy.owner || caller == policy.agent)."
+          ],
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "policy",
+          "docs": [
+            "The PermissionPolicy PDA. Mutable because lamports are debited."
+          ],
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  112,
+                  111,
+                  108,
+                  105,
+                  99,
+                  121
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "policy.owner",
+                "account": "PermissionPolicy"
+              },
+              {
+                "kind": "account",
+                "path": "policy.agent",
+                "account": "PermissionPolicy"
+              }
+            ]
+          }
+        },
+        {
+          "name": "wsol_ata",
+          "docs": [
+            "The policy PDA's wSOL Associated Token Account.",
+            "Must already exist. Mutable because lamports are credited and sync_native updates it."
+          ],
+          "writable": true
+        },
+        {
+          "name": "token_program",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        }
+      ],
+      "args": [
+        {
+          "name": "args",
+          "type": {
+            "defined": {
+              "name": "WrapSolArgs"
             }
           }
         }
@@ -674,6 +828,26 @@
     },
     {
       "code": 6014,
+      "name": "InsufficientLamports",
+      "msg": "Insufficient lamports in policy PDA (must retain rent-exempt minimum)"
+    },
+    {
+      "code": 6015,
+      "name": "UnauthorizedCaller",
+      "msg": "Caller is not the policy owner or agent"
+    },
+    {
+      "code": 6016,
+      "name": "InvalidWsolAccount",
+      "msg": "Invalid wSOL token account (wrong mint, owner, or program)"
+    },
+    {
+      "code": 6017,
+      "name": "InvalidInputAccountIndex",
+      "msg": "input_account_index is out of bounds for remaining_accounts"
+    },
+    {
+      "code": 6018,
       "name": "NotYetImplemented",
       "msg": "This instruction is not yet implemented"
     }
@@ -816,11 +990,21 @@
           {
             "name": "amount_hint",
             "docs": [
-              "Agent-declared spending amount in lamports. For System Program and Token",
-              "Program transfers, this is verified against the parsed instruction data.",
-              "For other programs, trusted as-is (server does post-hoc verification)."
+              "Agent-declared spending amount in lamports. Used for pre-CPI validation",
+              "and as fallback when input_account_index is None."
             ],
             "type": "u64"
+          },
+          {
+            "name": "input_account_index",
+            "docs": [
+              "Optional index into remaining_accounts pointing to the account whose",
+              "balance should be measured before/after CPI for actual spend enforcement.",
+              "If None, falls back to trusting amount_hint."
+            ],
+            "type": {
+              "option": "u8"
+            }
           }
         ]
       }
@@ -1395,6 +1579,21 @@
             "type": {
               "option": "u8"
             }
+          }
+        ]
+      }
+    },
+    {
+      "name": "WrapSolArgs",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "lamports",
+            "docs": [
+              "Lamports to wrap into wSOL."
+            ],
+            "type": "u64"
           }
         ]
       }

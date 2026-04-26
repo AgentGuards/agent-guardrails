@@ -77,6 +77,11 @@ export interface UpdatePolicyArgs {
 export interface GuardedExecuteArgs {
   instructionData: Buffer;
   amountHint: BN;
+  inputAccountIndex: number | null;
+}
+
+export interface WrapSolArgs {
+  lamports: BN;
 }
 
 export interface PauseAgentArgs {
@@ -162,5 +167,9 @@ export enum GuardrailsErrorCode {
   TxLimitExceedsDailyBudget = 6011,
   AmountMismatch = 6012,
   CpiExecutionFailed = 6013,
-  NotYetImplemented = 6014,
+  InsufficientLamports = 6014,
+  UnauthorizedCaller = 6015,
+  InvalidWsolAccount = 6016,
+  InvalidInputAccountIndex = 6017,
+  NotYetImplemented = 6018,
 }

@@ -28,6 +28,8 @@
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::instruction::Instruction;
 use anchor_lang::solana_program::program::invoke_signed;
+use anchor_lang::solana_program::rent::Rent;
+use anchor_lang::solana_program::sysvar::Sysvar;
 
 use crate::errors::GuardrailsError;
 use crate::events::*;
@@ -92,10 +94,13 @@ pub struct GuardedExecute<'info> {
 pub struct GuardedExecuteArgs {
     /// Raw instruction data to pass to the target program.
     pub instruction_data: Vec<u8>,
-    /// Agent-declared spending amount in lamports. For System Program and Token
-    /// Program transfers, this is verified against the parsed instruction data.
-    /// For other programs, trusted as-is (server does post-hoc verification).
+    /// Agent-declared spending amount in lamports. Used for pre-CPI validation
+    /// and as fallback when input_account_index is None.
     pub amount_hint: u64,
+    /// Optional index into remaining_accounts pointing to the account whose
+    /// balance should be measured before/after CPI for actual spend enforcement.
+    /// If None, falls back to trusting amount_hint.
+    pub input_account_index: Option<u8>,
 }
 
 // ---------------------------------------------------------------------------
@@ -158,6 +163,25 @@ fn parse_verified_amount(
 }
 
 // ---------------------------------------------------------------------------
+// Balance snapshot (for post-CPI enforcement)
+// ---------------------------------------------------------------------------
+
+/// Reads the balance of an account — token amount for SPL token accounts,
+/// lamports for everything else. Used for before/after balance diff enforcement.
+fn snapshot_balance(account_info: &AccountInfo) -> Result<u64> {
+    if *account_info.owner == anchor_spl::token::ID {
+        // SPL token account — read the amount field at offset 64..72
+        let data = account_info.try_borrow_data()?;
+        require!(data.len() >= 72, GuardrailsError::InvalidInputAccountIndex);
+        let amount = u64::from_le_bytes(data[64..72].try_into().unwrap());
+        Ok(amount)
+    } else {
+        // SOL account — use lamports
+        Ok(account_info.lamports())
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Handler
 // ---------------------------------------------------------------------------
 
@@ -201,7 +225,7 @@ pub fn handler(ctx: Context<GuardedExecute>, args: GuardedExecuteArgs) -> Result
     );
 
     // Step 5: Per-tx amount check — parse real amount for known programs
-    let verified_amount = parse_verified_amount(
+    let mut verified_amount = parse_verified_amount(
         &target_program_key,
         &args.instruction_data,
         args.amount_hint,
@@ -271,98 +295,88 @@ pub fn handler(ctx: Context<GuardedExecute>, args: GuardedExecuteArgs) -> Result
     });
 
     // -----------------------------------------------------------------------
-    // Step 10: CPI to target program via invoke_signed
+    // Step 10: Execute the transfer / CPI
     // -----------------------------------------------------------------------
 
-    // Convention: remaining_accounts layout:
-    //   [0..n-1] = accounts the target instruction operates on
-    //   [n-1]    = target program (for invoke_signed to resolve program_id)
-    //
-    // The CPI instruction's account_metas come from [0..n-1] only.
-    // invoke_signed gets ALL remaining_accounts (including the program).
-    let ra = ctx.remaining_accounts;
-    let cpi_account_metas: Vec<AccountMeta> = ra
-        .iter()
-        .filter(|acc| acc.key != &target_program_key) // Exclude target program
-        .map(|acc| {
-            // If this account is the policy PDA, mark it as a signer for the
-            // CPI instruction. The client can't sign for a PDA, so it arrives
-            // as is_signer=false. invoke_signed validates PDA signing via seeds.
-            let is_signer = acc.is_signer || *acc.key == policy_key;
-            if acc.is_writable {
-                AccountMeta::new(*acc.key, is_signer)
-            } else {
-                AccountMeta::new_readonly(*acc.key, is_signer)
-            }
-        })
-        .collect();
+    let system_program_id = anchor_lang::solana_program::system_program::ID;
 
-    // Construct the CPI instruction (accounts = instruction operands only)
-    let cpi_ix = Instruction {
-        program_id: target_program_key,
-        accounts: cpi_account_metas,
-        data: args.instruction_data,
-    };
+    if target_program_key == system_program_id {
+        // --- SOL transfer: direct lamport manipulation ---
+        // The policy PDA is a data-bearing Anchor account. System Program's
+        // transfer instruction rejects data-bearing accounts as the source.
+        // Instead, we debit/credit lamports directly — the Guardrails program
+        // owns the policy PDA, so the runtime allows this.
 
-    // Pass all remaining_accounts to invoke_signed (includes target program
-    // AccountInfo, which invoke_signed needs to resolve the program_id).
-    let cpi_account_infos = ra;
+        // Destination is the first remaining account
+        let ra = ctx.remaining_accounts;
+        require!(!ra.is_empty(), GuardrailsError::CpiExecutionFailed);
+        let destination = &ra[0];
 
-    // PDA signer seeds — policy PDA signs the inner CPI
-    let bump_slice = &[policy_bump];
-    let signer_seeds: &[&[u8]] = &[
-        b"policy",
-        owner_key.as_ref(),
-        policy_agent_key.as_ref(),
-        bump_slice,
-    ];
+        // Ensure policy PDA retains rent-exempt minimum after debit
+        let rent = Rent::get()?;
+        let policy_info = ctx.accounts.policy.to_account_info();
+        let min_balance = rent.minimum_balance(policy_info.data_len());
+        let current_lamports = policy_info.lamports();
 
-    // Execute the CPI
-    let cpi_result = invoke_signed(&cpi_ix, cpi_account_infos, &[signer_seeds]);
+        require!(
+            current_lamports
+                .checked_sub(verified_amount)
+                .map_or(false, |remaining| remaining >= min_balance),
+            GuardrailsError::InsufficientLamports
+        );
 
-    // -----------------------------------------------------------------------
-    // Steps 11-12: Handle CPI result
-    // -----------------------------------------------------------------------
+        // Debit policy PDA, credit destination
+        **policy_info.try_borrow_mut_lamports()? -= verified_amount;
+        **destination.try_borrow_mut_lamports()? += verified_amount;
+    } else {
+        // --- Token / DeFi CPI: invoke_signed with balance diff enforcement ---
 
-    match cpi_result {
-        Ok(()) => {
-            // Step 11: CPI succeeded — update counters and emit success event
+        let ra = ctx.remaining_accounts;
 
-            // Update policy daily spend counter
-            ctx.accounts.policy.daily_spent_lamports = ctx
-                .accounts
-                .policy
-                .daily_spent_lamports
-                .saturating_add(verified_amount);
+        // Snapshot balance before CPI if input_account_index is specified
+        let balance_before: Option<u64> = if let Some(idx) = args.input_account_index {
+            let idx = idx as usize;
+            require!(
+                idx < ra.len(),
+                GuardrailsError::InvalidInputAccountIndex
+            );
+            Some(snapshot_balance(&ra[idx])?)
+        } else {
+            None
+        };
 
-            // Update SpendTracker
-            ctx.accounts.spend_tracker.lamports_spent_24h = ctx
-                .accounts
-                .spend_tracker
-                .lamports_spent_24h
-                .saturating_add(verified_amount);
-            ctx.accounts.spend_tracker.txn_count_24h =
-                ctx.accounts.spend_tracker.txn_count_24h.saturating_add(1);
-            ctx.accounts.spend_tracker.last_txn_ts = now;
-            ctx.accounts.spend_tracker.last_txn_program = target_program_key;
+        // Build and execute CPI
+        let cpi_account_metas: Vec<AccountMeta> = ra
+            .iter()
+            .filter(|acc| acc.key != &target_program_key)
+            .map(|acc| {
+                let is_signer = acc.is_signer || *acc.key == policy_key;
+                if acc.is_writable {
+                    AccountMeta::new(*acc.key, is_signer)
+                } else {
+                    AccountMeta::new_readonly(*acc.key, is_signer)
+                }
+            })
+            .collect();
 
-            emit!(GuardedTxnExecuted {
-                policy: policy_key,
-                agent: agent_key,
-                target_program: target_program_key,
-                amount: verified_amount,
-                timestamp: now,
-                // Transaction signature is not available on-chain during execution.
-                // Server populates this from Helius webhook transaction metadata.
-                txn_sig: String::new(),
-            });
+        let cpi_ix = Instruction {
+            program_id: target_program_key,
+            accounts: cpi_account_metas,
+            data: args.instruction_data,
+        };
 
-            Ok(())
-        }
-        Err(_e) => {
-            // Step 12: CPI failed — emit rejection event and propagate error.
-            // The emit persists in transaction logs even though the tx fails,
-            // giving Helius webhooks visibility into the failure.
+        let cpi_account_infos = ra;
+        let bump_slice = &[policy_bump];
+        let signer_seeds: &[&[u8]] = &[
+            b"policy",
+            owner_key.as_ref(),
+            policy_agent_key.as_ref(),
+            bump_slice,
+        ];
+
+        let cpi_result = invoke_signed(&cpi_ix, cpi_account_infos, &[signer_seeds]);
+
+        if let Err(_e) = cpi_result {
             emit!(GuardedTxnRejected {
                 policy: policy_key,
                 agent: agent_key,
@@ -370,7 +384,66 @@ pub fn handler(ctx: Context<GuardedExecute>, args: GuardedExecuteArgs) -> Result
                 timestamp: now,
             });
 
-            err!(GuardrailsError::CpiExecutionFailed)
+            return err!(GuardrailsError::CpiExecutionFailed);
+        }
+
+        // Post-CPI: enforce actual spend via balance diff
+        if let (Some(before), Some(idx)) = (balance_before, args.input_account_index) {
+            let after = snapshot_balance(&ctx.remaining_accounts[idx as usize])?;
+            let actual_spent = before.saturating_sub(after);
+
+            // Enforce per-tx limit with actual amount
+            require!(
+                actual_spent <= ctx.accounts.policy.max_tx_lamports,
+                GuardrailsError::AmountExceedsLimit
+            );
+
+            // Enforce daily budget with actual amount
+            require!(
+                ctx.accounts
+                    .policy
+                    .daily_spent_lamports
+                    .checked_add(actual_spent)
+                    .ok_or(GuardrailsError::DailyBudgetExceeded)?
+                    <= ctx.accounts.policy.daily_budget_lamports,
+                GuardrailsError::DailyBudgetExceeded
+            );
+
+            // Use actual_spent for counters
+            verified_amount = actual_spent;
         }
     }
+
+    // -----------------------------------------------------------------------
+    // Step 11: Update spend counters and emit success event
+    // -----------------------------------------------------------------------
+
+    ctx.accounts.policy.daily_spent_lamports = ctx
+        .accounts
+        .policy
+        .daily_spent_lamports
+        .checked_add(verified_amount)
+        .ok_or(GuardrailsError::DailyBudgetExceeded)?;
+
+    ctx.accounts.spend_tracker.lamports_spent_24h = ctx
+        .accounts
+        .spend_tracker
+        .lamports_spent_24h
+        .checked_add(verified_amount)
+        .ok_or(GuardrailsError::DailyBudgetExceeded)?;
+    ctx.accounts.spend_tracker.txn_count_24h =
+        ctx.accounts.spend_tracker.txn_count_24h.saturating_add(1);
+    ctx.accounts.spend_tracker.last_txn_ts = now;
+    ctx.accounts.spend_tracker.last_txn_program = target_program_key;
+
+    emit!(GuardedTxnExecuted {
+        policy: policy_key,
+        agent: agent_key,
+        target_program: target_program_key,
+        amount: verified_amount,
+        timestamp: now,
+        txn_sig: String::new(),
+    });
+
+    Ok(())
 }
