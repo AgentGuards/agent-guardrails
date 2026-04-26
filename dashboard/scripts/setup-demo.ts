@@ -168,7 +168,9 @@ async function main() {
 
   for (const row of policyRows) {
     const [pda] = client.findPolicyPda(owner.publicKey, row.agent.publicKey);
-    const sql = `INSERT INTO policies (pubkey, owner, agent, allowed_programs, max_tx_lamports, daily_budget_lamports, session_expiry, is_active, escalation_threshold, anomaly_score, label, created_at, updated_at) VALUES ('${pda.toBase58()}', '${owner.publicKey.toBase58()}', '${row.agent.publicKey.toBase58()}', '{${SystemProgram.programId.toBase58()}}', ${row.maxTx * LAMPORTS_PER_SOL}, ${row.dailyBudget * LAMPORTS_PER_SOL}, '${new Date((now + SEVEN_DAYS_SECONDS) * 1000).toISOString()}', true, 0, 0, '${row.label}', NOW(), NOW()) ON CONFLICT (pubkey) DO NOTHING;`;
+    // Escape single quotes in label to prevent SQL injection
+    const safeLabel = row.label.replace(/'/g, "''");
+    const sql = `INSERT INTO policies (pubkey, owner, agent, allowed_programs, max_tx_lamports, daily_budget_lamports, session_expiry, is_active, escalation_threshold, anomaly_score, label, created_at, updated_at) VALUES ('${pda.toBase58()}', '${owner.publicKey.toBase58()}', '${row.agent.publicKey.toBase58()}', '{${SystemProgram.programId.toBase58()}}', ${row.maxTx * LAMPORTS_PER_SOL}, ${row.dailyBudget * LAMPORTS_PER_SOL}, '${new Date((now + SEVEN_DAYS_SECONDS) * 1000).toISOString()}', true, 0, 0, '${safeLabel}', NOW(), NOW()) ON CONFLICT (pubkey) DO NOTHING;`;
     execSync(`psql "${dbUrl}" -c "${sql}"`, { stdio: "pipe" });
     console.log(`  ✓ ${row.label} → ${shortKey(pda)}`);
   }

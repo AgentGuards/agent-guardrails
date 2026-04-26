@@ -121,8 +121,8 @@ function extractAmountLamports(txn: HeliusEnhancedTransaction): bigint | null {
 
   if (agentTransfers.length === 0) return null;
 
-  const total = agentTransfers.reduce((sum, t) => sum + t.amount, 0);
-  return BigInt(total);
+  const total = agentTransfers.reduce((sum, t) => sum + BigInt(t.amount), 0n);
+  return total;
 }
 
 /**
@@ -164,11 +164,15 @@ export async function ingest(txn: HeliusEnhancedTransaction, policyPubkey: strin
   const amountLamports = extractAmountLamports(txn);
   const { status, rejectReason } = extractStatus(txn);
 
-  // Upsert to handle duplicate webhook deliveries (Helius guarantees at-least-once)
-  const row = await prisma.guardedTxn.upsert({
-    where: { txnSig: txn.signature },
-    update: {},
-    create: {
+  // Check for duplicate webhook delivery before processing
+  const existing = await prisma.guardedTxn.findUnique({ where: { txnSig: txn.signature } });
+  if (existing) {
+    console.log(`[ingest] duplicate txn ${txn.signature.slice(0, 16)}…, skipping pipeline`);
+    return null;
+  }
+
+  const row = await prisma.guardedTxn.create({
+    data: {
       policyPubkey,
       txnSig: txn.signature,
       slot: BigInt(txn.slot),

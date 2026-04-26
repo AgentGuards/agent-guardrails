@@ -42,20 +42,27 @@ function resolveModel(providerName: ProviderName, tier: "fast" | "report"): stri
 // Provider implementations
 // ---------------------------------------------------------------------------
 
+// Lazy singletons — SDK client instantiated once, reused across calls.
+let _anthropicClient: any = null;
+let _openaiClient: any = null;
+let _geminiClient: any = null;
+
 async function callAnthropic(opts: LLMCallOptions): Promise<LLMResponse> {
-  const { default: Anthropic } = await import("@anthropic-ai/sdk");
-  const client = new Anthropic({ apiKey: env.ANTHROPIC_API_KEY! });
+  if (!_anthropicClient) {
+    const { default: Anthropic } = await import("@anthropic-ai/sdk");
+    _anthropicClient = new Anthropic({ apiKey: env.ANTHROPIC_API_KEY! });
+  }
 
   const model = resolveModel("anthropic", opts.tier);
 
-  const response = await client.messages.create({
+  const response = await _anthropicClient.messages.create({
     model,
     max_tokens: opts.maxTokens,
     system: opts.system,
     messages: [{ role: "user", content: opts.userMessage }],
   });
 
-  const textBlock = response.content.find((b) => b.type === "text");
+  const textBlock = response.content.find((b: any) => b.type === "text");
   return {
     text: textBlock?.type === "text" ? textBlock.text : "",
     model,
@@ -65,12 +72,14 @@ async function callAnthropic(opts: LLMCallOptions): Promise<LLMResponse> {
 }
 
 async function callOpenAI(opts: LLMCallOptions): Promise<LLMResponse> {
-  const { default: OpenAI } = await import("openai");
-  const client = new OpenAI({ apiKey: env.OPENAI_API_KEY! });
+  if (!_openaiClient) {
+    const { default: OpenAI } = await import("openai");
+    _openaiClient = new OpenAI({ apiKey: env.OPENAI_API_KEY! });
+  }
 
   const model = resolveModel("openai", opts.tier);
 
-  const response = await client.chat.completions.create({
+  const response = await _openaiClient.chat.completions.create({
     model,
     max_tokens: opts.maxTokens,
     messages: [
@@ -88,12 +97,14 @@ async function callOpenAI(opts: LLMCallOptions): Promise<LLMResponse> {
 }
 
 async function callGemini(opts: LLMCallOptions): Promise<LLMResponse> {
-  const { GoogleGenAI } = await import("@google/genai");
-  const client = new GoogleGenAI({ apiKey: env.GEMINI_API_KEY! });
+  if (!_geminiClient) {
+    const { GoogleGenAI } = await import("@google/genai");
+    _geminiClient = new GoogleGenAI({ apiKey: env.GEMINI_API_KEY! });
+  }
 
   const model = resolveModel("gemini", opts.tier);
 
-  const response = await client.models.generateContent({
+  const response = await _geminiClient.models.generateContent({
     model,
     config: {
       maxOutputTokens: opts.maxTokens,
