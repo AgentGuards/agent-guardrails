@@ -203,26 +203,41 @@ pub fn handler(ctx: Context<GuardedExecute>, args: GuardedExecuteArgs) -> Result
     let policy_bump = ctx.accounts.policy.bump;
 
     // -----------------------------------------------------------------------
-    // Steps 2-5: Pre-validation checks
+    // Steps 2-5: Pre-validation checks (emit rejection events before errors)
     // -----------------------------------------------------------------------
 
     // Step 2: Kill switch — reject immediately if policy is paused
-    require!(ctx.accounts.policy.is_active, GuardrailsError::PolicyPaused);
+    if !ctx.accounts.policy.is_active {
+        emit!(GuardedTxnRejected {
+            policy: policy_key,
+            agent: agent_key,
+            reason: 0, // PolicyPaused
+            timestamp: now,
+        });
+        return err!(GuardrailsError::PolicyPaused);
+    }
 
     // Step 3: Session expiry — reject if agent key has expired
-    require!(
-        now < ctx.accounts.policy.session_expiry,
-        GuardrailsError::SessionExpired
-    );
+    if now >= ctx.accounts.policy.session_expiry {
+        emit!(GuardedTxnRejected {
+            policy: policy_key,
+            agent: agent_key,
+            reason: 1, // SessionExpired
+            timestamp: now,
+        });
+        return err!(GuardrailsError::SessionExpired);
+    }
 
     // Step 4: Program whitelist — reject if target is not allowed
-    require!(
-        ctx.accounts
-            .policy
-            .allowed_programs
-            .contains(&target_program_key),
-        GuardrailsError::ProgramNotWhitelisted
-    );
+    if !ctx.accounts.policy.allowed_programs.contains(&target_program_key) {
+        emit!(GuardedTxnRejected {
+            policy: policy_key,
+            agent: agent_key,
+            reason: 2, // ProgramNotWhitelisted
+            timestamp: now,
+        });
+        return err!(GuardrailsError::ProgramNotWhitelisted);
+    }
 
     // Step 5: Per-tx amount check — parse real amount for known programs
     let mut verified_amount = parse_verified_amount(
@@ -230,21 +245,23 @@ pub fn handler(ctx: Context<GuardedExecute>, args: GuardedExecuteArgs) -> Result
         &args.instruction_data,
         args.amount_hint,
     )?;
-    require!(
-        verified_amount <= ctx.accounts.policy.max_tx_lamports,
-        GuardrailsError::AmountExceedsLimit
-    );
+    if verified_amount > ctx.accounts.policy.max_tx_lamports {
+        emit!(GuardedTxnRejected {
+            policy: policy_key,
+            agent: agent_key,
+            reason: 3, // AmountExceedsLimit
+            timestamp: now,
+        });
+        return err!(GuardrailsError::AmountExceedsLimit);
+    }
 
     // -----------------------------------------------------------------------
     // Step 6: Roll daily budget window if expired
     // -----------------------------------------------------------------------
 
     if ctx.accounts.policy.is_budget_window_expired(now) {
-        // Reset policy counters
         ctx.accounts.policy.daily_spent_lamports = 0;
         ctx.accounts.policy.last_reset_ts = now;
-
-        // Reset tracker counters
         ctx.accounts.spend_tracker.lamports_spent_24h = 0;
         ctx.accounts.spend_tracker.txn_count_24h = 0;
         ctx.accounts.spend_tracker.window_start = now;
@@ -254,15 +271,18 @@ pub fn handler(ctx: Context<GuardedExecute>, args: GuardedExecuteArgs) -> Result
     // Step 7: Daily budget check (after potential reset)
     // -----------------------------------------------------------------------
 
-    require!(
-        ctx.accounts
-            .policy
-            .daily_spent_lamports
-            .checked_add(verified_amount)
-            .ok_or(GuardrailsError::DailyBudgetExceeded)?
-            <= ctx.accounts.policy.daily_budget_lamports,
-        GuardrailsError::DailyBudgetExceeded
-    );
+    let budget_after = ctx.accounts.policy.daily_spent_lamports
+        .checked_add(verified_amount)
+        .unwrap_or(u64::MAX);
+    if budget_after > ctx.accounts.policy.daily_budget_lamports {
+        emit!(GuardedTxnRejected {
+            policy: policy_key,
+            agent: agent_key,
+            reason: 4, // DailyBudgetExceeded
+            timestamp: now,
+        });
+        return err!(GuardrailsError::DailyBudgetExceeded);
+    }
 
     // -----------------------------------------------------------------------
     // Step 8: Squads escalation check
