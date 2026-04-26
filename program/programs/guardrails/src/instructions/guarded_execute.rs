@@ -351,7 +351,12 @@ pub fn handler(ctx: Context<GuardedExecute>, args: GuardedExecuteArgs) -> Result
             None
         };
 
-        // Build and execute CPI
+        // Build and execute CPI.
+        // TRUST ASSUMPTION: remaining_accounts are not validated against the target
+        // program's expected layout. The agent can pass arbitrary accounts, but the
+        // target program's own account validation and the Solana runtime's ownership
+        // checks prevent unauthorized access. The policy PDA signs via invoke_signed;
+        // the target program only operates on accounts the PDA is authorized for.
         let cpi_account_metas: Vec<AccountMeta> = ra
             .iter()
             .filter(|acc| acc.key != &target_program_key)
