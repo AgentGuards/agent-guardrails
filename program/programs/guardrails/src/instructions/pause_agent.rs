@@ -59,6 +59,9 @@ pub fn handler(ctx: Context<PauseAgent>, args: PauseAgentArgs) -> Result<()> {
     let policy = &mut ctx.accounts.policy;
     let caller_key = ctx.accounts.caller.key();
 
+    // --- Reject if already paused (preserve original attribution) ---
+    require!(policy.is_active, GuardrailsError::PolicyPaused);
+
     // --- Authorization: owner OR authorized monitor ---
     let is_owner = caller_key == policy.owner;
     let is_monitor = policy.authorized_monitors.contains(&caller_key);
