@@ -91,16 +91,8 @@ authRouter.post("/siws/verify", async (req, res) => {
     // Verify Ed25519 signature
     const messageBytes = new TextEncoder().encode(message);
     const signatureBytes = Buffer.from(signature, "base64");
-    const pubkeyBytes = Buffer.from(pubkey, "base64");
-
-    // Try base58 decode for Solana pubkeys (32 bytes)
-    let pubkeyBuffer: Uint8Array;
-    if (pubkeyBytes.length === 32) {
-      pubkeyBuffer = pubkeyBytes;
-    } else {
-      // Assume base58-encoded Solana pubkey — decode manually
-      pubkeyBuffer = decodeBase58(pubkey);
-    }
+    // Solana pubkeys are always base58-encoded
+    const pubkeyBuffer = decodeBase58(pubkey);
 
     const valid = nacl.sign.detached.verify(
       messageBytes,
