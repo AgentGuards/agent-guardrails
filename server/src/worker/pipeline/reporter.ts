@@ -42,16 +42,37 @@ export async function generateReport(
 
   const userMessage = buildReportUserMessage(incident, history);
 
-  const response = await llmCall({
-    system: REPORT_SYSTEM,
-    userMessage,
-    maxTokens: 2048,
-    tier: "report",
-  });
+  let report: string;
+  let model = "none";
 
-  const report = response.text;
+  try {
+    const response = await llmCall({
+      system: REPORT_SYSTEM,
+      userMessage,
+      maxTokens: 2048,
+      tier: "report",
+    });
+    report = response.text;
+    model = response.model;
+  } catch {
+    // No LLM available — generate a basic placeholder report
+    report = [
+      "# Incident Report",
+      "",
+      `**Incident ID:** ${incidentId}`,
+      `**Policy:** ${policyPubkey}`,
+      `**Paused at:** ${incident.pausedAt.toISOString()}`,
+      `**Paused by:** ${incident.pausedBy}`,
+      `**Reason:** ${incident.reason}`,
+      `**Triggering transaction:** ${incident.triggeringTxnSig}`,
+      "",
+      `**Transactions in last 24h:** ${history.length}`,
+      "",
+      "*Full AI-generated report unavailable — no LLM API key configured.*",
+    ].join("\n");
+  }
 
-  // Update incident with the full report
+  // Update incident with the report
   await prisma.incident.update({
     where: { id: incidentId },
     data: { fullReport: report },
@@ -65,6 +86,6 @@ export async function generateReport(
   });
 
   console.log(
-    `[reporter] generated report for incident ${incidentId} (${report.length} chars, model=${response.model})`,
+    `[reporter] generated report for incident ${incidentId} (${report.length} chars, model=${model})`,
   );
 }
