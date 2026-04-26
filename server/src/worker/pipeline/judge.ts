@@ -97,6 +97,35 @@ export async function judgeTransaction(
 }
 
 // ---------------------------------------------------------------------------
+// Verdict validation
+// ---------------------------------------------------------------------------
+
+const VALID_VERDICTS = new Set(["allow", "flag", "pause"]);
+
+/** Validates and sanitizes a raw parsed object into a well-formed Verdict. */
+function sanitizeVerdict(raw: unknown): Verdict {
+  const obj = (typeof raw === "object" && raw !== null ? raw : {}) as Record<string, unknown>;
+
+  const verdict = VALID_VERDICTS.has(obj.verdict as string)
+    ? (obj.verdict as "allow" | "flag" | "pause")
+    : "flag";
+
+  const confidence = typeof obj.confidence === "number"
+    ? Math.max(0, Math.min(100, obj.confidence))
+    : 50;
+
+  const reasoning = typeof obj.reasoning === "string"
+    ? obj.reasoning
+    : "";
+
+  const signals = Array.isArray(obj.signals)
+    ? obj.signals.filter((s): s is string => typeof s === "string")
+    : [];
+
+  return { verdict, confidence, reasoning, signals };
+}
+
+// ---------------------------------------------------------------------------
 // LLM call with timeout
 // ---------------------------------------------------------------------------
 
@@ -127,7 +156,8 @@ async function callWithTimeout(userMessage: string): Promise<CallResult> {
   const cleaned = response.text.replace(/```json\s*|```\s*/g, "").trim();
   let parsed: Verdict;
   try {
-    parsed = JSON.parse(cleaned) as Verdict;
+    const raw = JSON.parse(cleaned);
+    parsed = sanitizeVerdict(raw);
   } catch {
     parsed = {
       verdict: "flag",
@@ -136,8 +166,6 @@ async function callWithTimeout(userMessage: string): Promise<CallResult> {
       signals: ["malformed_response"],
     };
   }
-
-  parsed.confidence = Math.max(0, Math.min(100, parsed.confidence));
 
   return {
     verdict: parsed,
