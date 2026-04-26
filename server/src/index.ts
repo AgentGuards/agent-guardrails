@@ -5,6 +5,7 @@ import "dotenv/config";
 import express from "express";
 import cookieParser from "cookie-parser";
 import { env } from "./config/env.js";
+import { prisma } from "./db/client.js";
 import { corsMiddleware } from "./api/middleware/cors.js";
 import { workerRouter } from "./worker/index.js";
 import { apiRouter } from "./api/index.js";
@@ -35,4 +36,23 @@ app.use("/api", express.json(), apiRouter);
 
 app.listen(env.PORT, () => {
   console.log(`[guardrails-server] listening on port ${env.PORT}`);
+
+  // Clean up expired auth sessions every 5 minutes
+  setInterval(async () => {
+    try {
+      const unsigned = await prisma.authSession.deleteMany({
+        where: { signedAt: null, expiresAt: { lt: new Date() } },
+      });
+      const expired = await prisma.authSession.deleteMany({
+        where: { signedAt: { lt: new Date(Date.now() - 24 * 60 * 60 * 1000) } },
+      });
+      if (unsigned.count + expired.count > 0) {
+        console.log(
+          `[cleanup] deleted ${unsigned.count} unsigned + ${expired.count} expired sessions`,
+        );
+      }
+    } catch (err) {
+      console.error("[cleanup] session cleanup failed:", err);
+    }
+  }, 5 * 60 * 1000);
 });

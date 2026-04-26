@@ -4,6 +4,7 @@
 
 import { randomBytes } from "node:crypto";
 import express from "express";
+import rateLimit from "express-rate-limit";
 import jwt from "jsonwebtoken";
 import nacl from "tweetnacl";
 import { prisma } from "../../db/client.js";
@@ -14,11 +15,20 @@ export const authRouter: express.Router = express.Router();
 const JWT_EXPIRY = "24h";
 const NONCE_EXPIRY_MINUTES = 10;
 
+// Rate limit nonce endpoint — 5 requests per minute per IP
+const nonceLimiter = rateLimit({
+  windowMs: 60_000,
+  limit: 5,
+  standardHeaders: "draft-7",
+  legacyHeaders: false,
+  message: { error: "Too many nonce requests, try again later" },
+});
+
 // ---------------------------------------------------------------------------
 // POST /auth/siws/nonce
 // ---------------------------------------------------------------------------
 
-authRouter.post("/siws/nonce", async (req, res) => {
+authRouter.post("/siws/nonce", nonceLimiter, async (req, res) => {
   try {
     const { pubkey } = req.body as { pubkey?: string };
 
