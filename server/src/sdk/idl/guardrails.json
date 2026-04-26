@@ -921,6 +921,11 @@
     },
     {
       "code": 6019,
+      "name": "PolicyNotPaused",
+      "msg": "Policy is not paused — cannot resume an active policy"
+    },
+    {
+      "code": 6020,
       "name": "NotYetImplemented",
       "msg": "This instruction is not yet implemented"
     }

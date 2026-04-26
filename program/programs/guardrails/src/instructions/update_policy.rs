@@ -134,6 +134,9 @@ pub fn handler(ctx: Context<UpdatePolicy>, args: UpdatePolicyArgs) -> Result<()>
     // --- Post-update coherence check ---
     // Even if only one of these was updated, the final state must be coherent:
     // a single transaction cap should never exceed the daily budget.
+    // Note: lowering daily_budget_lamports below daily_spent_lamports is intentionally
+    // allowed — it blocks further spending until the window resets, which is the
+    // correct behavior when the owner tightens limits as a safety action.
     require!(
         policy.max_tx_lamports <= policy.daily_budget_lamports,
         GuardrailsError::TxLimitExceedsDailyBudget

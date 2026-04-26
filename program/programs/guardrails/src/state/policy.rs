@@ -133,7 +133,7 @@ impl PermissionPolicy {
     pub fn is_budget_window_expired(&self, current_timestamp: i64) -> bool {
         self.last_reset_ts
             .checked_add(SECONDS_PER_DAY)
-            .map(|expiry| current_timestamp > expiry)
+            .map(|expiry| current_timestamp >= expiry)
             .unwrap_or(true)
     }
 }

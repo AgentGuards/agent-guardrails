@@ -10,6 +10,8 @@
 
 use anchor_lang::prelude::*;
 
+use crate::errors::GuardrailsError;
+
 // ---------------------------------------------------------------------------
 // Accounts
 // ---------------------------------------------------------------------------
@@ -21,8 +23,7 @@ pub struct EscalateToSquads {}
 // Handler
 // ---------------------------------------------------------------------------
 
-/// No-op stub. Escalation is handled inside guarded_execute.
+/// Stub — returns NotYetImplemented. Escalation is handled inside guarded_execute.
 pub fn handler(_ctx: Context<EscalateToSquads>) -> Result<()> {
-    msg!("escalate_to_squads: no-op — escalation handled in guarded_execute");
-    Ok(())
+    err!(GuardrailsError::NotYetImplemented)
 }

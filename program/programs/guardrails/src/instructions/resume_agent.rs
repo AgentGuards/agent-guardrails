@@ -45,6 +45,9 @@ pub struct ResumeAgent<'info> {
 pub fn handler(ctx: Context<ResumeAgent>) -> Result<()> {
     let policy = &mut ctx.accounts.policy;
 
+    // --- Reject if already active ---
+    require!(!policy.is_active, GuardrailsError::PolicyNotPaused);
+
     // --- Clear pause state ---
     policy.is_active = true;
     policy.paused_by = None;
