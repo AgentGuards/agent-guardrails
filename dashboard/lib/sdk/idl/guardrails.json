@@ -848,6 +848,11 @@
     },
     {
       "code": 6018,
+      "name": "InputAccountIndexRequired",
+      "msg": "input_account_index is required for non-System Program CPI calls"
+    },
+    {
+      "code": 6019,
       "name": "NotYetImplemented",
       "msg": "This instruction is not yet implemented"
     }

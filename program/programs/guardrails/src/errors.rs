@@ -49,6 +49,8 @@ pub enum GuardrailsError {
     InvalidWsolAccount,
     #[msg("input_account_index is out of bounds for remaining_accounts")]
     InvalidInputAccountIndex,
+    #[msg("input_account_index is required for non-System Program CPI calls")]
+    InputAccountIndexRequired,
 
     // --- Phase 4 errors ---
     #[msg("This instruction is not yet implemented")]

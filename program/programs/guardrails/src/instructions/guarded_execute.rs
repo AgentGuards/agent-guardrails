@@ -331,9 +331,15 @@ pub fn handler(ctx: Context<GuardedExecute>, args: GuardedExecuteArgs) -> Result
     } else {
         // --- Token / DeFi CPI: invoke_signed with balance diff enforcement ---
 
+        // Balance diff is mandatory for all CPI calls — eliminates amount_hint bypass
+        require!(
+            args.input_account_index.is_some(),
+            GuardrailsError::InputAccountIndexRequired
+        );
+
         let ra = ctx.remaining_accounts;
 
-        // Snapshot balance before CPI if input_account_index is specified
+        // Snapshot balance before CPI
         let balance_before: Option<u64> = if let Some(idx) = args.input_account_index {
             let idx = idx as usize;
             require!(
