@@ -19,10 +19,15 @@ const RETRY_DELAY_MS = 1_000;
  * Judge a transaction that passed prefilter with signals.
  * Returns the parsed verdict (allow/flag/pause).
  */
+export interface JudgeResult {
+  verdict: Verdict;
+  verdictId: string;
+}
+
 export async function judgeTransaction(
   row: GuardedTxn,
   prefilterSignals: string[],
-): Promise<Verdict> {
+): Promise<JudgeResult> {
   const ctx = await buildJudgeContext(row, prefilterSignals);
   const userMessage = buildJudgeUserMessage(ctx);
 
@@ -88,7 +93,7 @@ export async function judgeTransaction(
     `[judge] ${verdict.verdict} (${verdict.confidence}%) txn=${row.txnSig.slice(0, 16)}… model=${model} latency=${latencyMs}ms`,
   );
 
-  return verdict;
+  return { verdict, verdictId: row2.id };
 }
 
 // ---------------------------------------------------------------------------

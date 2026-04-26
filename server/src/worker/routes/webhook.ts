@@ -124,12 +124,12 @@ export async function webhookHandler(req: Request, res: Response): Promise<void>
       const { signals, skipped } = await prefilter(row);
       if (skipped) continue;
 
-      // Judge: Claude Haiku evaluates the transaction
-      const verdict = await judgeTransaction(row, signals);
+      // Judge: LLM evaluates the transaction
+      const { verdict, verdictId } = await judgeTransaction(row, signals);
 
       // Executor: if judge says pause, send on-chain pause + create incident + async report
       if (verdict.verdict === "pause") {
-        await executePause(row, row.id, verdict.reasoning);
+        await executePause(row, verdictId, verdict.reasoning);
       }
     } catch (err) {
       console.error(`[webhook] pipeline error for ${txn.signature}:`, err);

@@ -145,10 +145,10 @@ describe("judgeTransaction", () => {
     const row = makeGuardedTxn();
     const result = await judgeTransaction(row, []);
 
-    expect(result.verdict).toBe("allow");
-    expect(result.confidence).toBe(85);
-    expect(result.reasoning).toBe("Routine transaction");
-    expect(result.signals).toEqual(["known_program"]);
+    expect(result.verdict.verdict).toBe("allow");
+    expect(result.verdict.confidence).toBe(85);
+    expect(result.verdict.reasoning).toBe("Routine transaction");
+    expect(result.verdict.signals).toEqual(["known_program"]);
   });
 
   it("strips ```json code fences before parsing", async () => {
@@ -165,8 +165,8 @@ describe("judgeTransaction", () => {
     const row = makeGuardedTxn();
     const result = await judgeTransaction(row, []);
 
-    expect(result.verdict).toBe("flag");
-    expect(result.confidence).toBe(60);
+    expect(result.verdict.verdict).toBe("flag");
+    expect(result.verdict.confidence).toBe(60);
   });
 
   it("clamps confidence > 100 to 100", async () => {
@@ -177,7 +177,7 @@ describe("judgeTransaction", () => {
     const row = makeGuardedTxn();
     const result = await judgeTransaction(row, []);
 
-    expect(result.confidence).toBe(100);
+    expect(result.verdict.confidence).toBe(100);
   });
 
   it("clamps negative confidence to 0", async () => {
@@ -188,7 +188,7 @@ describe("judgeTransaction", () => {
     const row = makeGuardedTxn();
     const result = await judgeTransaction(row, []);
 
-    expect(result.confidence).toBe(0);
+    expect(result.verdict.confidence).toBe(0);
   });
 
   it("persists AnomalyVerdict row with model=claude-haiku-4-5", async () => {
@@ -261,9 +261,9 @@ describe("timeout handling", () => {
 
     const result = await resultPromise;
 
-    expect(result.verdict).toBe("flag");
-    expect(result.confidence).toBe(50);
-    expect(result.signals).toContain("fallback");
+    expect(result.verdict.verdict).toBe("flag");
+    expect(result.verdict.confidence).toBe(50);
+    expect(result.verdict.signals).toContain("fallback");
   });
 
   it("records model=fallback and latencyMs=3000 for timeout", async () => {
@@ -305,7 +305,7 @@ describe("rate limit (429)", () => {
     const result = await resultPromise;
 
     expect(mockCreate).toHaveBeenCalledTimes(2);
-    expect(result.verdict).toBe("allow");
+    expect(result.verdict.verdict).toBe("allow");
   });
 
   it("uses retry result if retry succeeds", async () => {
@@ -329,9 +329,9 @@ describe("rate limit (429)", () => {
 
     const result = await resultPromise;
 
-    expect(result.verdict).toBe("flag");
-    expect(result.confidence).toBe(70);
-    expect(result.reasoning).toBe("Flagged on retry");
+    expect(result.verdict.verdict).toBe("flag");
+    expect(result.verdict.confidence).toBe(70);
+    expect(result.verdict.reasoning).toBe("Flagged on retry");
   });
 
   it("falls back when retry also fails", async () => {
@@ -349,8 +349,8 @@ describe("rate limit (429)", () => {
 
     const result = await resultPromise;
 
-    expect(result.verdict).toBe("pause");
-    expect(result.signals).toContain("fallback");
+    expect(result.verdict.verdict).toBe("pause");
+    expect(result.verdict.signals).toContain("fallback");
   });
 });
 
@@ -364,8 +364,8 @@ describe("malformed JSON", () => {
     const row = makeGuardedTxn();
     const result = await judgeTransaction(row, []);
 
-    expect(result.verdict).toBe("flag");
-    expect(result.confidence).toBe(40);
+    expect(result.verdict.verdict).toBe("flag");
+    expect(result.verdict.confidence).toBe(40);
   });
 
   it("includes malformed_response signal", async () => {
@@ -377,7 +377,7 @@ describe("malformed JSON", () => {
     const row = makeGuardedTxn();
     const result = await judgeTransaction(row, []);
 
-    expect(result.signals).toContain("malformed_response");
+    expect(result.verdict.signals).toContain("malformed_response");
   });
 });
 
@@ -394,7 +394,7 @@ describe("fallbackVerdict", () => {
 
     const result = await resultPromise;
 
-    expect(result.verdict).toBe("pause");
+    expect(result.verdict.verdict).toBe("pause");
   });
 
   it("returns flag otherwise", async () => {
@@ -409,7 +409,7 @@ describe("fallbackVerdict", () => {
 
     const result = await resultPromise;
 
-    expect(result.verdict).toBe("flag");
+    expect(result.verdict.verdict).toBe("flag");
   });
 
   it("includes fallback signal", async () => {
@@ -424,7 +424,7 @@ describe("fallbackVerdict", () => {
 
     const result = await resultPromise;
 
-    expect(result.signals).toContain("fallback");
+    expect(result.verdict.signals).toContain("fallback");
   });
 
   it("confidence is 50 for all fallbacks", async () => {
@@ -439,7 +439,7 @@ describe("fallbackVerdict", () => {
 
     const result = await resultPromise;
 
-    expect(result.confidence).toBe(50);
+    expect(result.verdict.confidence).toBe(50);
   });
 
   it("reasoning mentions timeout or fallback", async () => {
@@ -454,6 +454,6 @@ describe("fallbackVerdict", () => {
 
     const result = await resultPromise;
 
-    expect(result.reasoning.toLowerCase()).toMatch(/timeout|fallback/);
+    expect(result.verdict.reasoning.toLowerCase()).toMatch(/timeout|fallback/);
   });
 });
