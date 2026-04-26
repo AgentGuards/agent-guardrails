@@ -41,8 +41,8 @@ if (!HELIUS_WEBHOOK_SECRET && !HELIUS_AUTH_HEADER) {
 }
 
 if (!ANTHROPIC_API_KEY && !OPENAI_API_KEY && !GEMINI_API_KEY) {
-  throw new Error(
-    "At least one LLM API key required: ANTHROPIC_API_KEY, OPENAI_API_KEY, or GEMINI_API_KEY",
+  console.warn(
+    "[env] No LLM API key found (ANTHROPIC_API_KEY, OPENAI_API_KEY, GEMINI_API_KEY). Judge will use rule-based fallback only.",
   );
 }
 

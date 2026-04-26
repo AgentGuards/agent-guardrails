@@ -27,13 +27,15 @@ export interface LLMCallOptions {
 // Default models per provider and tier
 // ---------------------------------------------------------------------------
 
-const DEFAULTS: Record<ProviderName, { fast: string; report: string }> = {
+type LLMProviderName = "anthropic" | "openai" | "gemini";
+
+const DEFAULTS: Record<LLMProviderName, { fast: string; report: string }> = {
   anthropic: { fast: "claude-haiku-4-5-20251001", report: "claude-sonnet-4-5-20250514" },
   openai:    { fast: "gpt-4o-mini",               report: "gpt-4o" },
   gemini:    { fast: "gemini-2.0-flash",           report: "gemini-2.5-pro" },
 };
 
-function resolveModel(providerName: ProviderName, tier: "fast" | "report"): string {
+function resolveModel(providerName: LLMProviderName, tier: "fast" | "report"): string {
   const envOverride = tier === "fast" ? env.LLM_JUDGE_MODEL : env.LLM_REPORT_MODEL;
   return envOverride || DEFAULTS[providerName][tier];
 }
@@ -125,13 +127,18 @@ async function callGemini(opts: LLMCallOptions): Promise<LLMResponse> {
 // Provider selection (evaluated once at import time)
 // ---------------------------------------------------------------------------
 
-type ProviderName = "anthropic" | "openai" | "gemini";
+type ProviderName = "anthropic" | "openai" | "gemini" | "none";
+
+/** No-key fallback — throws so the judge's catch block triggers the rule-based fallback. */
+async function callNone(_opts: LLMCallOptions): Promise<LLMResponse> {
+  throw new Error("No LLM API key configured — using rule-based fallback");
+}
 
 function selectProvider(): { name: ProviderName; call: (opts: LLMCallOptions) => Promise<LLMResponse> } {
   if (env.ANTHROPIC_API_KEY) return { name: "anthropic", call: callAnthropic };
   if (env.OPENAI_API_KEY) return { name: "openai", call: callOpenAI };
   if (env.GEMINI_API_KEY) return { name: "gemini", call: callGemini };
-  throw new Error("No LLM API key configured");
+  return { name: "none", call: callNone };
 }
 
 const provider = selectProvider();
@@ -142,6 +149,10 @@ export const llmProviderName: ProviderName = provider.name;
 /** Call the active LLM provider. */
 export const llmCall = provider.call;
 
-const judgeModel = resolveModel(provider.name, "fast");
-const reportModel = resolveModel(provider.name, "report");
-console.log(`[llm] provider=${provider.name} judge=${judgeModel} report=${reportModel}`);
+if (provider.name === "none") {
+  console.log(`[llm] no provider configured — rule-based fallback only`);
+} else {
+  const judgeModel = resolveModel(provider.name as LLMProviderName, "fast");
+  const reportModel = resolveModel(provider.name as LLMProviderName, "report");
+  console.log(`[llm] provider=${provider.name} judge=${judgeModel} report=${reportModel}`);
+}
