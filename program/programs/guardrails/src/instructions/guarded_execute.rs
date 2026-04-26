@@ -395,25 +395,34 @@ pub fn handler(ctx: Context<GuardedExecute>, args: GuardedExecuteArgs) -> Result
 
         // Post-CPI: enforce actual spend via balance diff
         if let (Some(before), Some(idx)) = (balance_before, args.input_account_index) {
-            let after = snapshot_balance(&ctx.remaining_accounts[idx as usize])?;
+            let measured_account = &ctx.remaining_accounts[idx as usize];
+            let after = snapshot_balance(measured_account)?;
             let actual_spent = before.saturating_sub(after);
+            let is_token_account = *measured_account.owner == anchor_spl::token::ID;
 
-            // Enforce per-tx limit with actual amount
-            require!(
-                actual_spent <= ctx.accounts.policy.max_tx_lamports,
-                GuardrailsError::AmountExceedsLimit
-            );
+            if is_token_account {
+                // Token account: enforce per-tx token limit
+                require!(
+                    actual_spent <= ctx.accounts.policy.max_tx_token_units,
+                    GuardrailsError::AmountExceedsLimit
+                );
+            } else {
+                // SOL account: enforce per-tx lamport limit + daily budget
+                require!(
+                    actual_spent <= ctx.accounts.policy.max_tx_lamports,
+                    GuardrailsError::AmountExceedsLimit
+                );
 
-            // Enforce daily budget with actual amount
-            require!(
-                ctx.accounts
-                    .policy
-                    .daily_spent_lamports
-                    .checked_add(actual_spent)
-                    .ok_or(GuardrailsError::DailyBudgetExceeded)?
-                    <= ctx.accounts.policy.daily_budget_lamports,
-                GuardrailsError::DailyBudgetExceeded
-            );
+                require!(
+                    ctx.accounts
+                        .policy
+                        .daily_spent_lamports
+                        .checked_add(actual_spent)
+                        .ok_or(GuardrailsError::DailyBudgetExceeded)?
+                        <= ctx.accounts.policy.daily_budget_lamports,
+                    GuardrailsError::DailyBudgetExceeded
+                );
+            }
 
             // Use actual_spent for counters
             verified_amount = actual_spent;
