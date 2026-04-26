@@ -51,8 +51,13 @@ function getClient(): GuardrailsClient {
 // Execute pause
 // ---------------------------------------------------------------------------
 
+const PAUSE_MAX_RETRIES = 3;
+const PAUSE_BASE_DELAY_MS = 1000;
+
 /**
  * Pause an agent on-chain and create an Incident record.
+ * Retries up to 3 times with exponential backoff (1s, 2s, 4s).
+ * If all retries fail, still creates the incident so the dashboard has visibility.
  * Triggers async report generation (fire-and-forget).
  */
 export async function executePause(
@@ -63,23 +68,45 @@ export async function executePause(
   const policyPubkey = new PublicKey(row.policyPubkey);
   const client = getClient();
 
-  // Send pause_agent instruction on-chain
-  const txSig = await client.pauseAgent(
-    policyPubkey,
-    reason.slice(0, 64),
-  );
+  // Send pause_agent instruction on-chain with retries
+  let pauseTxSig: string | null = null;
+  for (let attempt = 1; attempt <= PAUSE_MAX_RETRIES; attempt++) {
+    try {
+      pauseTxSig = await client.pauseAgent(
+        policyPubkey,
+        reason.slice(0, 64),
+      );
+      console.log(
+        `[executor] paused agent policy=${row.policyPubkey.slice(0, 8)}… tx=${pauseTxSig.slice(0, 16)}… (attempt ${attempt})`,
+      );
+      break;
+    } catch (err) {
+      console.error(
+        `[executor] pause attempt ${attempt}/${PAUSE_MAX_RETRIES} failed for policy=${row.policyPubkey.slice(0, 8)}…:`,
+        err instanceof Error ? err.message : err,
+      );
+      if (attempt < PAUSE_MAX_RETRIES) {
+        const delay = PAUSE_BASE_DELAY_MS * Math.pow(2, attempt - 1);
+        await new Promise((r) => setTimeout(r, delay));
+      }
+    }
+  }
 
-  console.log(
-    `[executor] paused agent policy=${row.policyPubkey.slice(0, 8)}… tx=${txSig.slice(0, 16)}…`,
-  );
+  if (!pauseTxSig) {
+    console.error(
+      `[executor] all ${PAUSE_MAX_RETRIES} pause attempts failed for policy=${row.policyPubkey.slice(0, 8)}…, creating incident without on-chain pause`,
+    );
+  }
 
-  // Create Incident row
+  // Create Incident row — always, even if on-chain pause failed
   const incident = await prisma.incident.create({
     data: {
       policyPubkey: row.policyPubkey,
       pausedAt: new Date(),
       pausedBy: monitorKeypair.publicKey.toBase58(),
-      reason,
+      reason: pauseTxSig
+        ? reason
+        : `[ON-CHAIN PAUSE FAILED] ${reason}`,
       triggeringTxnSig: row.txnSig,
       judgeVerdictId: verdictId,
     },
@@ -100,7 +127,7 @@ export async function executePause(
     createdAt: incident.createdAt,
   });
 
-  // Fire-and-forget: generate Opus incident report asynchronously
+  // Fire-and-forget: generate incident report asynchronously
   generateReport(incident.id, row.policyPubkey).catch((err: unknown) => {
     console.error(`[executor] report generation failed for incident ${incident.id}:`, err);
   });
