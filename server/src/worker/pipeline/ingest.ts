@@ -16,20 +16,73 @@ const REJECT_REASONS: Record<number, string> = {
   4: "DailyBudgetExceeded",
 };
 
+// ---------------------------------------------------------------------------
+// Anchor instruction discriminators (first 8 bytes of ix data)
+// ---------------------------------------------------------------------------
+
+export type InstructionType =
+  | "initialize_policy"
+  | "update_policy"
+  | "pause_agent"
+  | "resume_agent"
+  | "guarded_execute"
+  | "update_anomaly_score"
+  | "wrap_sol"
+  | "unwrap_sol"
+  | "unknown";
+
+const DISCRIMINATORS: Record<string, InstructionType> = {
+  "09ba56e181a2e738": "initialize_policy",
+  "d4f5f607a3971239": "update_policy",
+  "9420011a937ab28c": "pause_agent",
+  "7cfc788cdd7d55f7": "resume_agent",
+  "18068369ba16f7e1": "guarded_execute",
+  // update_anomaly_score, wrap_sol, unwrap_sol — not routed in pipeline
+};
+
+/** Policy PDA account index per instruction type. */
+const POLICY_ACCOUNT_INDEX: Record<string, number> = {
+  initialize_policy: 2,   // [owner, agent, policy, tracker, system]
+  update_policy: 1,       // [owner, policy]
+  pause_agent: 1,         // [caller, policy]
+  resume_agent: 1,        // [owner, policy]
+  guarded_execute: 1,     // [agent, policy, tracker, target, system]
+  update_anomaly_score: 1, // [caller, policy]
+};
+
 /**
- * Extract the policy pubkey from a Guardrails program instruction.
- * In the Anchor account layout for guarded_execute, the policy PDA is the first account.
+ * Detect the instruction type from the first 8 bytes of instruction data.
  */
-function extractPolicyPubkey(txn: HeliusEnhancedTransaction): string | null {
+export function detectInstruction(ixData: string): InstructionType {
+  if (!ixData) return "unknown";
+  const bytes = Buffer.from(ixData, "base64");
+  if (bytes.length < 8) return "unknown";
+  const disc = bytes.subarray(0, 8).toString("hex");
+  return DISCRIMINATORS[disc] ?? "unknown";
+}
+
+/**
+ * Extract the instruction type and policy pubkey from a Guardrails transaction.
+ */
+export function detectAndExtract(txn: HeliusEnhancedTransaction): {
+  instructionType: InstructionType;
+  policyPubkey: string | null;
+} {
   const programId = env.GUARDRAILS_PROGRAM_ID;
 
   for (const ix of txn.instructions) {
-    if (ix.programId === programId && ix.accounts.length > 0) {
-      return ix.accounts[0];
-    }
+    if (ix.programId !== programId) continue;
+
+    const instructionType = detectInstruction(ix.data);
+    if (instructionType === "unknown") continue;
+
+    const accountIdx = POLICY_ACCOUNT_INDEX[instructionType];
+    if (accountIdx === undefined || ix.accounts.length <= accountIdx) continue;
+
+    return { instructionType, policyPubkey: ix.accounts[accountIdx] };
   }
 
-  return null;
+  return { instructionType: "unknown", policyPubkey: null };
 }
 
 /**
@@ -99,14 +152,7 @@ function extractStatus(txn: HeliusEnhancedTransaction): { status: string; reject
  * Ingest a single Helius enhanced transaction into the database.
  * Returns the created GuardedTxn row (used by downstream pipeline stages).
  */
-export async function ingest(txn: HeliusEnhancedTransaction): Promise<GuardedTxn | null> {
-  const policyPubkey = extractPolicyPubkey(txn);
-
-  if (!policyPubkey) {
-    console.warn(`[ingest] no policy found in txn ${txn.signature}, skipping`);
-    return null;
-  }
-
+export async function ingest(txn: HeliusEnhancedTransaction, policyPubkey: string): Promise<GuardedTxn | null> {
   // Verify the policy exists in our database
   const policy = await prisma.policy.findUnique({ where: { pubkey: policyPubkey } });
   if (!policy) {

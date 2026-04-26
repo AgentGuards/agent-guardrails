@@ -61,29 +61,11 @@ describe("ingest", () => {
       const row = makeGuardedTxn({ policyPubkey: "MyPolicyPda1111111111111111111111" });
       mockPrisma.guardedTxn.upsert.mockResolvedValue(row);
 
-      await ingest(txn);
+      await ingest(txn, "MyPolicyPda1111111111111111111111");
 
       expect(mockPrisma.policy.findUnique).toHaveBeenCalledWith({
         where: { pubkey: "MyPolicyPda1111111111111111111111" },
       });
-    });
-
-    it("returns null when no instruction matches GUARDRAILS_PROGRAM_ID", async () => {
-      const txn = makeHeliusTxn({
-        instructions: [
-          {
-            programId: "SomeOtherProgramId1111111111111111",
-            accounts: ["Account1"],
-            data: "",
-            innerInstructions: [],
-          },
-        ],
-      });
-
-      const result = await ingest(txn);
-
-      expect(result).toBeNull();
-      expect(mockPrisma.policy.findUnique).not.toHaveBeenCalled();
     });
 
     it("extracts target program from CPI inner instructions", async () => {
@@ -110,7 +92,7 @@ describe("ingest", () => {
       const row = makeGuardedTxn({ targetProgram: "InnerTarget11111111111111111111111" });
       mockPrisma.guardedTxn.upsert.mockResolvedValue(row);
 
-      await ingest(txn);
+      await ingest(txn, "MyPolicyPda1111111111111111111111");
 
       // The create call in upsert should use InnerTarget as targetProgram
       const upsertCall = mockPrisma.guardedTxn.upsert.mock.calls[0][0];
@@ -136,7 +118,7 @@ describe("ingest", () => {
       const row = makeGuardedTxn({ targetProgram: "TOKEN_MINT" });
       mockPrisma.guardedTxn.upsert.mockResolvedValue(row);
 
-      await ingest(txn);
+      await ingest(txn, "MyPolicyPda1111111111111111111111");
 
       const upsertCall = mockPrisma.guardedTxn.upsert.mock.calls[0][0];
       expect(upsertCall.create.targetProgram).toBe("TOKEN_MINT");
@@ -156,7 +138,7 @@ describe("ingest", () => {
       mockPrisma.policy.findUnique.mockResolvedValue(policy);
       mockPrisma.guardedTxn.upsert.mockResolvedValue(makeGuardedTxn());
 
-      await ingest(txn);
+      await ingest(txn, "MyPolicyPda1111111111111111111111");
 
       const upsertCall = mockPrisma.guardedTxn.upsert.mock.calls[0][0];
       expect(upsertCall.create.amountLamports).toBe(BigInt(80_000_000));
@@ -171,7 +153,7 @@ describe("ingest", () => {
       mockPrisma.policy.findUnique.mockResolvedValue(policy);
       mockPrisma.guardedTxn.upsert.mockResolvedValue(makeGuardedTxn({ amountLamports: null }));
 
-      await ingest(txn);
+      await ingest(txn, "MyPolicyPda1111111111111111111111");
 
       const upsertCall = mockPrisma.guardedTxn.upsert.mock.calls[0][0];
       expect(upsertCall.create.amountLamports).toBeNull();
@@ -184,7 +166,7 @@ describe("ingest", () => {
       mockPrisma.policy.findUnique.mockResolvedValue(policy);
       mockPrisma.guardedTxn.upsert.mockResolvedValue(makeGuardedTxn());
 
-      await ingest(txn);
+      await ingest(txn, "MyPolicyPda1111111111111111111111");
 
       const upsertCall = mockPrisma.guardedTxn.upsert.mock.calls[0][0];
       expect(upsertCall.create.status).toBe("executed");
@@ -200,7 +182,7 @@ describe("ingest", () => {
       mockPrisma.policy.findUnique.mockResolvedValue(policy);
       mockPrisma.guardedTxn.upsert.mockResolvedValue(makeGuardedTxn({ status: "rejected" }));
 
-      await ingest(txn);
+      await ingest(txn, "MyPolicyPda1111111111111111111111");
 
       const upsertCall = mockPrisma.guardedTxn.upsert.mock.calls[0][0];
       expect(upsertCall.create.status).toBe("rejected");
@@ -215,7 +197,7 @@ describe("ingest", () => {
       mockPrisma.policy.findUnique.mockResolvedValue(policy);
       mockPrisma.guardedTxn.upsert.mockResolvedValue(makeGuardedTxn({ status: "rejected" }));
 
-      await ingest(txn);
+      await ingest(txn, "MyPolicyPda1111111111111111111111");
 
       const upsertCall = mockPrisma.guardedTxn.upsert.mock.calls[0][0];
       expect(upsertCall.create.rejectReason).toHaveLength(256);
@@ -227,35 +209,13 @@ describe("ingest", () => {
   // =========================================================================
 
   describe("ingest() database + SSE", () => {
-    it("returns null and warns when no policy pubkey found", async () => {
-      const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
-
-      const txn = makeHeliusTxn({
-        instructions: [
-          {
-            programId: "UnrelatedProgram111111111111111111",
-            accounts: [],
-            data: "",
-            innerInstructions: [],
-          },
-        ],
-      });
-
-      const result = await ingest(txn);
-
-      expect(result).toBeNull();
-      expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining("no policy found"));
-
-      warnSpy.mockRestore();
-    });
-
     it("returns null when policy not in database", async () => {
       const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
 
       const txn = makeHeliusTxn();
       mockPrisma.policy.findUnique.mockResolvedValue(null);
 
-      const result = await ingest(txn);
+      const result = await ingest(txn, "MyPolicyPda1111111111111111111111");
 
       expect(result).toBeNull();
       expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining("unknown policy"));
@@ -272,7 +232,7 @@ describe("ingest", () => {
       const row = makeGuardedTxn({ txnSig: "sig123abc" });
       mockPrisma.guardedTxn.upsert.mockResolvedValue(row);
 
-      await ingest(txn);
+      await ingest(txn, "MyPolicyPda1111111111111111111111");
 
       expect(mockPrisma.guardedTxn.upsert).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -294,7 +254,7 @@ describe("ingest", () => {
       mockPrisma.policy.findUnique.mockResolvedValue(policy);
       mockPrisma.guardedTxn.upsert.mockResolvedValue(makeGuardedTxn());
 
-      await ingest(txn);
+      await ingest(txn, "MyPolicyPda1111111111111111111111");
 
       const upsertCall = mockPrisma.guardedTxn.upsert.mock.calls[0][0];
       expect(upsertCall.create.slot).toBe(BigInt(999888));
@@ -311,7 +271,7 @@ describe("ingest", () => {
       mockPrisma.guardedTxn.upsert.mockResolvedValue(existingRow);
 
       // Should not throw
-      const result = await ingest(txn);
+      const result = await ingest(txn, "MyPolicyPda1111111111111111111111");
       expect(result).toEqual(existingRow);
       // Upsert was called with update: {} so duplicates are handled
       expect(mockPrisma.guardedTxn.upsert.mock.calls[0][0].update).toEqual({});
@@ -329,7 +289,7 @@ describe("ingest", () => {
       });
       mockPrisma.guardedTxn.upsert.mockResolvedValue(row);
 
-      await ingest(txn);
+      await ingest(txn, "MyPolicyPda1111111111111111111111");
 
       expect(mockEmitter.emitEvent).toHaveBeenCalledWith(
         "new_transaction",
@@ -349,7 +309,7 @@ describe("ingest", () => {
       const row = makeGuardedTxn({ id: "row-id-42" });
       mockPrisma.guardedTxn.upsert.mockResolvedValue(row);
 
-      const result = await ingest(txn);
+      const result = await ingest(txn, "MyPolicyPda1111111111111111111111");
 
       expect(result).toBe(row);
       expect(result!.id).toBe("row-id-42");
@@ -362,7 +322,7 @@ describe("ingest", () => {
       mockPrisma.policy.findUnique.mockResolvedValue(policy);
       mockPrisma.guardedTxn.upsert.mockResolvedValue(makeGuardedTxn());
 
-      await ingest(txn);
+      await ingest(txn, "MyPolicyPda1111111111111111111111");
 
       const upsertCall = mockPrisma.guardedTxn.upsert.mock.calls[0][0];
       // rawEvent should be a serialized-then-parsed copy (JSON round-trip strips non-JSON values)
@@ -379,7 +339,7 @@ describe("ingest", () => {
       const row = makeGuardedTxn({ amountLamports: null });
       mockPrisma.guardedTxn.upsert.mockResolvedValue(row);
 
-      await ingest(txn);
+      await ingest(txn, "MyPolicyPda1111111111111111111111");
 
       // SSE event should have null for amountLamports
       expect(mockEmitter.emitEvent).toHaveBeenCalledWith(

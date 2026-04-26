@@ -4,7 +4,8 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 import type { Request, Response } from "express";
 import { env } from "../../config/env.js";
-import { ingest } from "../pipeline/ingest.js";
+import { ingest, detectAndExtract } from "../pipeline/ingest.js";
+import { syncPolicyFromChain } from "../pipeline/sync-policy.js";
 import { prefilter } from "../pipeline/prefilter.js";
 import { judgeTransaction } from "../pipeline/judge.js";
 import { executePause } from "../pipeline/executor.js";
@@ -114,22 +115,45 @@ export async function webhookHandler(req: Request, res: Response): Promise<void>
   // Respond immediately — pipeline runs async
   res.status(200).json({ received: transactions.length });
 
-  // Process each transaction through the pipeline
+  // Process each transaction — route by instruction type
   for (const txn of transactions) {
     try {
-      const row = await ingest(txn);
-      if (!row) continue;
+      const { instructionType, policyPubkey } = detectAndExtract(txn);
 
-      // Prefilter: cheap stat checks — skip LLM if clearly benign
-      const { signals, skipped } = await prefilter(row);
-      if (skipped) continue;
+      if (!policyPubkey) {
+        console.warn(`[webhook] no policy in txn ${txn.signature?.slice(0, 16)}…, skipping`);
+        continue;
+      }
 
-      // Judge: LLM evaluates the transaction
-      const { verdict, verdictId } = await judgeTransaction(row, signals);
+      switch (instructionType) {
+        // Policy lifecycle — sync on-chain state to DB
+        case "initialize_policy":
+        case "update_policy":
+        case "pause_agent":
+        case "resume_agent":
+        case "update_anomaly_score":
+          await syncPolicyFromChain(policyPubkey);
+          break;
 
-      // Executor: if judge says pause, send on-chain pause + create incident + async report
-      if (verdict.verdict === "pause") {
-        await executePause(row, verdictId, verdict.reasoning);
+        // Core pipeline — ingest → prefilter → judge → executor
+        case "guarded_execute": {
+          const row = await ingest(txn, policyPubkey);
+          if (!row) continue;
+
+          const { signals, skipped } = await prefilter(row);
+          if (skipped) continue;
+
+          const { verdict, verdictId } = await judgeTransaction(row, signals);
+
+          if (verdict.verdict === "pause") {
+            await executePause(row, verdictId, verdict.reasoning);
+          }
+          break;
+        }
+
+        default:
+          console.log(`[webhook] unhandled instruction in txn ${txn.signature?.slice(0, 16)}…, skipping`);
+          break;
       }
     } catch (err) {
       console.error(`[webhook] pipeline error for ${txn.signature}:`, err);
