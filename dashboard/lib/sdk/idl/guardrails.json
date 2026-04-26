@@ -491,6 +491,74 @@
       "args": []
     },
     {
+      "name": "update_anomaly_score",
+      "docs": [
+        "Updates the anomaly score on a policy. Monitor-only — the owner cannot",
+        "call this, ensuring the server's anomaly detection state can't be tampered with."
+      ],
+      "discriminator": [
+        56,
+        208,
+        149,
+        206,
+        144,
+        233,
+        89,
+        228
+      ],
+      "accounts": [
+        {
+          "name": "caller",
+          "docs": [
+            "The caller — must be an authorized monitor on this policy."
+          ],
+          "signer": true
+        },
+        {
+          "name": "policy",
+          "docs": [
+            "The PermissionPolicy PDA to update."
+          ],
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  112,
+                  111,
+                  108,
+                  105,
+                  99,
+                  121
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "policy.owner",
+                "account": "PermissionPolicy"
+              },
+              {
+                "kind": "account",
+                "path": "policy.agent",
+                "account": "PermissionPolicy"
+              }
+            ]
+          }
+        }
+      ],
+      "args": [
+        {
+          "name": "args",
+          "type": {
+            "defined": {
+              "name": "UpdateAnomalyScoreArgs"
+            }
+          }
+        }
+      ]
+    },
+    {
       "name": "update_policy",
       "docs": [
         "Updates configurable fields on an existing PermissionPolicy.",
@@ -1488,6 +1556,18 @@
       }
     },
     {
+      "name": "UpdateAnomalyScoreArgs",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "score",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
       "name": "UpdatePolicyArgs",
       "docs": [
         "Arguments for updating a PermissionPolicy. Every field is wrapped in",
@@ -1574,15 +1654,6 @@
               "option": {
                 "vec": "pubkey"
               }
-            }
-          },
-          {
-            "name": "anomaly_score",
-            "docs": [
-              "New anomaly score (set by server after Claude judge run). None = leave unchanged."
-            ],
-            "type": {
-              "option": "u8"
             }
           }
         ]

@@ -21,6 +21,7 @@ pub use instructions::pause_agent::*;
 pub use instructions::resume_agent::*;
 pub use instructions::rotate_agent_key::*;
 pub use instructions::unwrap_sol::*;
+pub use instructions::update_anomaly_score::*;
 pub use instructions::update_policy::*;
 pub use instructions::wrap_sol::*;
 
@@ -75,6 +76,15 @@ pub mod guardrails {
     /// guarded_execute step 8 for MVP. This is a no-op.
     pub fn escalate_to_squads(ctx: Context<EscalateToSquads>) -> Result<()> {
         instructions::escalate_to_squads::handler(ctx)
+    }
+
+    /// Updates the anomaly score on a policy. Monitor-only — the owner cannot
+    /// call this, ensuring the server's anomaly detection state can't be tampered with.
+    pub fn update_anomaly_score(
+        ctx: Context<UpdateAnomalyScore>,
+        args: UpdateAnomalyScoreArgs,
+    ) -> Result<()> {
+        instructions::update_anomaly_score::handler(ctx, args)
     }
 
     /// Wraps native SOL from the policy PDA into wSOL in the PDA's ATA.

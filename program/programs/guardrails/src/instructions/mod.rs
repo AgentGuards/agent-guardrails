@@ -11,6 +11,7 @@ pub mod pause_agent;
 pub mod resume_agent;
 pub mod rotate_agent_key;
 pub mod unwrap_sol;
+pub mod update_anomaly_score;
 pub mod update_policy;
 pub mod wrap_sol;
 

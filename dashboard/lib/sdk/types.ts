@@ -71,7 +71,10 @@ export interface UpdatePolicyArgs {
   squadsMultisig: PublicKey | null;
   escalationThreshold: BN | null;
   authorizedMonitors: PublicKey[] | null;
-  anomalyScore: number | null;
+}
+
+export interface UpdateAnomalyScoreArgs {
+  score: number;
 }
 
 export interface GuardedExecuteArgs {

@@ -63,8 +63,6 @@ pub struct UpdatePolicyArgs {
     pub escalation_threshold: Option<u64>,
     /// Replace the entire monitor list. None = leave unchanged.
     pub authorized_monitors: Option<Vec<Pubkey>>,
-    /// New anomaly score (set by server after Claude judge run). None = leave unchanged.
-    pub anomaly_score: Option<u8>,
 }
 
 // ---------------------------------------------------------------------------
@@ -131,10 +129,6 @@ pub fn handler(ctx: Context<UpdatePolicy>, args: UpdatePolicyArgs) -> Result<()>
             GuardrailsError::TooManyMonitors
         );
         policy.authorized_monitors = monitors;
-    }
-
-    if let Some(score) = args.anomaly_score {
-        policy.anomaly_score = score;
     }
 
     // --- Post-update coherence check ---
