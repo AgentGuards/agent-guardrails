@@ -1,17 +1,14 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { Keypair } from "@solana/web3.js";
 import { WizardStepPanels } from "@/components/create-policy-wizard/wizard-step-panels";
 import { AgentSecretBackupModal } from "@/components/create-policy-wizard/agent-secret-backup-modal";
 import { getErrorMessage } from "@/lib/api/client";
-import { queryKeys } from "@/lib/api/query-keys";
 import { buildInitializePolicyArgs } from "@/lib/create-policy/build-args";
 import { createSquadsMultisig } from "@/lib/create-policy/create-squads-multisig";
-import { permissionPolicyToSummary } from "@/lib/create-policy/map-permission-policy";
 import {
   firstErrorStepFromErrors,
   validateFullDraft,
@@ -19,14 +16,6 @@ import {
 import { GuardrailsClient } from "@/lib/sdk/client";
 import { useCreatePolicyWizardStore, WIZARD_STEP_LABELS } from "@/lib/stores/create-policy-wizard";
 import { getProgramId, useAnchorProvider } from "@/components/providers";
-import type { PolicySummary } from "@/lib/types/dashboard";
-
-const POLICY_READ_RETRIES = 5;
-const POLICY_READ_BASE_DELAY_MS = 250;
-
-function sleep(ms: number) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
 
 function isIdempotentCreateError(error: unknown) {
   const msg = getErrorMessage(error).toLowerCase();
@@ -40,7 +29,6 @@ function isIdempotentCreateError(error: unknown) {
 
 export function CreatePolicyWizard() {
   const router = useRouter();
-  const queryClient = useQueryClient();
   const { publicKey } = useWallet();
   const provider = useAnchorProvider();
   const programId = getProgramId();
@@ -103,47 +91,30 @@ export function CreatePolicyWizard() {
         try {
           await client.initializePolicy(agent.publicKey, args);
         } catch (e) {
-          // If account creation already landed, treat this as success and continue.
           if (!isIdempotentCreateError(e)) throw e;
         }
 
-        let chain = await client.fetchPolicy(policyPda);
-        for (let attempt = 0; !chain && attempt < POLICY_READ_RETRIES; attempt += 1) {
-          await sleep(POLICY_READ_BASE_DELAY_MS * (attempt + 1));
-          chain = await client.fetchPolicy(policyPda);
-        }
-        if (!chain) {
-          throw new Error("Policy account was not readable after creation. Please try again.");
-        }
-        const summary = permissionPolicyToSummary(pdaStr, chain);
-
-        // Set label in local cache immediately; the agent detail page
-        // will PATCH it to the server once the DB row exists (via SSE).
+        // Store pending label — a hook on the agents page will PATCH it
+        // once the webhook creates the DB row via SSE
         const labelText = state.label.trim();
         if (labelText) {
-          summary.label = labelText;
+          try {
+            const pending = JSON.parse(sessionStorage.getItem("pending-labels") || "{}");
+            pending[pdaStr] = labelText;
+            sessionStorage.setItem("pending-labels", JSON.stringify(pending));
+          } catch { /* ignore */ }
         }
-
-        queryClient.setQueryData(queryKeys.policy(pdaStr), summary);
-        queryClient.setQueryData(queryKeys.policies(), (old: PolicySummary[] | undefined) => {
-          if (!old?.length) return [summary];
-          if (old.some((p) => p.pubkey === pdaStr)) {
-            return old.map((p) => (p.pubkey === pdaStr ? summary : p));
-          }
-          return [summary, ...old];
-        });
 
         setAgentKeypair(null);
         resetWizard();
-        const labelParam = labelText ? `?label=${encodeURIComponent(labelText)}` : "";
-        router.push(`/agents/${pdaStr}${labelParam}`);
+        router.push("/agents");
       } catch (e) {
         publishError(getErrorMessage(e));
       } finally {
         setSubmitting(false);
       }
     },
-    [programId, provider, publicKey, publishError, queryClient, resetWizard, router],
+    [programId, provider, publicKey, publishError, resetWizard, router],
   );
 
   const onCreateClick = () => {

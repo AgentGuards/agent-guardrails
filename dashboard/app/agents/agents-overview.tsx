@@ -5,9 +5,13 @@ import { PolicyCard } from "@/components/dashboard-ui";
 import { QueryEmpty, QueryError, QueryLoading } from "@/components/query-states";
 import { getErrorMessage } from "@/lib/api/client";
 import { usePoliciesQuery } from "@/lib/api/use-policies-query";
+import { usePendingLabels } from "@/lib/hooks/use-pending-labels";
 
 export function AgentsOverview() {
   const { data, isLoading, isError, error, refetch } = usePoliciesQuery();
+
+  // Process pending labels from the create-policy wizard
+  usePendingLabels(data);
 
   if (isLoading) {
     return <QueryLoading message="Loading policies…" listSkeleton />;
