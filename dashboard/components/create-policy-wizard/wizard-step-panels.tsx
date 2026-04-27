@@ -49,6 +49,8 @@ export function WizardStepPanels() {
 }
 
 function ProgramsStep({ fieldErrors }: { fieldErrors: Record<string, string> }) {
+  const label = useCreatePolicyWizardStore((s) => s.label);
+  const setLabel = useCreatePolicyWizardStore((s) => s.setLabel);
   const allowedPrograms = useCreatePolicyWizardStore((s) => s.allowedPrograms);
   const addProgram = useCreatePolicyWizardStore((s) => s.addProgram);
   const removeProgram = useCreatePolicyWizardStore((s) => s.removeProgram);
@@ -77,6 +79,15 @@ function ProgramsStep({ fieldErrors }: { fieldErrors: Record<string, string> }) 
 
   return (
     <div className="flex flex-col gap-4">
+      <label className="flex flex-col gap-1 text-sm text-zinc-400">
+        Agent name (optional)
+        <input
+          className="rounded-lg border border-zinc-700 bg-zinc-950/80 px-3 py-2 text-zinc-100 outline-none transition-all duration-200 focus:border-blue-700/60 focus:ring-1 focus:ring-blue-500/30"
+          value={label}
+          placeholder="e.g. Yield Bot, Staking Agent…"
+          onChange={(e) => setLabel(e.target.value)}
+        />
+      </label>
       <p className="text-sm text-zinc-400">
         Choose preset programs or paste custom program IDs. Up to 10 allow-listed programs.
       </p>

@@ -13,6 +13,7 @@ export function policySummaryToDraft(policy: PolicySummary): CreatePolicyDraftIn
   const squads = policy.squadsMultisig;
   const escalationEnabled = Boolean(squads);
   return {
+    label: policy.label ?? "",
     allowedPrograms: [...policy.allowedPrograms],
     maxTxSol,
     dailyBudgetSol,

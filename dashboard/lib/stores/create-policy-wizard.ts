@@ -6,6 +6,7 @@ import { validateStep } from "@/lib/create-policy/validate";
 const DRAFT_STORAGE_KEY = "guardrails-create-policy-draft";
 
 const defaultDraft: CreatePolicyDraftInput = {
+  label: "",
   allowedPrograms: [],
   maxTxSol: 5,
   dailyBudgetSol: 50,
@@ -43,6 +44,7 @@ export type CreatePolicyWizardState = CreatePolicyDraftInput & {
   goBack: () => void;
   addProgram: (pubkey: string) => void;
   removeProgram: (pubkey: string) => void;
+  setLabel: (value: string) => void;
   setMaxTxSol: (value: number) => void;
   setDailyBudgetSol: (value: number) => void;
   setSessionDays: (value: number) => void;
@@ -99,6 +101,7 @@ export const useCreatePolicyWizardStore = create<CreatePolicyWizardState>()(
         }));
       },
 
+      setLabel: (value: string) => set({ label: value, fieldErrors: {} }),
       setMaxTxSol: (value: number) => set({ maxTxSol: value, fieldErrors: {} }),
       setDailyBudgetSol: (value: number) => set({ dailyBudgetSol: value, fieldErrors: {} }),
       setSessionDays: (value: number) => set({ sessionDays: value, fieldErrors: {} }),
@@ -171,6 +174,7 @@ export const useCreatePolicyWizardStore = create<CreatePolicyWizardState>()(
         typeof window === "undefined" ? noopStorage() : sessionStorage,
       ),
       partialize: (s) => ({
+        label: s.label,
         allowedPrograms: s.allowedPrograms,
         maxTxSol: s.maxTxSol,
         dailyBudgetSol: s.dailyBudgetSol,

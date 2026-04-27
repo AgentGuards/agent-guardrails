@@ -551,6 +551,15 @@ export async function fetchIncident(id: string): Promise<IncidentDetail> {
 }
 
 // ---------------------------------------------------------------------------
+// Policy label
+// ---------------------------------------------------------------------------
+
+export async function patchPolicyLabel(pubkey: string, label: string): Promise<void> {
+  if (USE_MOCK_API) return;
+  await patchJson(`/api/policies/${pubkey}`, { label });
+}
+
+// ---------------------------------------------------------------------------
 // Escalations
 // ---------------------------------------------------------------------------
 

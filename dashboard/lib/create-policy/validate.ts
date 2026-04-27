@@ -12,6 +12,7 @@ export function isValidPubkeyString(value: string): boolean {
 }
 
 export interface CreatePolicyDraftInput {
+  label: string;
   allowedPrograms: string[];
   maxTxSol: number;
   dailyBudgetSol: number;

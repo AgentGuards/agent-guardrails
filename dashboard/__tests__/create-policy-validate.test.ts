@@ -65,6 +65,7 @@ describe("validateSession", () => {
 
 describe("validateEscalation", () => {
   const baseDraft = {
+    label: "",
     allowedPrograms: ["11111111111111111111111111111111"],
     maxTxSol: 5,
     dailyBudgetSol: 50,
@@ -131,6 +132,7 @@ describe("validateEscalation", () => {
 
 describe("validateStep", () => {
   const base = {
+    label: "",
     allowedPrograms: ["11111111111111111111111111111111"],
     maxTxSol: 5,
     dailyBudgetSol: 50,

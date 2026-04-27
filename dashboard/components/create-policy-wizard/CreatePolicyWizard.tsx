@@ -7,7 +7,7 @@ import { useWallet } from "@solana/wallet-adapter-react";
 import { Keypair } from "@solana/web3.js";
 import { WizardStepPanels } from "@/components/create-policy-wizard/wizard-step-panels";
 import { AgentSecretBackupModal } from "@/components/create-policy-wizard/agent-secret-backup-modal";
-import { getErrorMessage } from "@/lib/api/client";
+import { getErrorMessage, patchPolicyLabel } from "@/lib/api/client";
 import { queryKeys } from "@/lib/api/query-keys";
 import { buildInitializePolicyArgs } from "@/lib/create-policy/build-args";
 import { createSquadsMultisig } from "@/lib/create-policy/create-squads-multisig";
@@ -111,6 +111,17 @@ export function CreatePolicyWizard() {
           throw new Error("Policy account was not readable after creation. Please try again.");
         }
         const summary = permissionPolicyToSummary(pdaStr, chain);
+
+        // Set the label via server API (label is DB-only, not on-chain)
+        const labelText = state.label.trim();
+        if (labelText) {
+          try {
+            await patchPolicyLabel(pdaStr, labelText);
+            summary.label = labelText;
+          } catch {
+            // Non-critical — label can be set later
+          }
+        }
 
         queryClient.setQueryData(queryKeys.policy(pdaStr), summary);
         queryClient.setQueryData(queryKeys.policies(), (old: PolicySummary[] | undefined) => {
