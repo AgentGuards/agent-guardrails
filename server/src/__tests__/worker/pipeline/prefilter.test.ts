@@ -10,10 +10,10 @@ const mockPrisma = {
   guardedTxn: { findMany: vi.fn() },
   anomalyVerdict: { create: vi.fn() },
 };
-vi.mock("../../db/client.js", () => ({ prisma: mockPrisma }));
+vi.mock("../../../db/client.js", () => ({ prisma: mockPrisma }));
 
 const mockEmitter = { emitEvent: vi.fn() };
-vi.mock("../../sse/emitter.js", () => ({ sseEmitter: mockEmitter }));
+vi.mock("../../../sse/emitter.js", () => ({ sseEmitter: mockEmitter }));
 
 // ---------------------------------------------------------------------------
 // Import under test
@@ -51,61 +51,114 @@ function historyRow(secsAgo: number, overrides?: Record<string, unknown>) {
 
 describe("prefilter", () => {
   // =========================================================================
-  // new_or_uncommon_program
+  // policy_inactive
   // =========================================================================
 
-  describe("new_or_uncommon_program", () => {
-    it("signals when target program differs from most-used in history", async () => {
+  describe("policy_inactive", () => {
+    it("signals when policy isActive is false", async () => {
+      vi.setSystemTime(new Date("2025-06-15T12:00:00Z"));
+
+      const row = makeGuardedTxn();
+
+      mockPrisma.policy.findUnique.mockResolvedValue(makePolicy({ isActive: false }));
+      mockPrisma.guardedTxn.findMany.mockResolvedValue([historyRow(100)]);
+
+      const result = await prefilter(row);
+
+      expect(result.signals).toContain("policy_inactive");
+      expect(result.skipped).toBe(false);
+    });
+
+    it("does not signal when policy isActive is true", async () => {
+      vi.setSystemTime(new Date("2025-06-15T12:00:00Z"));
+
+      const row = makeGuardedTxn();
+
+      mockPrisma.policy.findUnique.mockResolvedValue(makePolicy({ isActive: true }));
+      mockPrisma.guardedTxn.findMany.mockResolvedValue([historyRow(100)]);
+
+      const result = await prefilter(row);
+
+      expect(result.signals).not.toContain("policy_inactive");
+    });
+  });
+
+  // =========================================================================
+  // program_not_in_allowlist
+  // =========================================================================
+
+  describe("program_not_in_allowlist", () => {
+    it("signals when target program is not in allowedPrograms", async () => {
       vi.setSystemTime(new Date("2025-06-15T12:00:00Z"));
 
       const row = makeGuardedTxn({ targetProgram: "RareProgram111111111111111111111111" });
 
-      // History: 5 txns all using the common program
-      mockPrisma.guardedTxn.findMany.mockResolvedValue([
-        historyRow(100, { targetProgram: "CommonProg111111111111111111111111" }),
-        historyRow(200, { targetProgram: "CommonProg111111111111111111111111" }),
-        historyRow(300, { targetProgram: "CommonProg111111111111111111111111" }),
-        historyRow(400, { targetProgram: "CommonProg111111111111111111111111" }),
-        historyRow(500, { targetProgram: "CommonProg111111111111111111111111" }),
-      ]);
-
       mockPrisma.policy.findUnique.mockResolvedValue(makePolicy());
+      mockPrisma.guardedTxn.findMany.mockResolvedValue([historyRow(100)]);
 
       const result = await prefilter(row);
 
-      expect(result.signals).toContain("new_or_uncommon_program");
+      expect(result.signals).toContain("program_not_in_allowlist");
       expect(result.skipped).toBe(false);
     });
 
-    it("does not signal when target IS the most-used program", async () => {
+    it("does not signal when target IS in allowedPrograms", async () => {
       vi.setSystemTime(new Date("2025-06-15T12:00:00Z"));
 
-      const row = makeGuardedTxn({ targetProgram: "CommonProg111111111111111111111111" });
-
-      mockPrisma.guardedTxn.findMany.mockResolvedValue([
-        historyRow(100, { targetProgram: "CommonProg111111111111111111111111" }),
-        historyRow(200, { targetProgram: "CommonProg111111111111111111111111" }),
-        historyRow(300, { targetProgram: "OtherProg1111111111111111111111111" }),
-      ]);
+      // TargetProgram1111111111111111111111 is in the default fixture allow-list
+      const row = makeGuardedTxn({ targetProgram: "TargetProgram1111111111111111111111" });
 
       mockPrisma.policy.findUnique.mockResolvedValue(makePolicy());
+      mockPrisma.guardedTxn.findMany.mockResolvedValue([historyRow(100)]);
 
       const result = await prefilter(row);
 
-      expect(result.signals).not.toContain("new_or_uncommon_program");
+      expect(result.signals).not.toContain("program_not_in_allowlist");
     });
 
-    it("does not signal when history is empty", async () => {
+    it("does not signal when allowedPrograms is empty (unrestricted)", async () => {
       vi.setSystemTime(new Date("2025-06-15T12:00:00Z"));
 
       const row = makeGuardedTxn({ targetProgram: "AnyProgram111111111111111111111111" });
 
-      mockPrisma.guardedTxn.findMany.mockResolvedValue([]);
-      mockPrisma.policy.findUnique.mockResolvedValue(makePolicy());
+      mockPrisma.policy.findUnique.mockResolvedValue(makePolicy({ allowedPrograms: [] }));
+      mockPrisma.guardedTxn.findMany.mockResolvedValue([historyRow(100)]);
 
       const result = await prefilter(row);
 
-      expect(result.signals).not.toContain("new_or_uncommon_program");
+      expect(result.signals).not.toContain("program_not_in_allowlist");
+    });
+  });
+
+  // =========================================================================
+  // cold_start
+  // =========================================================================
+
+  describe("cold_start", () => {
+    it("signals when there is no transaction history", async () => {
+      vi.setSystemTime(new Date("2025-06-15T12:00:00Z"));
+
+      const row = makeGuardedTxn();
+
+      mockPrisma.policy.findUnique.mockResolvedValue(makePolicy());
+      mockPrisma.guardedTxn.findMany.mockResolvedValue([]);
+
+      const result = await prefilter(row);
+
+      expect(result.signals).toContain("cold_start");
+    });
+
+    it("does not signal when history exists", async () => {
+      vi.setSystemTime(new Date("2025-06-15T12:00:00Z"));
+
+      const row = makeGuardedTxn();
+
+      mockPrisma.policy.findUnique.mockResolvedValue(makePolicy());
+      mockPrisma.guardedTxn.findMany.mockResolvedValue([historyRow(100)]);
+
+      const result = await prefilter(row);
+
+      expect(result.signals).not.toContain("cold_start");
     });
   });
 
@@ -114,19 +167,15 @@ describe("prefilter", () => {
   // =========================================================================
 
   describe("burst_detected / elevated_frequency", () => {
-    it("signals burst_detected when >= 5 txns in last 60s", async () => {
+    it("signals burst_detected when >= 10 txns in last 60s", async () => {
       vi.setSystemTime(new Date("2025-06-15T12:00:00Z"));
 
       const row = makeGuardedTxn();
 
-      // 5 txns within the last 60 seconds
-      mockPrisma.guardedTxn.findMany.mockResolvedValue([
-        historyRow(10),
-        historyRow(20),
-        historyRow(30),
-        historyRow(40),
-        historyRow(50),
-      ]);
+      // 10 txns within the last 60 seconds
+      mockPrisma.guardedTxn.findMany.mockResolvedValue(
+        Array.from({ length: 10 }, (_, i) => historyRow(5 + i * 5)),
+      );
 
       mockPrisma.policy.findUnique.mockResolvedValue(makePolicy());
 
@@ -135,7 +184,7 @@ describe("prefilter", () => {
       expect(result.signals).toContain("burst_detected");
     });
 
-    it("signals elevated_frequency when 3-4 txns in last 60s", async () => {
+    it("signals elevated_frequency when 3-9 txns in last 60s", async () => {
       vi.setSystemTime(new Date("2025-06-15T12:00:00Z"));
 
       const row = makeGuardedTxn();
@@ -180,12 +229,12 @@ describe("prefilter", () => {
   // high_amount
   // =========================================================================
 
-  describe("high_amount", () => {
-    it("signals when amount > 70% of maxTxLamports", async () => {
+  describe("high_amount / amount_exceeds_cap", () => {
+    it("signals high_amount when amount > 80% of maxTxLamports", async () => {
       vi.setSystemTime(new Date("2025-06-15T12:00:00Z"));
 
-      // 75% of 1 SOL = 750_000_000
-      const row = makeGuardedTxn({ amountLamports: BigInt(750_000_000) });
+      // 85% of 1 SOL = 850_000_000
+      const row = makeGuardedTxn({ amountLamports: BigInt(850_000_000) });
 
       mockPrisma.guardedTxn.findMany.mockResolvedValue([]);
       mockPrisma.policy.findUnique.mockResolvedValue(
@@ -195,13 +244,31 @@ describe("prefilter", () => {
       const result = await prefilter(row);
 
       expect(result.signals).toContain("high_amount");
+      expect(result.signals).not.toContain("amount_exceeds_cap");
     });
 
-    it("does not signal at exactly 70%", async () => {
+    it("signals amount_exceeds_cap when amount > 100% of maxTxLamports", async () => {
       vi.setSystemTime(new Date("2025-06-15T12:00:00Z"));
 
-      // Exactly 70% of 1 SOL = 700_000_000
-      const row = makeGuardedTxn({ amountLamports: BigInt(700_000_000) });
+      // 120% of 1 SOL = 1_200_000_000
+      const row = makeGuardedTxn({ amountLamports: BigInt(1_200_000_000) });
+
+      mockPrisma.guardedTxn.findMany.mockResolvedValue([]);
+      mockPrisma.policy.findUnique.mockResolvedValue(
+        makePolicy({ maxTxLamports: BigInt(1_000_000_000) }),
+      );
+
+      const result = await prefilter(row);
+
+      expect(result.signals).toContain("amount_exceeds_cap");
+      expect(result.signals).not.toContain("high_amount");
+    });
+
+    it("does not signal at exactly 80%", async () => {
+      vi.setSystemTime(new Date("2025-06-15T12:00:00Z"));
+
+      // Exactly 80% of 1 SOL = 800_000_000
+      const row = makeGuardedTxn({ amountLamports: BigInt(800_000_000) });
 
       mockPrisma.guardedTxn.findMany.mockResolvedValue([]);
       mockPrisma.policy.findUnique.mockResolvedValue(
@@ -211,6 +278,7 @@ describe("prefilter", () => {
       const result = await prefilter(row);
 
       expect(result.signals).not.toContain("high_amount");
+      expect(result.signals).not.toContain("amount_exceeds_cap");
     });
 
     it("does not signal when maxTxLamports is 0", async () => {
@@ -248,8 +316,8 @@ describe("prefilter", () => {
   // budget_nearly_exhausted
   // =========================================================================
 
-  describe("budget_nearly_exhausted", () => {
-    it("signals when daily spend > 80% of budget", async () => {
+  describe("budget_nearly_exhausted / budget_exceeded", () => {
+    it("signals budget_nearly_exhausted when daily spend > 80% of budget", async () => {
       vi.setSystemTime(new Date("2025-06-15T12:00:00Z"));
 
       const row = makeGuardedTxn();
@@ -274,6 +342,34 @@ describe("prefilter", () => {
       const result = await prefilter(row);
 
       expect(result.signals).toContain("budget_nearly_exhausted");
+      expect(result.signals).not.toContain("budget_exceeded");
+    });
+
+    it("signals budget_exceeded when daily spend > 100% of budget", async () => {
+      vi.setSystemTime(new Date("2025-06-15T12:00:00Z"));
+
+      const row = makeGuardedTxn();
+
+      const startOfToday = new Date("2025-06-15T00:00:00Z");
+      mockPrisma.guardedTxn.findMany.mockResolvedValue([
+        makeGuardedTxn({
+          amountLamports: BigInt(6_000_000_000),
+          createdAt: new Date(startOfToday.getTime() + 3600_000),
+        }),
+        makeGuardedTxn({
+          amountLamports: BigInt(6_000_000_000),
+          createdAt: new Date(startOfToday.getTime() + 7200_000),
+        }),
+      ]);
+
+      mockPrisma.policy.findUnique.mockResolvedValue(
+        makePolicy({ dailyBudgetLamports: BigInt(10_000_000_000) }),
+      );
+
+      const result = await prefilter(row);
+
+      expect(result.signals).toContain("budget_exceeded");
+      expect(result.signals).not.toContain("budget_nearly_exhausted");
     });
 
     it("does not signal at exactly 80%", async () => {
@@ -296,6 +392,7 @@ describe("prefilter", () => {
       const result = await prefilter(row);
 
       expect(result.signals).not.toContain("budget_nearly_exhausted");
+      expect(result.signals).not.toContain("budget_exceeded");
     });
 
     it("does not signal when dailyBudgetLamports is 0", async () => {
@@ -415,7 +512,7 @@ describe("prefilter", () => {
   // =========================================================================
 
   describe("outside_active_hours", () => {
-    it("signals when current hour > 2h from median", async () => {
+    it("signals when current hour > 3h from median", async () => {
       // Set current time to 18:00 UTC
       vi.setSystemTime(new Date("2025-06-15T18:00:00Z"));
 
@@ -435,14 +532,14 @@ describe("prefilter", () => {
       expect(result.signals).toContain("outside_active_hours");
     });
 
-    it("handles hour wrap: median=23, current=1 is 2h (no signal)", async () => {
-      // Current hour = 1 UTC
-      vi.setSystemTime(new Date("2025-06-15T01:00:00Z"));
+    it("handles hour wrap: median=23, current=2 is 3h (no signal)", async () => {
+      // Current hour = 2 UTC
+      vi.setSystemTime(new Date("2025-06-15T02:00:00Z"));
 
       const row = makeGuardedTxn();
 
-      // All history at hour 23 UTC => median is 23, current is 1
-      // Wrap diff = min(|1-23|, 24-|1-23|) = min(22, 2) = 2 => NOT > 2
+      // All history at hour 23 UTC => median is 23, current is 2
+      // Wrap diff = min(|2-23|, 24-|2-23|) = min(21, 3) = 3 => NOT > 3
       mockPrisma.guardedTxn.findMany.mockResolvedValue([
         makeGuardedTxn({ createdAt: new Date("2025-06-14T23:00:00Z") }),
         makeGuardedTxn({ createdAt: new Date("2025-06-13T23:00:00Z") }),
@@ -456,14 +553,14 @@ describe("prefilter", () => {
       expect(result.signals).not.toContain("outside_active_hours");
     });
 
-    it("handles hour wrap: median=23, current=2 is 3h (signals)", async () => {
-      // Current hour = 2 UTC
-      vi.setSystemTime(new Date("2025-06-15T02:00:00Z"));
+    it("handles hour wrap: median=23, current=3 is 4h (signals)", async () => {
+      // Current hour = 3 UTC
+      vi.setSystemTime(new Date("2025-06-15T03:00:00Z"));
 
       const row = makeGuardedTxn();
 
-      // All history at hour 23 UTC => median is 23, current is 2
-      // Wrap diff = min(|2-23|, 24-|2-23|) = min(21, 3) = 3 => > 2 signals
+      // All history at hour 23 UTC => median is 23, current is 3
+      // Wrap diff = min(|3-23|, 24-|3-23|) = min(20, 4) = 4 => > 3 signals
       mockPrisma.guardedTxn.findMany.mockResolvedValue([
         makeGuardedTxn({ createdAt: new Date("2025-06-14T23:00:00Z") }),
         makeGuardedTxn({ createdAt: new Date("2025-06-13T23:00:00Z") }),
@@ -492,6 +589,57 @@ describe("prefilter", () => {
   });
 
   // =========================================================================
+  // anomaly_score_elevated
+  // =========================================================================
+
+  describe("anomaly_score_elevated", () => {
+    it("signals when anomalyScore >= escalationThreshold", async () => {
+      vi.setSystemTime(new Date("2025-06-15T12:00:00Z"));
+
+      const row = makeGuardedTxn();
+
+      mockPrisma.policy.findUnique.mockResolvedValue(
+        makePolicy({ anomalyScore: 80, escalationThreshold: BigInt(75) }),
+      );
+      mockPrisma.guardedTxn.findMany.mockResolvedValue([historyRow(100)]);
+
+      const result = await prefilter(row);
+
+      expect(result.signals).toContain("anomaly_score_elevated");
+    });
+
+    it("does not signal when anomalyScore < escalationThreshold", async () => {
+      vi.setSystemTime(new Date("2025-06-15T12:00:00Z"));
+
+      const row = makeGuardedTxn();
+
+      mockPrisma.policy.findUnique.mockResolvedValue(
+        makePolicy({ anomalyScore: 30, escalationThreshold: BigInt(75) }),
+      );
+      mockPrisma.guardedTxn.findMany.mockResolvedValue([historyRow(100)]);
+
+      const result = await prefilter(row);
+
+      expect(result.signals).not.toContain("anomaly_score_elevated");
+    });
+
+    it("does not signal when escalationThreshold is null", async () => {
+      vi.setSystemTime(new Date("2025-06-15T12:00:00Z"));
+
+      const row = makeGuardedTxn();
+
+      mockPrisma.policy.findUnique.mockResolvedValue(
+        makePolicy({ anomalyScore: 99, escalationThreshold: null }),
+      );
+      mockPrisma.guardedTxn.findMany.mockResolvedValue([historyRow(100)]);
+
+      const result = await prefilter(row);
+
+      expect(result.signals).not.toContain("anomaly_score_elevated");
+    });
+  });
+
+  // =========================================================================
   // prefilter() integration
   // =========================================================================
 
@@ -500,15 +648,16 @@ describe("prefilter", () => {
       const now = new Date("2025-06-15T12:00:00Z");
       vi.setSystemTime(now);
 
+      // Use a program that IS in the default allow-list
       const row = makeGuardedTxn({
-        targetProgram: "CommonProg111111111111111111111111",
+        targetProgram: "TargetProgram1111111111111111111111",
         amountLamports: BigInt(100_000_000), // 10% of 1 SOL cap
       });
 
-      // Same program in history, no bursts, all within active hours
+      // History exists (avoid cold_start), within active hours
       mockPrisma.guardedTxn.findMany.mockResolvedValue([
         makeGuardedTxn({
-          targetProgram: "CommonProg111111111111111111111111",
+          targetProgram: "TargetProgram1111111111111111111111",
           createdAt: new Date("2025-06-15T11:00:00Z"),
         }),
       ]);
@@ -545,12 +694,12 @@ describe("prefilter", () => {
       const now = new Date("2025-06-15T12:00:00Z");
       vi.setSystemTime(now);
 
-      // Amount is 80% of cap => high_amount
+      // Amount is 85% of cap => high_amount (threshold is now 80%)
       const row = makeGuardedTxn({
-        amountLamports: BigInt(800_000_000),
+        amountLamports: BigInt(850_000_000),
       });
 
-      mockPrisma.guardedTxn.findMany.mockResolvedValue([]);
+      mockPrisma.guardedTxn.findMany.mockResolvedValue([historyRow(100)]);
       mockPrisma.policy.findUnique.mockResolvedValue(
         makePolicy({
           maxTxLamports: BigInt(1_000_000_000),
