@@ -117,14 +117,22 @@ export function CreatePolicyWizard() {
         }
         const summary = permissionPolicyToSummary(pdaStr, chain);
 
-        // Set the label via server API (label is DB-only, not on-chain)
+        // Set the label via server API (label is DB-only, not on-chain).
+        // Retry because the webhook may not have created the DB row yet.
         const labelText = state.label.trim();
         if (labelText) {
-          try {
-            await patchPolicyLabel(pdaStr, labelText);
-            summary.label = labelText;
-          } catch {
-            // Non-critical — label can be set later
+          for (let attempt = 0; attempt < 3; attempt++) {
+            try {
+              await patchPolicyLabel(pdaStr, labelText);
+              summary.label = labelText;
+              break;
+            } catch (labelErr) {
+              if (attempt < 2) {
+                await sleep(2000);
+              } else {
+                console.warn("[wizard] failed to set label after retries:", getErrorMessage(labelErr));
+              }
+            }
           }
         }
 
