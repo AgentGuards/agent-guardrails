@@ -10,6 +10,7 @@ import { AgentSecretBackupModal } from "@/components/create-policy-wizard/agent-
 import { getErrorMessage } from "@/lib/api/client";
 import { queryKeys } from "@/lib/api/query-keys";
 import { buildInitializePolicyArgs } from "@/lib/create-policy/build-args";
+import { createSquadsMultisig } from "@/lib/create-policy/create-squads-multisig";
 import { permissionPolicyToSummary } from "@/lib/create-policy/map-permission-policy";
 import {
   firstErrorStepFromErrors,
@@ -69,12 +70,29 @@ export function CreatePolicyWizard() {
       }
 
       const state = useCreatePolicyWizardStore.getState();
-      const args = buildInitializePolicyArgs(state);
       const client = new GuardrailsClient(provider, programId);
 
       setSubmitting(true);
       setSubmitError(null);
       try {
+        // If creating a new multisig, do it first
+        let multisigPdaOverride: import("@solana/web3.js").PublicKey | undefined;
+        if (
+          state.escalationEnabled &&
+          state.multisigMode === "create" &&
+          state.multisigMembers.length >= 2
+        ) {
+          const { multisigPda } = await createSquadsMultisig(
+            provider.connection,
+            provider.wallet,
+            state.multisigMembers,
+            state.multisigThreshold,
+          );
+          multisigPdaOverride = multisigPda;
+        }
+
+        const args = buildInitializePolicyArgs(state, multisigPdaOverride);
+
         const [policyPda] = client.findPolicyPda(publicKey, agent.publicKey);
         const pdaStr = policyPda.toBase58();
         try {

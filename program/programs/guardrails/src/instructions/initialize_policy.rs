@@ -168,6 +168,13 @@ pub fn handler(ctx: Context<InitializePolicy>, args: InitializePolicyArgs) -> Re
     tracker.lamports_spent_24h = 0;
     tracker.last_txn_ts = 0; // No transactions yet (epoch = "never")
     tracker.last_txn_program = Pubkey::default(); // All zeros = "no program yet"
+    tracker.unique_destinations_24h = 0;
+    tracker.max_single_txn_lamports = 0;
+    tracker.failed_txn_count_24h = 0;
+    tracker.unique_programs_24h = 0;
+    tracker.lamports_spent_1h = 0;
+    tracker.window_start_1h = clock.unix_timestamp;
+    tracker.consecutive_high_amount_count = 0;
     tracker.bump = ctx.bumps.spend_tracker;
 
     msg!("Policy initialized for agent {}", ctx.accounts.agent.key());

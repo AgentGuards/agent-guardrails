@@ -255,16 +255,25 @@ function SessionStep({ fieldErrors }: { fieldErrors: Record<string, string> }) {
 
 function EscalationStep({ fieldErrors }: { fieldErrors: Record<string, string> }) {
   const escalationEnabled = useCreatePolicyWizardStore((s) => s.escalationEnabled);
+  const multisigMode = useCreatePolicyWizardStore((s) => s.multisigMode);
   const squadsMultisig = useCreatePolicyWizardStore((s) => s.squadsMultisig);
+  const multisigMembers = useCreatePolicyWizardStore((s) => s.multisigMembers);
+  const multisigThreshold = useCreatePolicyWizardStore((s) => s.multisigThreshold);
   const escalationThresholdSol = useCreatePolicyWizardStore((s) => s.escalationThresholdSol);
   const setEscalationEnabled = useCreatePolicyWizardStore((s) => s.setEscalationEnabled);
+  const setMultisigMode = useCreatePolicyWizardStore((s) => s.setMultisigMode);
   const setSquadsMultisig = useCreatePolicyWizardStore((s) => s.setSquadsMultisig);
+  const addMember = useCreatePolicyWizardStore((s) => s.addMember);
+  const removeMember = useCreatePolicyWizardStore((s) => s.removeMember);
+  const setMultisigThreshold = useCreatePolicyWizardStore((s) => s.setMultisigThreshold);
   const setEscalationThresholdSol = useCreatePolicyWizardStore((s) => s.setEscalationThresholdSol);
   const escalationThresholdInput = useBufferedNumberInput(
     escalationThresholdSol,
     setEscalationThresholdSol,
     Number.parseFloat,
   );
+
+  const [memberInput, setMemberInput] = useState("");
 
   return (
     <div className="flex flex-col gap-4">
@@ -283,18 +292,121 @@ function EscalationStep({ fieldErrors }: { fieldErrors: Record<string, string> }
 
       {escalationEnabled ? (
         <>
-          <label className="flex flex-col gap-1 text-sm text-zinc-400">
-            Squads multisig address
-            <input
-              className="rounded-lg border border-zinc-700 bg-zinc-950/80 px-3 py-2 font-mono text-sm text-zinc-100 outline-none transition-all duration-200 focus:border-blue-700/60 focus:ring-1 focus:ring-blue-500/30"
-              value={squadsMultisig}
-              placeholder="Multisig pubkey…"
-              onChange={(e) => setSquadsMultisig(e.target.value)}
-            />
-            {fieldErrors.squadsMultisig ? (
-              <span className="text-red-400">{fieldErrors.squadsMultisig}</span>
-            ) : null}
-          </label>
+          {/* Mode toggle */}
+          <div className="flex gap-2">
+            <button
+              type="button"
+              className={`rounded-md border px-3 py-1.5 text-sm transition-colors ${
+                multisigMode === "create"
+                  ? "border-blue-600 bg-blue-950/40 text-blue-200"
+                  : "border-zinc-700 text-zinc-400 hover:text-zinc-200"
+              }`}
+              onClick={() => setMultisigMode("create")}
+            >
+              Create new multisig
+            </button>
+            <button
+              type="button"
+              className={`rounded-md border px-3 py-1.5 text-sm transition-colors ${
+                multisigMode === "existing"
+                  ? "border-blue-600 bg-blue-950/40 text-blue-200"
+                  : "border-zinc-700 text-zinc-400 hover:text-zinc-200"
+              }`}
+              onClick={() => setMultisigMode("existing")}
+            >
+              Use existing multisig
+            </button>
+          </div>
+
+          {multisigMode === "create" ? (
+            <>
+              {/* Member list */}
+              <div className="flex flex-col gap-2">
+                <span className="text-sm text-zinc-400">
+                  Multisig members ({multisigMembers.length})
+                </span>
+                {multisigMembers.map((m) => (
+                  <div key={m} className="flex items-center gap-2">
+                    <span className="flex-1 truncate rounded-md border border-zinc-800 bg-zinc-950/60 px-2 py-1.5 font-mono text-xs text-zinc-300">
+                      {m}
+                    </span>
+                    <button
+                      type="button"
+                      className="text-xs text-red-400 hover:text-red-300"
+                      onClick={() => removeMember(m)}
+                    >
+                      Remove
+                    </button>
+                  </div>
+                ))}
+                <div className="flex gap-2">
+                  <input
+                    className="flex-1 rounded-lg border border-zinc-700 bg-zinc-950/80 px-3 py-2 font-mono text-sm text-zinc-100 outline-none transition-all duration-200 focus:border-blue-700/60 focus:ring-1 focus:ring-blue-500/30"
+                    value={memberInput}
+                    placeholder="Member wallet address…"
+                    onChange={(e) => setMemberInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        addMember(memberInput);
+                        setMemberInput("");
+                      }
+                    }}
+                  />
+                  <button
+                    type="button"
+                    className="button button-secondary px-3 py-2 text-sm"
+                    onClick={() => {
+                      addMember(memberInput);
+                      setMemberInput("");
+                    }}
+                  >
+                    Add
+                  </button>
+                </div>
+                {fieldErrors.multisigMembers ? (
+                  <span className="text-sm text-red-400">{fieldErrors.multisigMembers}</span>
+                ) : null}
+              </div>
+
+              {/* Threshold selector */}
+              <label className="flex flex-col gap-1 text-sm text-zinc-400">
+                Approval threshold
+                <select
+                  className="rounded-lg border border-zinc-700 bg-zinc-950/80 px-3 py-2 text-zinc-100 outline-none"
+                  value={multisigThreshold}
+                  onChange={(e) => setMultisigThreshold(Number(e.target.value))}
+                >
+                  {Array.from(
+                    { length: Math.max(1, multisigMembers.length) },
+                    (_, i) => i + 1,
+                  ).map((n) => (
+                    <option key={n} value={n}>
+                      {n} of {multisigMembers.length} members
+                    </option>
+                  ))}
+                </select>
+                {fieldErrors.multisigThreshold ? (
+                  <span className="text-red-400">{fieldErrors.multisigThreshold}</span>
+                ) : null}
+              </label>
+            </>
+          ) : (
+            <label className="flex flex-col gap-1 text-sm text-zinc-400">
+              Squads multisig address
+              <input
+                className="rounded-lg border border-zinc-700 bg-zinc-950/80 px-3 py-2 font-mono text-sm text-zinc-100 outline-none transition-all duration-200 focus:border-blue-700/60 focus:ring-1 focus:ring-blue-500/30"
+                value={squadsMultisig}
+                placeholder="Multisig pubkey…"
+                onChange={(e) => setSquadsMultisig(e.target.value)}
+              />
+              {fieldErrors.squadsMultisig ? (
+                <span className="text-red-400">{fieldErrors.squadsMultisig}</span>
+              ) : null}
+            </label>
+          )}
+
+          {/* Escalation threshold (shared by both modes) */}
           <label className="flex flex-col gap-1 text-sm text-zinc-400">
             Escalation threshold (SOL)
             <input

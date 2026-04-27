@@ -265,6 +265,19 @@ pub fn handler(ctx: Context<GuardedExecute>, args: GuardedExecuteArgs) -> Result
         ctx.accounts.spend_tracker.lamports_spent_24h = 0;
         ctx.accounts.spend_tracker.txn_count_24h = 0;
         ctx.accounts.spend_tracker.window_start = now;
+        ctx.accounts.spend_tracker.unique_destinations_24h = 0;
+        ctx.accounts.spend_tracker.max_single_txn_lamports = 0;
+        ctx.accounts.spend_tracker.failed_txn_count_24h = 0;
+        ctx.accounts.spend_tracker.unique_programs_24h = 0;
+    }
+
+    // Roll 1h spend window if expired
+    let one_hour: i64 = 3600;
+    if now.checked_sub(ctx.accounts.spend_tracker.window_start_1h)
+        .map_or(true, |elapsed| elapsed >= one_hour)
+    {
+        ctx.accounts.spend_tracker.lamports_spent_1h = 0;
+        ctx.accounts.spend_tracker.window_start_1h = now;
     }
 
     // -----------------------------------------------------------------------
@@ -473,6 +486,40 @@ pub fn handler(ctx: Context<GuardedExecute>, args: GuardedExecuteArgs) -> Result
         .ok_or(GuardrailsError::DailyBudgetExceeded)?;
     ctx.accounts.spend_tracker.txn_count_24h =
         ctx.accounts.spend_tracker.txn_count_24h.saturating_add(1);
+
+    // Track max single transaction amount
+    if verified_amount > ctx.accounts.spend_tracker.max_single_txn_lamports {
+        ctx.accounts.spend_tracker.max_single_txn_lamports = verified_amount;
+    }
+
+    // Track 1h spend
+    ctx.accounts.spend_tracker.lamports_spent_1h = ctx
+        .accounts
+        .spend_tracker
+        .lamports_spent_1h
+        .checked_add(verified_amount)
+        .unwrap_or(u64::MAX);
+
+    // Approximate unique programs: increment when program changes
+    if ctx.accounts.spend_tracker.last_txn_program != Pubkey::default()
+        && target_program_key != ctx.accounts.spend_tracker.last_txn_program
+    {
+        ctx.accounts.spend_tracker.unique_programs_24h =
+            ctx.accounts.spend_tracker.unique_programs_24h.saturating_add(1);
+    } else if ctx.accounts.spend_tracker.last_txn_program == Pubkey::default() {
+        // First transaction ever — count this program
+        ctx.accounts.spend_tracker.unique_programs_24h = 1;
+    }
+
+    // Consecutive high-amount tracking (>80% of per-tx cap)
+    let high_threshold = ctx.accounts.policy.max_tx_lamports / 5 * 4; // 80%
+    if verified_amount > high_threshold {
+        ctx.accounts.spend_tracker.consecutive_high_amount_count =
+            ctx.accounts.spend_tracker.consecutive_high_amount_count.saturating_add(1);
+    } else {
+        ctx.accounts.spend_tracker.consecutive_high_amount_count = 0;
+    }
+
     ctx.accounts.spend_tracker.last_txn_ts = now;
     ctx.accounts.spend_tracker.last_txn_program = target_program_key;
 

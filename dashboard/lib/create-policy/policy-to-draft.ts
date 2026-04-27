@@ -18,7 +18,10 @@ export function policySummaryToDraft(policy: PolicySummary): CreatePolicyDraftIn
     dailyBudgetSol,
     sessionDays,
     escalationEnabled,
+    multisigMode: squads ? "existing" : "create",
     squadsMultisig: squads ?? "",
+    multisigMembers: [],
+    multisigThreshold: 1,
     escalationThresholdSol: policy.escalationThreshold
       ? Number(policy.escalationThreshold) / LAMPORTS_PER_SOL
       : 0,

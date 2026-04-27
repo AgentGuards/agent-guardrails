@@ -3,7 +3,7 @@
 
 import { prisma } from "../../db/client.js";
 import type { JudgeContext } from "../../types/anomaly.js";
-import type { GuardedTxn } from "@prisma/client";
+import type { GuardedTxn, SpendTracker } from "@prisma/client";
 
 // ---------------------------------------------------------------------------
 // System prompt
@@ -61,6 +61,15 @@ AGENT BASELINE:
 - Programs used ever: ${ctx.baseline.uniqueProgramsCount}
 
 PRE-FILTER SIGNALS: ${ctx.prefilterSignals.join(", ") || "none"}
+${ctx.tracker ? `
+SPEND TRACKER (on-chain, last 24h):
+- Transactions: ${ctx.tracker.txnCount24h} (${ctx.tracker.failedTxnCount24h} failed)
+- Total spent: ${ctx.tracker.lamportsSpent24hSol} SOL (1h: ${ctx.tracker.lamportsSpent1hSol} SOL)
+- Max single txn: ${ctx.tracker.maxSingleTxnSol} SOL
+- Unique programs: ${ctx.tracker.uniquePrograms24h}
+- Unique destinations: ${ctx.tracker.uniqueDestinations24h}
+- Consecutive high-amount txns: ${ctx.tracker.consecutiveHighAmountCount}
+- Last txn: ${ctx.tracker.lastTxnProgram} (${ctx.tracker.lastTxnMinsAgo}m ago)` : ""}
 
 Judge this transaction.`;
 }
@@ -90,6 +99,7 @@ const PROGRAM_LABELS: Record<string, string> = {
 export async function buildJudgeContext(
   row: GuardedTxn,
   prefilterSignals: string[],
+  tracker?: SpendTracker | null,
 ): Promise<JudgeContext> {
   const now = new Date();
 
@@ -185,6 +195,22 @@ export async function buildJudgeContext(
       activeHours,
       uniqueProgramsCount: uniquePrograms.size,
     },
+    tracker: tracker
+      ? {
+          txnCount24h: tracker.txnCount24h,
+          lamportsSpent24hSol: Math.round(lamportsToSol(tracker.lamportsSpent24h) * 1000) / 1000,
+          lamportsSpent1hSol: Math.round(lamportsToSol(tracker.lamportsSpent1h) * 1000) / 1000,
+          maxSingleTxnSol: Math.round(lamportsToSol(tracker.maxSingleTxnLamports) * 1000000) / 1000000,
+          uniquePrograms24h: tracker.uniquePrograms24h,
+          uniqueDestinations24h: tracker.uniqueDestinations24h,
+          failedTxnCount24h: tracker.failedTxnCount24h,
+          consecutiveHighAmountCount: tracker.consecutiveHighAmountCount,
+          lastTxnProgram: tracker.lastTxnProgram,
+          lastTxnMinsAgo: Math.round(
+            (now.getTime() - tracker.lastTxnTs.getTime()) / 60_000,
+          ),
+        }
+      : undefined,
     prefilterSignals,
   };
 }

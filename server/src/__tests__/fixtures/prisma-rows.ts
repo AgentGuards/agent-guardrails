@@ -31,6 +31,7 @@ export function makeGuardedTxn(overrides?: Record<string, unknown>) {
     amountLamports: BigInt(100_000_000),
     status: "executed",
     rejectReason: null,
+    destination: null,
     rawEvent: null,
     createdAt: new Date(),
     ...overrides,
@@ -68,6 +69,26 @@ export function makeIncident(overrides?: Record<string, unknown>) {
     resolvedAt: null,
     resolution: null,
     createdAt: new Date(),
+    ...overrides,
+  };
+}
+
+export function makeSpendTracker(overrides?: Record<string, unknown>) {
+  return {
+    policyPubkey: "PolicyPda1111111111111111111111111",
+    windowStart: new Date(),
+    txnCount24h: 0,
+    lamportsSpent24h: BigInt(0),
+    lastTxnTs: new Date(0),
+    lastTxnProgram: "11111111111111111111111111111111",
+    uniqueDestinations24h: 0,
+    maxSingleTxnLamports: BigInt(0),
+    failedTxnCount24h: 0,
+    uniquePrograms24h: 0,
+    lamportsSpent1h: BigInt(0),
+    windowStart1h: new Date(),
+    consecutiveHighAmountCount: 0,
+    updatedAt: new Date(),
     ...overrides,
   };
 }

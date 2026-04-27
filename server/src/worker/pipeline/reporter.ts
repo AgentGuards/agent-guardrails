@@ -40,7 +40,12 @@ export async function generateReport(
     return;
   }
 
-  const userMessage = buildReportUserMessage(incident, history);
+  // Fetch SpendTracker snapshot for spend metrics
+  const tracker = await prisma.spendTracker.findUnique({
+    where: { policyPubkey },
+  });
+
+  const userMessage = buildReportUserMessage(incident, history, tracker);
 
   let report: string;
   let model = "none";

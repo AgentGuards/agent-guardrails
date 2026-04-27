@@ -11,7 +11,10 @@ const defaultDraft: CreatePolicyDraftInput = {
   dailyBudgetSol: 50,
   sessionDays: 30,
   escalationEnabled: false,
+  multisigMode: "create",
   squadsMultisig: "",
+  multisigMembers: [],
+  multisigThreshold: 1,
   escalationThresholdSol: 0,
 };
 
@@ -44,7 +47,11 @@ export type CreatePolicyWizardState = CreatePolicyDraftInput & {
   setDailyBudgetSol: (value: number) => void;
   setSessionDays: (value: number) => void;
   setEscalationEnabled: (value: boolean) => void;
+  setMultisigMode: (mode: "existing" | "create") => void;
   setSquadsMultisig: (value: string) => void;
+  addMember: (pubkey: string) => void;
+  removeMember: (pubkey: string) => void;
+  setMultisigThreshold: (value: number) => void;
   setEscalationThresholdSol: (value: number) => void;
   resetWizard: () => void;
   jumpToStep: (step: number) => void;
@@ -101,13 +108,33 @@ export const useCreatePolicyWizardStore = create<CreatePolicyWizardState>()(
             ...s,
             escalationEnabled: value,
             fieldErrors: {} as Record<string, string>,
-            ...(value ? {} : { squadsMultisig: "", escalationThresholdSol: 0 }),
+            ...(value
+              ? {}
+              : { squadsMultisig: "", multisigMembers: [], multisigThreshold: 1, escalationThresholdSol: 0 }),
           };
           if (s.currentStep === 3) {
             next.fieldErrors = validateStep(3, next).errors;
           }
           return next;
         }),
+      setMultisigMode: (mode: "existing" | "create") =>
+        set({ multisigMode: mode, fieldErrors: {} }),
+      addMember: (pubkey: string) => {
+        const p = pubkey.trim();
+        if (!p) return;
+        set((s) => {
+          if (s.multisigMembers.includes(p)) return s;
+          return { multisigMembers: [...s.multisigMembers, p], fieldErrors: {} };
+        });
+      },
+      removeMember: (pubkey: string) => {
+        set((s) => ({
+          multisigMembers: s.multisigMembers.filter((x) => x !== pubkey),
+          fieldErrors: {},
+        }));
+      },
+      setMultisigThreshold: (value: number) =>
+        set({ multisigThreshold: value, fieldErrors: {} }),
       setSquadsMultisig: (value: string) =>
         set((s) => {
           const next = { ...s, squadsMultisig: value };
@@ -149,7 +176,10 @@ export const useCreatePolicyWizardStore = create<CreatePolicyWizardState>()(
         dailyBudgetSol: s.dailyBudgetSol,
         sessionDays: s.sessionDays,
         escalationEnabled: s.escalationEnabled,
+        multisigMode: s.multisigMode,
         squadsMultisig: s.squadsMultisig,
+        multisigMembers: s.multisigMembers,
+        multisigThreshold: s.multisigThreshold,
         escalationThresholdSol: s.escalationThresholdSol,
         currentStep: s.currentStep,
       }),

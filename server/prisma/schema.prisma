@@ -24,8 +24,10 @@ model Policy {
   createdAt           DateTime @default(now()) @map("created_at")
   updatedAt           DateTime @updatedAt @map("updated_at")
 
-  guardedTxns GuardedTxn[]
-  incidents   Incident[]
+  guardedTxns  GuardedTxn[]
+  incidents    Incident[]
+  spendTracker SpendTracker?
+  escalations  EscalationProposal[]
 
   @@index([owner])
   @@map("policies")
@@ -41,11 +43,13 @@ model GuardedTxn {
   amountLamports BigInt?  @map("amount_lamports")
   status         String
   rejectReason   String?  @map("reject_reason")
+  destination    String?
   rawEvent       Json?    @map("raw_event")
   createdAt      DateTime @default(now()) @map("created_at")
 
-  policy  Policy          @relation(fields: [policyPubkey], references: [pubkey])
-  verdict AnomalyVerdict?
+  policy     Policy               @relation(fields: [policyPubkey], references: [pubkey])
+  verdict    AnomalyVerdict?
+  escalation EscalationProposal?
 
   @@index([policyPubkey, blockTime(sort: Desc)])
   @@map("guarded_txns")
@@ -101,4 +105,50 @@ model AuthSession {
   createdAt    DateTime  @default(now()) @map("created_at")
 
   @@map("auth_sessions")
+}
+
+model SpendTracker {
+  policyPubkey               String   @id @map("policy_pubkey")
+  windowStart                DateTime @map("window_start")
+  txnCount24h                Int      @map("txn_count_24h")
+  lamportsSpent24h           BigInt   @map("lamports_spent_24h")
+  lastTxnTs                  DateTime @map("last_txn_ts")
+  lastTxnProgram             String   @map("last_txn_program")
+  uniqueDestinations24h      Int      @default(0) @map("unique_destinations_24h")
+  maxSingleTxnLamports       BigInt   @default(0) @map("max_single_txn_lamports")
+  failedTxnCount24h          Int      @default(0) @map("failed_txn_count_24h")
+  uniquePrograms24h          Int      @default(0) @db.SmallInt @map("unique_programs_24h")
+  lamportsSpent1h            BigInt   @default(0) @map("lamports_spent_1h")
+  windowStart1h              DateTime @map("window_start_1h")
+  consecutiveHighAmountCount Int      @default(0) @db.SmallInt @map("consecutive_high_amount_count")
+  updatedAt                  DateTime @updatedAt @map("updated_at")
+
+  policy Policy @relation(fields: [policyPubkey], references: [pubkey], onDelete: Cascade)
+
+  @@map("spend_trackers")
+}
+
+model EscalationProposal {
+  id               String    @id @default(uuid())
+  policyPubkey     String    @map("policy_pubkey")
+  txnId            String    @unique @map("txn_id")
+  squadsMultisig   String    @map("squads_multisig")
+  targetProgram    String    @map("target_program")
+  amountLamports   BigInt    @map("amount_lamports")
+  proposalPda      String?   @map("proposal_pda")
+  transactionIndex BigInt?   @map("transaction_index")
+  status           String    @default("awaiting_proposal")
+  approvals        Json      @default("[]")
+  rejections       Json      @default("[]")
+  executedTxnSig   String?   @map("executed_txn_sig")
+  expiresAt        DateTime? @map("expires_at")
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime  @updatedAt @map("updated_at")
+
+  policy Policy     @relation(fields: [policyPubkey], references: [pubkey])
+  txn    GuardedTxn @relation(fields: [txnId], references: [id], onDelete: Cascade)
+
+  @@index([policyPubkey, status])
+  @@index([status, updatedAt])
+  @@map("escalation_proposals")
 }

@@ -7,6 +7,8 @@ import type {
   SSEVerdict,
   SSEAgentPaused,
   SSEReportReady,
+  SSEEscalationCreated,
+  SSEEscalationUpdated,
 } from "../types/events.js";
 
 /** Map of SSE event names to their payload types. */
@@ -15,6 +17,8 @@ export interface SSEEventMap {
   verdict: SSEVerdict;
   agent_paused: SSEAgentPaused;
   report_ready: SSEReportReady;
+  escalation_created: SSEEscalationCreated;
+  escalation_updated: SSEEscalationUpdated;
 }
 
 export type SSEEventName = keyof SSEEventMap;

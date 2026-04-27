@@ -2,30 +2,9 @@
 // Called when the webhook receives initialize_policy, update_policy, pause_agent,
 // or resume_agent transactions.
 
-import { AnchorProvider, Wallet } from "@coral-xyz/anchor";
-import { Connection, Keypair, PublicKey } from "@solana/web3.js";
+import { PublicKey } from "@solana/web3.js";
 import { prisma } from "../../db/client.js";
-import { env } from "../../config/env.js";
-import { GuardrailsClient } from "../../sdk/client.js";
-
-// ---------------------------------------------------------------------------
-// Read-only client (no signing needed, just fetching accounts)
-// ---------------------------------------------------------------------------
-
-let _client: GuardrailsClient | null = null;
-
-function getReadClient(): GuardrailsClient {
-  if (!_client) {
-    const connection = new Connection(env.SOLANA_RPC_URL, "confirmed");
-    // Dummy wallet — we only read, never sign
-    const wallet = new Wallet(Keypair.generate());
-    const provider = new AnchorProvider(connection, wallet, {
-      commitment: "confirmed",
-    });
-    _client = new GuardrailsClient(provider);
-  }
-  return _client;
-}
+import { getReadClient } from "./read-client.js";
 
 // ---------------------------------------------------------------------------
 // Sync

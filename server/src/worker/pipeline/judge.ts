@@ -10,7 +10,7 @@ import {
   buildJudgeContext,
 } from "../prompts/judge.js";
 import type { Verdict } from "../../types/anomaly.js";
-import type { GuardedTxn } from "@prisma/client";
+import type { GuardedTxn, SpendTracker } from "@prisma/client";
 
 const JUDGE_TIMEOUT_MS = 10_000;
 const RETRY_DELAY_MS = 1_000;
@@ -27,8 +27,9 @@ export interface JudgeResult {
 export async function judgeTransaction(
   row: GuardedTxn,
   prefilterSignals: string[],
+  tracker?: SpendTracker | null,
 ): Promise<JudgeResult> {
-  const ctx = await buildJudgeContext(row, prefilterSignals);
+  const ctx = await buildJudgeContext(row, prefilterSignals, tracker);
   const userMessage = buildJudgeUserMessage(ctx);
 
   let verdict: Verdict;

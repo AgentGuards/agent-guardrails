@@ -40,6 +40,7 @@ const REJECT_REASONS: Record<number, string> = {
   2: "ProgramNotWhitelisted",
   3: "AmountExceeds",
   4: "DailyBudgetExceeded",
+  5: "EscalatedToMultisig",
 };
 
 // ---------------------------------------------------------------------------
@@ -161,6 +162,18 @@ function extractAmountLamports(txn: HeliusEnhancedTransaction): bigint | null {
 }
 
 /**
+ * Extract the primary destination address from native transfers.
+ * Returns the first recipient that isn't the fee payer (self-transfer).
+ */
+function extractDestination(txn: HeliusEnhancedTransaction): string | null {
+  if (!txn.nativeTransfers) return null;
+  const transfer = txn.nativeTransfers.find(
+    (t) => t.fromUserAccount === txn.feePayer && t.toUserAccount !== txn.feePayer && t.amount > 0,
+  );
+  return transfer?.toUserAccount ?? null;
+}
+
+/**
  * Determine transaction status from the Helius enhanced transaction.
  */
 function extractStatus(txn: HeliusEnhancedTransaction): { status: string; rejectReason: string | null } {
@@ -169,6 +182,11 @@ function extractStatus(txn: HeliusEnhancedTransaction): { status: string; reject
     const errStr = typeof txn.transactionError === "string"
       ? txn.transactionError
       : JSON.stringify(txn.transactionError);
+
+    // Detect Squads escalation (Anchor custom error 6007)
+    if (errStr.includes('"Custom":6007') || errStr.includes("EscalatedToMultisig")) {
+      return { status: "escalated", rejectReason: "EscalatedToMultisig" };
+    }
 
     // Check for known rejection reason codes
     for (const [code, reason] of Object.entries(REJECT_REASONS)) {
@@ -197,6 +215,7 @@ export async function ingest(txn: HeliusEnhancedTransaction, policyPubkey: strin
 
   const targetProgram = extractTargetProgram(txn);
   const amountLamports = extractAmountLamports(txn);
+  const destination = extractDestination(txn);
   const { status, rejectReason } = extractStatus(txn);
 
   // Check for duplicate webhook delivery before processing
@@ -216,6 +235,7 @@ export async function ingest(txn: HeliusEnhancedTransaction, policyPubkey: strin
         blockTime: new Date(txn.timestamp * 1000),
         targetProgram,
         amountLamports,
+        destination,
         status,
         rejectReason,
         rawEvent: JSON.parse(JSON.stringify(txn)),

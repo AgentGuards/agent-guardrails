@@ -25,11 +25,18 @@ use anchor_lang::prelude::*;
 ///   8   lamports_spent_24h
 ///   8   last_txn_ts
 ///  32   last_txn_program
+///   4   unique_destinations_24h
+///   8   max_single_txn_lamports
+///   4   failed_txn_count_24h
+///   1   unique_programs_24h
+///   8   lamports_spent_1h
+///   8   window_start_1h
+///   1   consecutive_high_amount_count
 ///   1   bump
 /// ───
-/// 101
+/// 135
 /// ```
-pub const SPEND_TRACKER_SIZE: usize = 101;
+pub const SPEND_TRACKER_SIZE: usize = 135;
 
 #[account]
 pub struct SpendTracker {
@@ -56,6 +63,34 @@ pub struct SpendTracker {
     /// Useful for server-side anomaly detection (detects sudden program switches).
     /// Initialized to Pubkey::default() (all zeros) until the first transaction.
     pub last_txn_program: Pubkey,
+
+    /// Count of distinct destination addresses in the current 24h window.
+    /// Server-managed — on-chain tracking would require storing all addresses.
+    pub unique_destinations_24h: u32,
+
+    /// Largest single transaction (lamports) in the current 24h window.
+    /// Updated on each successful guarded_execute.
+    pub max_single_txn_lamports: u64,
+
+    /// Number of CPI calls that failed in the current 24h window.
+    /// Server-managed — on-chain state rolls back on error so the program
+    /// cannot reliably increment this. Updated by the server via update_policy.
+    pub failed_txn_count_24h: u32,
+
+    /// Number of distinct programs called in the current 24h window.
+    /// Approximated on-chain by comparing to last_txn_program.
+    pub unique_programs_24h: u8,
+
+    /// Lamports spent in the current rolling 1-hour window.
+    /// Provides a tighter burst-spend signal than the 24h counter.
+    pub lamports_spent_1h: u64,
+
+    /// Unix timestamp marking the start of the current 1-hour window.
+    pub window_start_1h: i64,
+
+    /// Number of consecutive transactions where the amount exceeded 80%
+    /// of the per-tx cap. Reset to 0 on a transaction below that threshold.
+    pub consecutive_high_amount_count: u8,
 
     /// PDA bump seed, stored to avoid recomputing on every constraint check.
     pub bump: u8,

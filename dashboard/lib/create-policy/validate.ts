@@ -17,7 +17,10 @@ export interface CreatePolicyDraftInput {
   dailyBudgetSol: number;
   sessionDays: number;
   escalationEnabled: boolean;
+  multisigMode: "existing" | "create";
   squadsMultisig: string;
+  multisigMembers: string[];
+  multisigThreshold: number;
   escalationThresholdSol: number;
 }
 
@@ -68,20 +71,37 @@ export function validateSession(sessionDays: number): Record<string, string> {
   return errors;
 }
 
-export function validateEscalation(
-  enabled: boolean,
-  multisig: string,
-  thresholdSol: number,
-): Record<string, string> {
+export function validateEscalation(draft: CreatePolicyDraftInput): Record<string, string> {
   const errors: Record<string, string> = {};
-  if (!enabled) return errors;
-  const trimmed = multisig.trim();
-  if (!trimmed) {
-    errors.squadsMultisig = "Squads multisig address is required when escalation is enabled.";
-  } else if (!isValidPubkeyString(trimmed)) {
-    errors.squadsMultisig = "Invalid multisig address.";
+  if (!draft.escalationEnabled) return errors;
+
+  if (draft.multisigMode === "existing") {
+    const trimmed = draft.squadsMultisig.trim();
+    if (!trimmed) {
+      errors.squadsMultisig = "Squads multisig address is required when escalation is enabled.";
+    } else if (!isValidPubkeyString(trimmed)) {
+      errors.squadsMultisig = "Invalid multisig address.";
+    }
+  } else {
+    // Create mode
+    if (draft.multisigMembers.length < 2) {
+      errors.multisigMembers = "At least 2 members are required for a multisig.";
+    }
+    for (const m of draft.multisigMembers) {
+      if (!isValidPubkeyString(m)) {
+        errors.multisigMembers = "All member addresses must be valid Solana pubkeys.";
+        break;
+      }
+    }
+    if (
+      draft.multisigThreshold < 1 ||
+      draft.multisigThreshold > draft.multisigMembers.length
+    ) {
+      errors.multisigThreshold = `Threshold must be between 1 and ${draft.multisigMembers.length}.`;
+    }
   }
-  if (!Number.isFinite(thresholdSol) || thresholdSol <= 0) {
+
+  if (!Number.isFinite(draft.escalationThresholdSol) || draft.escalationThresholdSol <= 0) {
     errors.escalationThresholdSol = "Escalation threshold must be greater than 0 SOL.";
   }
   return errors;
@@ -96,11 +116,7 @@ export function validateFullDraft(draft: CreatePolicyDraftInput): {
     ...validatePrograms(draft.allowedPrograms),
     ...validateLimits(draft.maxTxSol, draft.dailyBudgetSol),
     ...validateSession(draft.sessionDays),
-    ...validateEscalation(
-      draft.escalationEnabled,
-      draft.squadsMultisig,
-      draft.escalationThresholdSol,
-    ),
+    ...validateEscalation(draft),
   };
   return { ok: Object.keys(errors).length === 0, errors };
 }
@@ -110,7 +126,7 @@ export function firstErrorStepFromErrors(errors: Record<string, string>): number
   if (errors.allowedPrograms) return 0;
   if (errors.maxTxSol || errors.dailyBudgetSol) return 1;
   if (errors.sessionDays) return 2;
-  if (errors.squadsMultisig || errors.escalationThresholdSol) return 3;
+  if (errors.squadsMultisig || errors.escalationThresholdSol || errors.multisigMembers || errors.multisigThreshold) return 3;
   return 0;
 }
 
@@ -130,11 +146,7 @@ export function validateStep(
       errors = validateSession(draft.sessionDays);
       break;
     case 3:
-      errors = validateEscalation(
-        draft.escalationEnabled,
-        draft.squadsMultisig,
-        draft.escalationThresholdSol,
-      );
+      errors = validateEscalation(draft);
       break;
     default:
       break;

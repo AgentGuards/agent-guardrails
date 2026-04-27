@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { makePolicy, makeGuardedTxn, makeAnomalyVerdict } from "../../fixtures/prisma-rows.js";
+import { makePolicy, makeGuardedTxn, makeAnomalyVerdict, makeSpendTracker } from "../../fixtures/prisma-rows.js";
 
 // ---------------------------------------------------------------------------
 // Mocks
@@ -636,6 +636,99 @@ describe("prefilter", () => {
       const result = await prefilter(row);
 
       expect(result.signals).not.toContain("anomaly_score_elevated");
+    });
+  });
+
+  // =========================================================================
+  // Tracker-based signals
+  // =========================================================================
+
+  describe("tracker-based signals", () => {
+    it("signals hourly_spend_spike when 1h spend > 50% of daily budget", async () => {
+      vi.setSystemTime(new Date("2025-06-15T12:00:00Z"));
+
+      const row = makeGuardedTxn();
+
+      mockPrisma.policy.findUnique.mockResolvedValue(
+        makePolicy({ dailyBudgetLamports: BigInt(10_000_000_000) }),
+      );
+      mockPrisma.guardedTxn.findMany.mockResolvedValue([historyRow(100)]);
+
+      const tracker = makeSpendTracker({
+        lamportsSpent1h: BigInt(6_000_000_000), // 60% of daily budget
+      });
+
+      const result = await prefilter(row, tracker as any);
+
+      expect(result.signals).toContain("hourly_spend_spike");
+    });
+
+    it("signals consecutive_high_amounts when count >= 3", async () => {
+      vi.setSystemTime(new Date("2025-06-15T12:00:00Z"));
+
+      const row = makeGuardedTxn();
+
+      mockPrisma.policy.findUnique.mockResolvedValue(makePolicy());
+      mockPrisma.guardedTxn.findMany.mockResolvedValue([historyRow(100)]);
+
+      const tracker = makeSpendTracker({ consecutiveHighAmountCount: 4 });
+
+      const result = await prefilter(row, tracker as any);
+
+      expect(result.signals).toContain("consecutive_high_amounts");
+    });
+
+    it("signals high_failure_rate when failed > 3", async () => {
+      vi.setSystemTime(new Date("2025-06-15T12:00:00Z"));
+
+      const row = makeGuardedTxn();
+
+      mockPrisma.policy.findUnique.mockResolvedValue(makePolicy());
+      mockPrisma.guardedTxn.findMany.mockResolvedValue([historyRow(100)]);
+
+      const tracker = makeSpendTracker({
+        failedTxnCount24h: 5,
+        txnCount24h: 20,
+      });
+
+      const result = await prefilter(row, tracker as any);
+
+      expect(result.signals).toContain("high_failure_rate");
+    });
+
+    it("signals max_single_txn_high when max txn > 90% of cap", async () => {
+      vi.setSystemTime(new Date("2025-06-15T12:00:00Z"));
+
+      const row = makeGuardedTxn();
+
+      mockPrisma.policy.findUnique.mockResolvedValue(
+        makePolicy({ maxTxLamports: BigInt(1_000_000_000) }),
+      );
+      mockPrisma.guardedTxn.findMany.mockResolvedValue([historyRow(100)]);
+
+      const tracker = makeSpendTracker({
+        maxSingleTxnLamports: BigInt(950_000_000), // 95% of cap
+      });
+
+      const result = await prefilter(row, tracker as any);
+
+      expect(result.signals).toContain("max_single_txn_high");
+    });
+
+    it("does not signal tracker signals when tracker is null", async () => {
+      vi.setSystemTime(new Date("2025-06-15T12:00:00Z"));
+
+      const row = makeGuardedTxn();
+
+      mockPrisma.policy.findUnique.mockResolvedValue(makePolicy());
+      mockPrisma.guardedTxn.findMany.mockResolvedValue([historyRow(100)]);
+
+      const result = await prefilter(row, null);
+
+      expect(result.signals).not.toContain("hourly_spend_spike");
+      expect(result.signals).not.toContain("consecutive_high_amounts");
+      expect(result.signals).not.toContain("high_failure_rate");
+      expect(result.signals).not.toContain("max_single_txn_high");
     });
   });
 

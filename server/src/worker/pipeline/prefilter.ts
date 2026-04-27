@@ -3,7 +3,7 @@
 
 import { prisma } from "../../db/client.js";
 import { sseEmitter } from "../../sse/emitter.js";
-import type { GuardedTxn } from "@prisma/client";
+import type { GuardedTxn, SpendTracker } from "@prisma/client";
 
 /** Result of the prefilter stage. */
 export interface PrefilterResult {
@@ -17,8 +17,8 @@ export interface PrefilterResult {
  * Run prefilter checks against recent transaction history.
  * If no signals are raised, records an automatic "allow" verdict and returns skipped=true.
  */
-export async function prefilter(row: GuardedTxn): Promise<PrefilterResult> {
-  const signals = await computeSignals(row);
+export async function prefilter(row: GuardedTxn, tracker?: SpendTracker | null): Promise<PrefilterResult> {
+  const signals = await computeSignals(row, tracker);
 
   if (signals.length === 0) {
     // Record prefilter-skipped allow verdict
@@ -52,7 +52,7 @@ export async function prefilter(row: GuardedTxn): Promise<PrefilterResult> {
 // Signal computation
 // ---------------------------------------------------------------------------
 
-async function computeSignals(row: GuardedTxn): Promise<string[]> {
+async function computeSignals(row: GuardedTxn, tracker?: SpendTracker | null): Promise<string[]> {
   const signals: string[] = [];
   const now = new Date();
 
@@ -145,6 +145,35 @@ async function computeSignals(row: GuardedTxn): Promise<string[]> {
     const diff = Math.abs(currentHour - medianHour);
     // Handle wrap-around (e.g., hour 23 vs hour 1 = 2h diff, not 22)
     if (Math.min(diff, 24 - diff) > 3) signals.push("outside_active_hours");
+  }
+
+  // 10-13. SpendTracker-based signals (zero-cost: read from already-fetched row)
+  if (tracker && policy) {
+    // 10. Hourly spend spike — burning >50% of daily budget in 1 hour
+    const dailyBudget = Number(policy.dailyBudgetLamports);
+    if (dailyBudget > 0 && Number(tracker.lamportsSpent1h) > dailyBudget * 0.5) {
+      signals.push("hourly_spend_spike");
+    }
+
+    // 11. Consecutive high-amount transactions (>=3 in a row above 80% of cap)
+    if (tracker.consecutiveHighAmountCount >= 3) {
+      signals.push("consecutive_high_amounts");
+    }
+
+    // 12. High failure rate — >3 failures or >30% failure rate
+    if (
+      tracker.failedTxnCount24h > 3 ||
+      (tracker.txnCount24h > 0 &&
+        tracker.failedTxnCount24h / (tracker.txnCount24h + tracker.failedTxnCount24h) > 0.3)
+    ) {
+      signals.push("high_failure_rate");
+    }
+
+    // 13. Max single txn near cap — largest txn today was >90% of per-tx limit
+    const maxTx = Number(policy.maxTxLamports);
+    if (maxTx > 0 && Number(tracker.maxSingleTxnLamports) > maxTx * 0.9) {
+      signals.push("max_single_txn_high");
+    }
   }
 
   return signals;

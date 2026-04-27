@@ -4,6 +4,7 @@ import express from "express";
 import { webhookHandler } from "./routes/webhook.js";
 
 export { startPoller } from "./poller.js";
+export { startEscalationPoller } from "./pipeline/escalation-poller.js";
 
 export const workerRouter: express.Router = express.Router();
 

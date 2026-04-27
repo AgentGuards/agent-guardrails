@@ -98,3 +98,26 @@ export interface SSEReportReady {
   policyPubkey: string;
   fullReport: string;
 }
+
+/** Payload for `escalation_created` SSE event. New Squads escalation proposal. */
+export interface SSEEscalationCreated {
+  id: string;
+  policyPubkey: string;
+  txnId: string;
+  squadsMultisig: string;
+  targetProgram: string;
+  amountLamports: string;
+  status: string;
+  createdAt: Date;
+}
+
+/** Payload for `escalation_updated` SSE event. Proposal status change. */
+export interface SSEEscalationUpdated {
+  id: string;
+  policyPubkey: string;
+  status: string;
+  approvals: Array<{ member: string; timestamp: string }>;
+  rejections: Array<{ member: string; timestamp: string }>;
+  executedTxnSig: string | null;
+  updatedAt: Date;
+}

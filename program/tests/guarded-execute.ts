@@ -613,6 +613,14 @@ describe("guarded_execute", () => {
       expect((tracker as any).lamportsSpent24H.toNumber()).to.equal(Number(TRANSFER_AMOUNT));
       expect(tracker.lastTxnProgram.toBase58()).to.equal(TOKEN_PROGRAM_ID.toBase58());
 
+      // New tracker fields
+      expect((tracker as any).maxSingleTxnLamports.toNumber()).to.equal(Number(TRANSFER_AMOUNT));
+      expect((tracker as any).lamportsSpent1H.toNumber()).to.equal(Number(TRANSFER_AMOUNT));
+      expect((tracker as any).uniquePrograms24H).to.equal(1); // First program ever
+      expect((tracker as any).failedTxnCount24H).to.equal(0);
+      // 300k is 60% of 500k cap — below 80% threshold, so consecutive count stays 0
+      expect((tracker as any).consecutiveHighAmountCount).to.equal(0);
+
       const policy = await program.account.permissionPolicy.fetch(tPolicyPda);
       expect(policy.dailySpentLamports.toNumber()).to.equal(Number(TRANSFER_AMOUNT));
     });
@@ -646,6 +654,9 @@ describe("guarded_execute", () => {
       const tracker = await program.account.spendTracker.fetch(tTrackerPda);
       expect((tracker as any).txnCount24H).to.equal(2);
       expect((tracker as any).lamportsSpent24H.toNumber()).to.equal(500_000);
+      // Max single txn should still be the first (300k > 200k)
+      expect((tracker as any).maxSingleTxnLamports.toNumber()).to.equal(300_000);
+      expect((tracker as any).lamportsSpent1H.toNumber()).to.equal(500_000);
 
       // Third transfer of 400k: cumulative would be 900k > 800k -> DailyBudgetExceeded
       const thirdAmount = 400_000n;
@@ -723,6 +734,12 @@ describe("guarded_execute", () => {
         const tracker = await program.account.spendTracker.fetch(tTrackerPda);
         expect((tracker as any).txnCount24H).to.equal(1);
         expect((tracker as any).lamportsSpent24H.toNumber()).to.equal(Number(rolloverAmount));
+
+        // New 24h fields should have been reset by window rollover
+        expect((tracker as any).maxSingleTxnLamports.toNumber()).to.equal(Number(rolloverAmount));
+        expect((tracker as any).failedTxnCount24H).to.equal(0);
+        expect((tracker as any).uniqueDestinations24H).to.equal(0); // Server-managed
+        expect((tracker as any).uniquePrograms24H).to.equal(1); // First program in new window
 
         const policy = await program.account.permissionPolicy.fetch(tPolicyPda);
         expect(policy.dailySpentLamports.toNumber()).to.equal(Number(rolloverAmount));

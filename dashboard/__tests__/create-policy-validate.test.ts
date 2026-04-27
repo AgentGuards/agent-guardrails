@@ -64,21 +64,68 @@ describe("validateSession", () => {
 });
 
 describe("validateEscalation", () => {
+  const baseDraft = {
+    allowedPrograms: ["11111111111111111111111111111111"],
+    maxTxSol: 5,
+    dailyBudgetSol: 50,
+    sessionDays: 30,
+    escalationEnabled: false,
+    multisigMode: "existing" as const,
+    squadsMultisig: "",
+    multisigMembers: [],
+    multisigThreshold: 1,
+    escalationThresholdSol: 0,
+  };
+
   it("skips when disabled", () => {
-    expect(Object.keys(validateEscalation(false, "", 0)).length).toBe(0);
+    expect(Object.keys(validateEscalation(baseDraft)).length).toBe(0);
   });
 
-  it("requires multisig and threshold when enabled", () => {
-    expect(validateEscalation(true, "", 1).squadsMultisig).toBeDefined();
-    expect(validateEscalation(true, "11111111111111111111111111111111", 0).escalationThresholdSol).toBeDefined();
+  it("requires multisig address in existing mode", () => {
+    const draft = { ...baseDraft, escalationEnabled: true, escalationThresholdSol: 1 };
+    expect(validateEscalation(draft).squadsMultisig).toBeDefined();
   });
 
-  it("accepts valid escalation", () => {
-    expect(
-      Object.keys(
-        validateEscalation(true, "11111111111111111111111111111111", 2.5),
-      ).length,
-    ).toBe(0);
+  it("requires threshold when enabled", () => {
+    const draft = { ...baseDraft, escalationEnabled: true, squadsMultisig: "11111111111111111111111111111111" };
+    expect(validateEscalation(draft).escalationThresholdSol).toBeDefined();
+  });
+
+  it("accepts valid existing-mode escalation", () => {
+    const draft = {
+      ...baseDraft,
+      escalationEnabled: true,
+      squadsMultisig: "11111111111111111111111111111111",
+      escalationThresholdSol: 2.5,
+    };
+    expect(Object.keys(validateEscalation(draft)).length).toBe(0);
+  });
+
+  it("requires >= 2 members in create mode", () => {
+    const draft = {
+      ...baseDraft,
+      escalationEnabled: true,
+      multisigMode: "create" as const,
+      multisigMembers: ["11111111111111111111111111111111"],
+      multisigThreshold: 1,
+      escalationThresholdSol: 2,
+    };
+    expect(validateEscalation(draft).multisigMembers).toBeDefined();
+  });
+
+  it("accepts valid create-mode escalation", () => {
+    const draft = {
+      ...baseDraft,
+      escalationEnabled: true,
+      multisigMode: "create" as const,
+      multisigMembers: [
+        "11111111111111111111111111111111",
+        "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+      ],
+      multisigThreshold: 2,
+      escalationThresholdSol: 2,
+    };
+    expect(Object.keys(validateEscalation(draft)).length).toBe(0);
   });
 });
 
@@ -89,7 +136,10 @@ describe("validateStep", () => {
     dailyBudgetSol: 50,
     sessionDays: 30,
     escalationEnabled: false,
+    multisigMode: "existing" as const,
     squadsMultisig: "",
+    multisigMembers: [],
+    multisigThreshold: 1,
     escalationThresholdSol: 0,
   };
 

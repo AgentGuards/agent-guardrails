@@ -3,6 +3,8 @@
 
 import { detectAndExtract, ingest } from "./ingest.js";
 import { syncPolicyFromChain } from "./sync-policy.js";
+import { syncTrackerFromChain } from "./sync-tracker.js";
+import { handleEscalation } from "./escalation.js";
 import { prefilter } from "./prefilter.js";
 import { judgeTransaction } from "./judge.js";
 import { executePause } from "./executor.js";
@@ -26,6 +28,9 @@ export async function processTransaction(txn: HeliusEnhancedTransaction): Promis
   switch (instructionType) {
     // Policy lifecycle — sync on-chain state to DB
     case "initialize_policy":
+      await syncPolicyFromChain(policyPubkey);
+      await syncTrackerFromChain(policyPubkey);
+      break;
     case "update_policy":
     case "pause_agent":
     case "resume_agent":
@@ -33,15 +38,23 @@ export async function processTransaction(txn: HeliusEnhancedTransaction): Promis
       await syncPolicyFromChain(policyPubkey);
       break;
 
-    // Core pipeline — ingest → prefilter → judge → executor
+    // Core pipeline — ingest → escalation check → sync tracker → prefilter → judge → executor
     case "guarded_execute": {
       const row = await ingest(txn, policyPubkey);
       if (!row) return;
 
-      const { signals, skipped } = await prefilter(row);
+      // Escalated transactions go to Squads multisig, not the anomaly pipeline
+      if (row.status === "escalated") {
+        await handleEscalation(row);
+        return;
+      }
+
+      const tracker = await syncTrackerFromChain(policyPubkey);
+
+      const { signals, skipped } = await prefilter(row, tracker);
       if (skipped) return;
 
-      const { verdict, verdictId } = await judgeTransaction(row, signals);
+      const { verdict, verdictId } = await judgeTransaction(row, signals, tracker);
 
       if (verdict.verdict === "pause") {
         await executePause(row, verdictId, verdict.reasoning);

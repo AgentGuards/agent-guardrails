@@ -10,7 +10,7 @@ const { mockFindUniqueOrThrow, mockFindMany } = vi.hoisted(() => ({
   mockFindMany: vi.fn(),
 }));
 
-vi.mock("../../db/client.js", () => ({
+vi.mock("../../../db/client.js", () => ({
   prisma: {
     policy: { findUniqueOrThrow: mockFindUniqueOrThrow },
     guardedTxn: { findMany: mockFindMany },

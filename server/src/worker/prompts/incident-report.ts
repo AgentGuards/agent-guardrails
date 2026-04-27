@@ -1,7 +1,7 @@
 // Guardian incident report — system prompt and user message builder.
 // Generates a markdown postmortem report for a pause incident.
 
-import type { GuardedTxn, AnomalyVerdict, Incident } from "@prisma/client";
+import type { GuardedTxn, AnomalyVerdict, Incident, SpendTracker } from "@prisma/client";
 
 // ---------------------------------------------------------------------------
 // System prompt
@@ -39,6 +39,7 @@ function lamportsToSol(lamports: bigint | number | null): string {
 export function buildReportUserMessage(
   incident: IncidentWithVerdict,
   history: TxnWithVerdict[],
+  tracker?: SpendTracker | null,
 ): string {
   const timelineRows = history
     .map((t) => {
@@ -76,6 +77,14 @@ Total transactions: ${history.length}
 Flagged: ${history.filter((t) => t.verdict?.verdict === "flag").length}
 Paused: ${history.filter((t) => t.verdict?.verdict === "pause").length}
 Prefilter-skipped: ${history.filter((t) => t.verdict?.prefilterSkipped).length}
+${tracker ? `
+SPEND METRICS AT PAUSE TIME:
+- 24h txn count: ${tracker.txnCount24h} (${tracker.failedTxnCount24h} failed)
+- 24h spend: ${lamportsToSol(tracker.lamportsSpent24h)} SOL
+- 1h spend: ${lamportsToSol(tracker.lamportsSpent1h)} SOL
+- Max single txn: ${lamportsToSol(tracker.maxSingleTxnLamports)} SOL
+- Unique destinations: ${tracker.uniqueDestinations24h}
+- Consecutive high-amount txns: ${tracker.consecutiveHighAmountCount}` : ""}
 
 Generate the incident postmortem report.`;
 }

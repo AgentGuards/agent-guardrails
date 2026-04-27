@@ -97,6 +97,14 @@ describe("initialize_policy", () => {
     expect((tracker as any).txnCount24H).to.equal(0);
     expect((tracker as any).lamportsSpent24H.toNumber()).to.equal(0);
     expect(tracker.lastTxnTs.toNumber()).to.equal(0);
+
+    // New tracker fields
+    expect((tracker as any).uniqueDestinations24H).to.equal(0);
+    expect((tracker as any).maxSingleTxnLamports.toNumber()).to.equal(0);
+    expect((tracker as any).failedTxnCount24H).to.equal(0);
+    expect((tracker as any).uniquePrograms24H).to.equal(0);
+    expect((tracker as any).lamportsSpent1H.toNumber()).to.equal(0);
+    expect((tracker as any).consecutiveHighAmountCount).to.equal(0);
   });
 
   it("fails when initializing duplicate policy for same owner+agent", async () => {
@@ -328,6 +336,9 @@ describe("initialize_policy", () => {
       // lastTxnProgram should be Pubkey::default() (all zeros)
       const defaultPubkey = new PublicKey(new Uint8Array(32));
       expect(tracker.lastTxnProgram.toBase58()).to.equal(defaultPubkey.toBase58());
+
+      // windowStart1H should be set to clock timestamp (> 0)
+      expect((tracker as any).windowStart1H.toNumber()).to.be.greaterThan(0);
     } finally {
       svm.setClock(savedClock);
     }

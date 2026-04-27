@@ -33,6 +33,18 @@ export interface JudgeContext {
     activeHours: string;
     uniqueProgramsCount: number;
   };
+  tracker?: {
+    txnCount24h: number;
+    lamportsSpent24hSol: number;
+    lamportsSpent1hSol: number;
+    maxSingleTxnSol: number;
+    uniquePrograms24h: number;
+    uniqueDestinations24h: number;
+    failedTxnCount24h: number;
+    consecutiveHighAmountCount: number;
+    lastTxnProgram: string;
+    lastTxnMinsAgo: number;
+  };
   prefilterSignals: string[];
 }
 

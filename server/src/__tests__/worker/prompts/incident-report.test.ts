@@ -52,6 +52,7 @@ function makeTxnWithVerdict(overrides?: Record<string, unknown>) {
     amountLamports: BigInt(500_000_000), // 0.5 SOL
     status: "executed",
     rejectReason: null,
+    destination: null,
     rawEvent: null,
     createdAt: new Date("2025-06-15T14:00:00Z"),
     verdict: makeVerdict({ verdict: "allow", confidence: 80 }),

@@ -44,6 +44,13 @@ export interface SpendTracker {
   lamportsSpent24H: BN;
   lastTxnTs: BN;
   lastTxnProgram: PublicKey;
+  uniqueDestinations24H: number;
+  maxSingleTxnLamports: BN;
+  failedTxnCount24H: number;
+  uniquePrograms24H: number;
+  lamportsSpent1H: BN;
+  windowStart1H: BN;
+  consecutiveHighAmountCount: number;
   bump: number;
 }
 

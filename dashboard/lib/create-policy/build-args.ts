@@ -35,7 +35,10 @@ export function solToLamportsBn(sol: number): BN {
   return new BN(Math.round(sol * LAMPORTS_PER_SOL));
 }
 
-export function buildInitializePolicyArgs(draft: CreatePolicyDraftInput): InitializePolicyArgs {
+export function buildInitializePolicyArgs(
+  draft: CreatePolicyDraftInput,
+  multisigPdaOverride?: PublicKey,
+): InitializePolicyArgs {
   const maxTxLamports = solToLamportsBn(draft.maxTxSol);
   const dailyBudgetLamports = solToLamportsBn(draft.dailyBudgetSol);
   const sessionExpiryMs = Date.now() + draft.sessionDays * 86_400_000;
@@ -46,7 +49,7 @@ export function buildInitializePolicyArgs(draft: CreatePolicyDraftInput): Initia
   let squadsMultisig: PublicKey | null = null;
   let escalationThreshold = new BN(0);
   if (draft.escalationEnabled) {
-    squadsMultisig = new PublicKey(draft.squadsMultisig.trim());
+    squadsMultisig = multisigPdaOverride ?? new PublicKey(draft.squadsMultisig.trim());
     escalationThreshold = solToLamportsBn(draft.escalationThresholdSol);
   }
 
