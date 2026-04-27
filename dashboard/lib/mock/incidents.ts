@@ -2,7 +2,7 @@
  * Mock incidents — mirrors `incidents` table (server/prisma/schema.prisma)
  *
  * Two incidents:
- * 1. Alpha Scanner paused by AI judge after draining sequence (full Opus report)
+ * 1. Alpha Scanner paused by AI judge after draining sequence (full Guardian report)
  * 2. An older resolved incident (manually paused by owner, resolved next day)
  *
  * Covers: null triggeringTxnSig, null judgeVerdictId, null fullReport,
@@ -29,7 +29,7 @@ export const INCIDENTS: Incident[] = [
     policyPubkey: "CsZ5LZkDS7h9TDKjt4zMJSiP8bZzYLkWsa4bGMQKDqeE",
     pausedAt: "2026-04-21T15:00:06Z",
     pausedBy: "9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM", // monitor
-    reason: "Draining sequence detected by Claude judge",
+    reason: "Draining sequence detected by Guardian judge",
     triggeringTxnSig: "2KlM3nP4qR5sT6uV7wX8yZ9aB1cD2eF3gH4jK5lM6nP7qR8sT9uV1wX2yZ3aB4cD5eF6gH7jK8lM9nP",
     judgeVerdictId: "d4e5f6a7-0003-4000-8000-000000000006",
     fullReport: `# Incident Report — Alpha Scanner (CsZ5...QAA)
@@ -70,8 +70,8 @@ The agent session key appears to have been compromised or the agent's decision-m
 4. **Review the target program** DezX...B263 — determine if it should be explicitly blacklisted
 
 ## Model Information
-- Detection model: claude-haiku-4-5-20251001
-- Report model: claude-opus-4-7
+- Detection model: guardian
+- Report model: guardian
 - Total judge latency: 4,050ms across 3 evaluations
 - Total tokens: 1,642 input, 255 output`,
     resolvedAt: null,
@@ -87,7 +87,7 @@ The agent session key appears to have been compromised or the agent's decision-m
     reason: "Manual pause for policy review — adjusting daily limits",
     triggeringTxnSig: null,           // no specific txn triggered this
     judgeVerdictId: null,             // no judge involved — manual pause
-    fullReport: null,                 // no Opus report for manual pauses
+    fullReport: null,                 // no Guardian report for manual pauses
     resolvedAt: "2026-04-19T09:00:00Z",
     resolution: "Policy updated: daily budget increased from 50 SOL to 100 SOL. Agent resumed after review.",
     createdAt: "2026-04-18T11:30:01Z",

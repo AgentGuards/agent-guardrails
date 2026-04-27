@@ -123,7 +123,7 @@ afterEach(() => {
 // ---------------------------------------------------------------------------
 
 describe("judgeTransaction", () => {
-  it("calls Claude Haiku with correct model and params", async () => {
+  it("calls Guardian with correct model and params", async () => {
     mockCreate.mockResolvedValue(makeAnthropicMessage(successVerdict));
 
     const row = makeGuardedTxn();
@@ -191,7 +191,7 @@ describe("judgeTransaction", () => {
     expect(result.verdict.confidence).toBe(0);
   });
 
-  it("persists AnomalyVerdict row with model=claude-haiku-4-5", async () => {
+  it("persists AnomalyVerdict row with model=guardian", async () => {
     mockCreate.mockResolvedValue(makeAnthropicMessage(successVerdict));
 
     const row = makeGuardedTxn();
@@ -204,7 +204,7 @@ describe("judgeTransaction", () => {
           policyPubkey: row.policyPubkey,
           verdict: "allow",
           confidence: 85,
-          model: "claude-haiku-4-5",
+          model: "guardian",
           prefilterSkipped: false,
           promptTokens: 100,
           completionTokens: 50,
@@ -249,7 +249,7 @@ describe("judgeTransaction", () => {
 });
 
 describe("timeout handling", () => {
-  it("uses fallback when Claude takes > 3s", async () => {
+  it("uses fallback when Guardian takes > 3s", async () => {
     vi.useFakeTimers();
 
     mockCreate.mockImplementation(() => new Promise(() => {}));
@@ -454,6 +454,6 @@ describe("fallbackVerdict", () => {
 
     const result = await resultPromise;
 
-    expect(result.verdict.reasoning.toLowerCase()).toMatch(/timeout|fallback/);
+    expect(result.verdict.reasoning.toLowerCase()).toMatch(/timeout|fallback|unavailable/);
   });
 });

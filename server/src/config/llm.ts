@@ -63,7 +63,7 @@ async function callAnthropic(opts: LLMCallOptions): Promise<LLMResponse> {
     .join("");
   return {
     text,
-    model,
+    model: "guardian",
     promptTokens: response.usage.input_tokens,
     completionTokens: response.usage.output_tokens,
   };
@@ -98,5 +98,5 @@ if (provider.name === "none") {
 } else {
   const judgeModel = resolveModel("fast");
   const reportModel = resolveModel("report");
-  console.log(`[llm] provider=anthropic judge=${judgeModel} report=${reportModel}`);
+  console.log(`[llm] provider=guardian (anthropic) judge=${judgeModel} report=${reportModel}`);
 }

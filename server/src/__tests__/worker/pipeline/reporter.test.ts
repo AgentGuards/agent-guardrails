@@ -124,7 +124,7 @@ describe("generateReport", () => {
 
     await generateReport("nonexistent", "PolicyPda1111111111111111111111111");
 
-    // Should not call Claude
+    // Should not call Guardian
     expect(mockCreate).not.toHaveBeenCalled();
     // Should not update incident
     expect(mockPrisma.incident.update).not.toHaveBeenCalled();
@@ -136,7 +136,7 @@ describe("generateReport", () => {
     errorSpy.mockRestore();
   });
 
-  it("calls Claude Sonnet with correct model", async () => {
+  it("calls Guardian with correct model", async () => {
     await generateReport("inc-3", "PolicyPda1111111111111111111111111");
 
     expect(mockCreate).toHaveBeenCalledWith(
@@ -190,13 +190,13 @@ describe("generateReport", () => {
     });
   });
 
-  it("rejects on Claude API error (executor .catch() handles it)", async () => {
-    mockCreate.mockRejectedValue(new Error("Claude API down"));
+  it("rejects on Guardian API error (executor .catch() handles it)", async () => {
+    mockCreate.mockRejectedValue(new Error("Guardian API down"));
 
     // generateReport propagates the error — the executor's .catch() handles it
     await expect(
       generateReport("inc-7", "PolicyPda1111111111111111111111111"),
-    ).rejects.toThrow("Claude API down");
+    ).rejects.toThrow("Guardian API down");
   });
 
   it("logs report generation on success", async () => {

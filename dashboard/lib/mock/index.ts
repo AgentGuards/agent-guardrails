@@ -15,7 +15,7 @@
  *   program with escalating amounts → FLAG → FLAG → PAUSE
  * - Treasury Manager: 2 large txns (one escalated to Squads multisig)
  * - Test Agent: expired session, no label
- * - 2 incidents: one AI-triggered with Opus report, one manual (resolved)
+ * - 2 incidents: one AI-triggered with Guardian report, one manual (resolved)
  */
 
 export { POLICIES, PROGRAM_LABELS, MONITOR } from "./policies";

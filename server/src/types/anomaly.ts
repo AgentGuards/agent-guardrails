@@ -1,9 +1,9 @@
-// Verdict and anomaly types for the Claude judge pipeline.
+// Verdict and anomaly types for the Guardian judge pipeline.
 // Shapes defined in docs/data-contracts.md section 4 (Server <-> Claude API Contract).
 
 /**
  * Context object passed to the judge prompt builder.
- * Assembled by the worker pipeline from DB queries before calling Claude Haiku.
+ * Assembled by the worker pipeline from DB queries before calling Guardian.
  */
 export interface JudgeContext {
   policy: {
@@ -37,7 +37,7 @@ export interface JudgeContext {
 }
 
 /**
- * Structured JSON output from the Claude Haiku judge.
+ * Structured JSON output from the Guardian judge.
  * Parsed from the model response after stripping code fences.
  */
 export interface Verdict {

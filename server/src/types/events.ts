@@ -92,7 +92,7 @@ export interface SSEAgentPaused {
   createdAt: Date;
 }
 
-/** Payload for `report_ready` SSE event. Incident ID + completed Opus postmortem. */
+/** Payload for `report_ready` SSE event. Incident ID + completed Guardian postmortem. */
 export interface SSEReportReady {
   incidentId: string;
   policyPubkey: string;

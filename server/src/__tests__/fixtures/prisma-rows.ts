@@ -45,7 +45,7 @@ export function makeAnomalyVerdict(overrides?: Record<string, unknown>) {
     verdict: "allow",
     confidence: 85,
     reasoning: "Routine transaction",
-    model: "claude-haiku-4-5",
+    model: "guardian",
     latencyMs: 150,
     prefilterSkipped: false,
     promptTokens: 100,

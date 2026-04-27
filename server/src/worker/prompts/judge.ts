@@ -1,4 +1,4 @@
-// Claude Haiku judge — system prompt and user message builder.
+// Guardian judge — system prompt and user message builder.
 // Target: <500 input tokens, <200 output tokens, <2s latency.
 
 import { prisma } from "../../db/client.js";
@@ -9,7 +9,7 @@ import type { GuardedTxn } from "@prisma/client";
 // System prompt
 // ---------------------------------------------------------------------------
 
-export const JUDGE_SYSTEM = `You are an on-chain security judge for Solana AI agents.
+export const JUDGE_SYSTEM = `You are Guardian, an on-chain security judge for Solana AI agents.
 You receive a single transaction attempt and must decide: ALLOW, FLAG, or PAUSE.
 
 Respond ONLY with valid JSON matching this schema:

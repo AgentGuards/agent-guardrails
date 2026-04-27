@@ -154,7 +154,7 @@ async function callWithTimeout(userMessage: string): Promise<CallResult> {
 
   // Strip code fences and extract only the JSON object
   const stripped = response.text.replace(/```json\s*|```\s*/g, "").trim();
-  // Haiku sometimes appends text after the JSON — extract just the object
+  // The model sometimes appends text after the JSON — extract just the object
   const jsonMatch = stripped.match(/\{[\s\S]*\}/);
   const cleaned = jsonMatch ? jsonMatch[0] : stripped;
   let parsed: Verdict;
@@ -191,7 +191,7 @@ function fallbackVerdict(signals: string[]): Verdict {
     return {
       verdict: "flag",
       confidence: 60,
-      reasoning: "Rule-based: burst detected — flagged for review (no LLM available)",
+      reasoning: "Rule-based: burst detected — flagged for review (Guardian AI unavailable)",
       signals: ["fallback", "burst_detected"],
     };
   }
@@ -199,7 +199,7 @@ function fallbackVerdict(signals: string[]): Verdict {
   return {
     verdict: "flag",
     confidence: 50,
-    reasoning: "Rule-based: flagged for manual review (no LLM available)",
+    reasoning: "Rule-based: flagged for manual review (Guardian AI unavailable)",
     signals: ["fallback"],
   };
 }

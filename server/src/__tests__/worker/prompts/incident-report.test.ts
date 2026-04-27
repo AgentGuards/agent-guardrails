@@ -13,7 +13,7 @@ function makeVerdict(overrides?: Record<string, unknown>) {
     verdict: "pause",
     confidence: 92,
     reasoning: "Draining sequence detected — rapid escalation to new program",
-    model: "claude-haiku-4-5",
+    model: "guardian",
     latencyMs: 180,
     prefilterSkipped: false,
     promptTokens: 350,
@@ -141,7 +141,7 @@ describe("buildReportUserMessage", () => {
         verdict: "pause",
         confidence: 92,
         reasoning: "Draining sequence detected",
-        model: "claude-haiku-4-5",
+        model: "guardian",
         latencyMs: 180,
       }),
     });
@@ -149,7 +149,7 @@ describe("buildReportUserMessage", () => {
 
     expect(msg).toContain("Verdict: pause (92% confidence)");
     expect(msg).toContain("Reasoning: Draining sequence detected");
-    expect(msg).toContain("Model: claude-haiku-4-5");
+    expect(msg).toContain("Model: guardian");
     expect(msg).toContain("Latency: 180ms");
   });
 

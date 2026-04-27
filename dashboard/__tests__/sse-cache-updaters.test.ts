@@ -178,7 +178,7 @@ describe("applyVerdictEvent", () => {
       verdict: "pause",
       confidence: 99,
       reasoning: "stop",
-      model: "claude",
+      model: "guardian",
       latencyMs: 100,
       prefilterSkipped: false,
       promptTokens: null,

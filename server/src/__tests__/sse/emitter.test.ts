@@ -25,7 +25,7 @@ const verdictPayload: SSEVerdict = {
   verdict: "allow",
   confidence: 0.95,
   reasoning: "Known program, low amount",
-  model: "claude-haiku-4-5-20251001",
+  model: "guardian",
   latencyMs: 320,
   prefilterSkipped: false,
   promptTokens: 180,

@@ -1,4 +1,4 @@
-// Opus incident report — system prompt and user message builder.
+// Guardian incident report — system prompt and user message builder.
 // Generates a markdown postmortem report for a pause incident.
 
 import type { GuardedTxn, AnomalyVerdict, Incident } from "@prisma/client";
@@ -7,7 +7,7 @@ import type { GuardedTxn, AnomalyVerdict, Incident } from "@prisma/client";
 // System prompt
 // ---------------------------------------------------------------------------
 
-export const REPORT_SYSTEM = `You are a security analyst generating incident postmortem reports for Solana AI agent monitoring.
+export const REPORT_SYSTEM = `You are Guardian, a security analyst generating incident postmortem reports for Solana AI agent monitoring.
 
 Write a concise markdown report covering:
 1. **Summary** — 1-2 sentence overview of what happened
