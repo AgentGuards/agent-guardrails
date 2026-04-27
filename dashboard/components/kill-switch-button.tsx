@@ -33,18 +33,27 @@ export function KillSwitchButton({ policy }: { policy: PolicySummary }) {
 
   const isOwner = Boolean(publicKey && publicKey.toBase58() === policy.owner);
   const walletReady = Boolean(provider && programId);
-  const canPause = policy.isActive && isOwner;
-  const visible = isOwner && (policy.isActive || Boolean(banner));
 
-  if (!visible) {
-    return null;
-  }
+  if (!isOwner) return null;
 
   const trimmedReason = reason.trim();
   const reasonByteLength = new TextEncoder().encode(trimmedReason).length;
   const reasonOk = reasonByteLength > 0 && reasonByteLength <= REASON_MAX;
 
-  const onConfirm = async () => {
+  const updateCache = (isActive: boolean) => {
+    const now = new Date().toISOString();
+    queryClient.setQueryData(queryKeys.policy(policy.pubkey), (prev: PolicySummary | undefined) =>
+      prev ? { ...prev, isActive, updatedAt: now } : prev,
+    );
+    queryClient.setQueryData(queryKeys.policies(), (old: PolicySummary[] | undefined) => {
+      if (!old) return old;
+      return old.map((row) =>
+        row.pubkey === policy.pubkey ? { ...row, isActive, updatedAt: now } : row,
+      );
+    });
+  };
+
+  const onPause = async () => {
     if (!reasonOk || !provider || !programId) return;
     setBusy(true);
     setError(null);
@@ -52,21 +61,29 @@ export function KillSwitchButton({ policy }: { policy: PolicySummary }) {
     try {
       const client = new GuardrailsClient(provider, programId);
       await client.pauseAgent(new PublicKey(policy.pubkey), trimmedReason);
-
-      const now = new Date().toISOString();
-      queryClient.setQueryData(queryKeys.policy(policy.pubkey), (prev: PolicySummary | undefined) =>
-        prev ? { ...prev, isActive: false, updatedAt: now } : prev,
-      );
-      queryClient.setQueryData(queryKeys.policies(), (old: PolicySummary[] | undefined) => {
-        if (!old) return old;
-        return old.map((row) =>
-          row.pubkey === policy.pubkey ? { ...row, isActive: false, updatedAt: now } : row,
-        );
-      });
-
+      updateCache(false);
       setBanner("Agent paused on-chain.");
       setOpen(false);
       setReason("");
+    } catch (e) {
+      const message = getErrorMessage(e);
+      setError(message);
+      setToastError(message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const onResume = async () => {
+    if (!provider || !programId) return;
+    setBusy(true);
+    setError(null);
+    setBanner(null);
+    try {
+      const client = new GuardrailsClient(provider, programId);
+      await client.resumeAgent(new PublicKey(policy.pubkey));
+      updateCache(true);
+      setBanner("Agent resumed on-chain.");
     } catch (e) {
       const message = getErrorMessage(e);
       setError(message);
@@ -92,11 +109,12 @@ export function KillSwitchButton({ policy }: { policy: PolicySummary }) {
           {banner}
         </div>
       ) : null}
-      {canPause ? (
+
+      {policy.isActive ? (
         <button
           type="button"
           className="rounded-md border border-red-800 bg-red-950/40 px-4 py-2 text-sm font-medium text-red-200 hover:bg-red-950/70 disabled:cursor-not-allowed disabled:opacity-50"
-          disabled={!walletReady}
+          disabled={!walletReady || busy}
           title={!walletReady ? "Connect owner wallet" : undefined}
           onClick={() => {
             setOpen(true);
@@ -105,7 +123,17 @@ export function KillSwitchButton({ policy }: { policy: PolicySummary }) {
         >
           Pause agent (kill switch)
         </button>
-      ) : null}
+      ) : (
+        <button
+          type="button"
+          className="rounded-md border border-emerald-800 bg-emerald-950/40 px-4 py-2 text-sm font-medium text-emerald-200 hover:bg-emerald-950/70 disabled:cursor-not-allowed disabled:opacity-50"
+          disabled={!walletReady || busy}
+          title={!walletReady ? "Connect owner wallet" : undefined}
+          onClick={() => void onResume()}
+        >
+          {busy ? "Signing..." : "Resume agent"}
+        </button>
+      )}
 
       {open ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
@@ -144,9 +172,9 @@ export function KillSwitchButton({ policy }: { policy: PolicySummary }) {
                 type="button"
                 className="rounded-md bg-red-700 px-4 py-2 text-sm font-medium text-white hover:bg-red-600 disabled:cursor-not-allowed disabled:opacity-50"
                 disabled={!reasonOk || busy}
-                onClick={() => void onConfirm()}
+                onClick={() => void onPause()}
               >
-                {busy ? "Signing…" : "Confirm pause"}
+                {busy ? "Signing..." : "Confirm pause"}
               </button>
             </div>
           </div>
