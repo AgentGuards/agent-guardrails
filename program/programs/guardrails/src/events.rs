@@ -101,6 +101,23 @@ pub struct EscalatedToSquads {
     pub amount: u64,
 }
 
+/// Emitted when the policy owner rotates the agent session key.
+/// The server uses this to migrate all DB records from the old policy
+/// pubkey to the new one and redirect the dashboard.
+#[event]
+pub struct AgentKeyRotated {
+    /// The old PermissionPolicy PDA (now closed).
+    pub old_policy: Pubkey,
+    /// The new PermissionPolicy PDA with the rotated agent key.
+    pub new_policy: Pubkey,
+    /// The agent session key being replaced.
+    pub old_agent: Pubkey,
+    /// The new agent session key.
+    pub new_agent: Pubkey,
+    /// Unix timestamp from the Solana clock.
+    pub timestamp: i64,
+}
+
 /// Emitted before the CPI in `guarded_execute` (step 9 of the 12-step flow).
 /// Gives the server pipeline visibility into every CPI attempt that passed
 /// pre-validation, regardless of whether the CPI itself succeeds or fails.

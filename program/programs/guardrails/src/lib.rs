@@ -66,10 +66,11 @@ pub mod guardrails {
         instructions::resume_agent::handler(ctx)
     }
 
-    /// Rotates the agent session key. STUB — not yet implemented for MVP.
-    /// Returns NotYetImplemented error.
-    pub fn rotate_agent_key(ctx: Context<RotateAgentKey>) -> Result<()> {
-        instructions::rotate_agent_key::handler(ctx)
+    /// Rotates the agent session key. Closes old policy + tracker PDAs,
+    /// creates new ones with the new agent key, copies config, and transfers
+    /// operational SOL atomically.
+    pub fn rotate_agent_key(ctx: Context<RotateAgentKey>, args: RotateAgentKeyArgs) -> Result<()> {
+        instructions::rotate_agent_key::handler(ctx, args)
     }
 
     /// Standalone Squads escalation. STUB — escalation is handled inside

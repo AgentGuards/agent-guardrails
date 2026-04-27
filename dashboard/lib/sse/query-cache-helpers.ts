@@ -332,3 +332,13 @@ export function applyEscalationEvent(
     });
   }
 }
+
+export function applyAgentRotatedEvent(
+  queryClient: QueryClient,
+  payload: { oldPolicyPubkey?: string; newPolicyPubkey?: string },
+): void {
+  if (payload.oldPolicyPubkey) {
+    queryClient.removeQueries({ queryKey: queryKeys.policy(payload.oldPolicyPubkey) });
+  }
+  queryClient.invalidateQueries({ queryKey: queryKeys.policies() });
+}

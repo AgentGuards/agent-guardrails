@@ -98,6 +98,10 @@ export interface PauseAgentArgs {
   reason: Buffer | number[];
 }
 
+export interface RotateAgentKeyArgs {
+  newAgent: PublicKey;
+}
+
 // ---------------------------------------------------------------------------
 // Event types (emitted via emit!() in on-chain handlers)
 // ---------------------------------------------------------------------------
@@ -144,6 +148,14 @@ export interface EscalatedToSquadsEvent {
   amount: BN;
 }
 
+export interface AgentKeyRotatedEvent {
+  oldPolicy: PublicKey;
+  newPolicy: PublicKey;
+  oldAgent: PublicKey;
+  newAgent: PublicKey;
+  timestamp: BN;
+}
+
 // ---------------------------------------------------------------------------
 // Rejection reason codes (GuardedTxnRejected.reason field)
 // ---------------------------------------------------------------------------
@@ -181,4 +193,5 @@ export enum GuardrailsErrorCode {
   InvalidWsolAccount = 6016,
   InvalidInputAccountIndex = 6017,
   NotYetImplemented = 6018,
+  SameAgentKey = 6019,
 }

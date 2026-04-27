@@ -230,6 +230,36 @@ export class GuardrailsClient {
       .rpc();
   }
 
+  /**
+   * Rotates the agent session key. Closes old policy+tracker PDAs,
+   * creates new ones with the new agent key, copies config, and transfers
+   * operational SOL atomically. Owner-only (wallet).
+   */
+  async rotateAgentKey(
+    oldPolicyPda: PublicKey,
+    newAgent: PublicKey,
+  ): Promise<{ txSig: string; newPolicyPda: PublicKey }> {
+    const owner = this.walletPublicKey();
+    const [oldTrackerPda] = this.findTrackerPda(oldPolicyPda);
+    const [newPolicyPda] = this.findPolicyPda(owner, newAgent);
+    const [newTrackerPda] = this.findTrackerPda(newPolicyPda);
+
+    const txSig = await (this.program.methods as any)
+      .rotateAgentKey({ newAgent })
+      .accounts({
+        owner,
+        oldPolicy: oldPolicyPda,
+        oldTracker: oldTrackerPda,
+        newAgent,
+        newPolicy: newPolicyPda,
+        newTracker: newTrackerPda,
+        systemProgram: SystemProgram.programId,
+      })
+      .rpc();
+
+    return { txSig, newPolicyPda };
+  }
+
   /** Resumes a paused agent. Owner-only (wallet). */
   async resumeAgent(policyPda: PublicKey): Promise<string> {
     const owner = this.walletPublicKey();

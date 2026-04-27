@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { AppShell, IncidentTable, Metric, SpendGauge, TransactionRow } from "@/components/dashboard-ui";
 import { KillSwitchButton } from "@/components/kill-switch-button";
+import { RotateAgentKeyButton } from "@/components/rotate-agent-key-button";
 import { QueryEmpty, QueryError, QueryLoading } from "@/components/query-states";
 import { getErrorMessage } from "@/lib/api/client";
 import { useInfiniteTransactionsQuery } from "@/lib/api/use-infinite-transactions-query";
@@ -54,6 +55,7 @@ export function AgentDetailView({ pubkey }: { pubkey: string }) {
       </div>
 
       <KillSwitchButton policy={policy} />
+      <RotateAgentKeyButton policy={policy} />
 
       {policy.squadsMultisig ? (() => {
         const escalations = escalationsQuery.data ?? [];

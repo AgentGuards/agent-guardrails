@@ -111,6 +111,12 @@ export interface SSEEscalationCreated {
   createdAt: Date;
 }
 
+/** Payload for `agent_rotated` SSE event. Agent key rotation completed. */
+export interface SSEAgentRotated {
+  oldPolicyPubkey: string;
+  newPolicyPubkey: string;
+}
+
 /** Payload for `escalation_updated` SSE event. Proposal status change. */
 export interface SSEEscalationUpdated {
   id: string;

@@ -58,4 +58,7 @@ pub enum GuardrailsError {
     // --- Phase 4 errors ---
     #[msg("This instruction is not yet implemented")]
     NotYetImplemented,
+
+    #[msg("New agent key must be different from current agent key")]
+    SameAgentKey,
 }

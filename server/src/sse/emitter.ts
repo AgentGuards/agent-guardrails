@@ -7,6 +7,7 @@ import type {
   SSEVerdict,
   SSEAgentPaused,
   SSEReportReady,
+  SSEAgentRotated,
   SSEEscalationCreated,
   SSEEscalationUpdated,
 } from "../types/events.js";
@@ -16,6 +17,7 @@ export interface SSEEventMap {
   new_transaction: SSENewTransaction;
   verdict: SSEVerdict;
   agent_paused: SSEAgentPaused;
+  agent_rotated: SSEAgentRotated;
   report_ready: SSEReportReady;
   escalation_created: SSEEscalationCreated;
   escalation_updated: SSEEscalationUpdated;

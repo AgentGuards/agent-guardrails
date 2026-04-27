@@ -1,13 +1,16 @@
 // Shared per-transaction processing logic.
 // Used by both the webhook handler and the RPC poller.
 
-import { detectAndExtract, ingest } from "./ingest.js";
+import { detectAndExtract, detectInstruction, ingest } from "./ingest.js";
 import { syncPolicyFromChain } from "./sync-policy.js";
 import { syncTrackerFromChain } from "./sync-tracker.js";
 import { handleEscalation } from "./escalation.js";
+import { migratePolicy } from "./migrate-policy.js";
 import { prefilter } from "./prefilter.js";
 import { judgeTransaction } from "./judge.js";
 import { executePause } from "./executor.js";
+import { sseEmitter } from "../../sse/emitter.js";
+import { env } from "../../config/env.js";
 import type { HeliusEnhancedTransaction } from "../routes/webhook.js";
 
 /**
@@ -38,6 +41,35 @@ export async function processTransaction(txn: HeliusEnhancedTransaction): Promis
       await syncPolicyFromChain(policyPubkey);
       break;
 
+    // Agent key rotation — migrate all records from old to new policy pubkey
+    case "rotate_agent_key": {
+      const newPolicyPubkey = extractNewPolicyPubkey(txn);
+      if (!newPolicyPubkey) {
+        console.warn(`[pipeline] could not extract new policy from rotate txn`);
+        break;
+      }
+
+      // Sync the new policy from chain first (creates the new row)
+      await syncPolicyFromChain(newPolicyPubkey);
+
+      // Migrate all DB records from old pubkey to new pubkey, then delete old
+      await migratePolicy(policyPubkey, newPolicyPubkey);
+
+      // Sync the new tracker
+      await syncTrackerFromChain(newPolicyPubkey);
+
+      // Notify dashboard
+      sseEmitter.emitEvent("agent_rotated", {
+        oldPolicyPubkey: policyPubkey,
+        newPolicyPubkey,
+      });
+
+      console.log(
+        `[pipeline] rotated agent key: ${policyPubkey.slice(0, 8)}… → ${newPolicyPubkey.slice(0, 8)}…`,
+      );
+      break;
+    }
+
     // Core pipeline — ingest → escalation check → sync tracker → prefilter → judge → executor
     case "guarded_execute": {
       const row = await ingest(txn, policyPubkey);
@@ -66,4 +98,21 @@ export async function processTransaction(txn: HeliusEnhancedTransaction): Promis
       console.log(`[pipeline] unhandled instruction in txn ${txn.signature?.slice(0, 16)}…, skipping`);
       break;
   }
+}
+
+/**
+ * Extract the new policy pubkey from a rotate_agent_key transaction.
+ * The new_policy account is at index 4 in the instruction accounts:
+ * [owner, old_policy, old_tracker, new_agent, new_policy, new_tracker, system]
+ */
+function extractNewPolicyPubkey(txn: HeliusEnhancedTransaction): string | null {
+  const programId = env.GUARDRAILS_PROGRAM_ID;
+  for (const ix of txn.instructions) {
+    if (ix.programId !== programId) continue;
+    const ixType = detectInstruction(ix.data);
+    if (ixType === "rotate_agent_key" && ix.accounts.length > 4) {
+      return ix.accounts[4];
+    }
+  }
+  return null;
 }

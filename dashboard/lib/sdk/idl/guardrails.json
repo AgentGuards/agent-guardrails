@@ -402,8 +402,9 @@
     {
       "name": "rotate_agent_key",
       "docs": [
-        "Rotates the agent session key. STUB — not yet implemented for MVP.",
-        "Returns NotYetImplemented error."
+        "Rotates the agent session key. Closes old policy + tracker PDAs,",
+        "creates new ones with the new agent key, copies config, and transfers",
+        "operational SOL atomically."
       ],
       "discriminator": [
         85,
@@ -419,18 +420,20 @@
         {
           "name": "owner",
           "docs": [
-            "Only the owner can rotate the agent key."
+            "Only the policy owner can rotate the agent key."
           ],
+          "writable": true,
           "signer": true,
           "relations": [
-            "policy"
+            "old_policy"
           ]
         },
         {
-          "name": "policy",
+          "name": "old_policy",
           "docs": [
-            "The PermissionPolicy PDA. Accounts defined now so the IDL is correct",
-            "when the handler is eventually implemented."
+            "The existing PermissionPolicy PDA to close.",
+            "`close = owner` refunds remaining lamports at instruction exit.",
+            "Boxed to reduce stack frame size (PermissionPolicy is 685 bytes)."
           ],
           "writable": true,
           "pda": {
@@ -448,19 +451,123 @@
               },
               {
                 "kind": "account",
-                "path": "policy.owner",
+                "path": "old_policy.owner",
                 "account": "PermissionPolicy"
               },
               {
                 "kind": "account",
-                "path": "policy.agent",
+                "path": "old_policy.agent",
                 "account": "PermissionPolicy"
               }
             ]
           }
+        },
+        {
+          "name": "old_tracker",
+          "docs": [
+            "The existing SpendTracker PDA to close."
+          ],
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  116,
+                  114,
+                  97,
+                  99,
+                  107,
+                  101,
+                  114
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "old_policy"
+              }
+            ]
+          }
+        },
+        {
+          "name": "new_agent",
+          "docs": [
+            "The new agent session pubkey. Not a signer — used only as PDA seed."
+          ]
+        },
+        {
+          "name": "new_policy",
+          "docs": [
+            "The new PermissionPolicy PDA derived with the new agent key.",
+            "Boxed to reduce stack frame size."
+          ],
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  112,
+                  111,
+                  108,
+                  105,
+                  99,
+                  121
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "owner"
+              },
+              {
+                "kind": "arg",
+                "path": "args.new_agent"
+              }
+            ]
+          }
+        },
+        {
+          "name": "new_tracker",
+          "docs": [
+            "The new SpendTracker PDA linked to the new policy."
+          ],
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  116,
+                  114,
+                  97,
+                  99,
+                  107,
+                  101,
+                  114
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "new_policy"
+              }
+            ]
+          }
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
         }
       ],
-      "args": []
+      "args": [
+        {
+          "name": "args",
+          "type": {
+            "defined": {
+              "name": "RotateAgentKeyArgs"
+            }
+          }
+        }
+      ]
     },
     {
       "name": "unwrap_sol",
@@ -789,6 +896,19 @@
   ],
   "events": [
     {
+      "name": "AgentKeyRotated",
+      "discriminator": [
+        17,
+        30,
+        65,
+        171,
+        28,
+        167,
+        85,
+        120
+      ]
+    },
+    {
       "name": "AgentPaused",
       "discriminator": [
         228,
@@ -972,9 +1092,62 @@
       "code": 6020,
       "name": "NotYetImplemented",
       "msg": "This instruction is not yet implemented"
+    },
+    {
+      "code": 6021,
+      "name": "SameAgentKey",
+      "msg": "New agent key must be different from current agent key"
     }
   ],
   "types": [
+    {
+      "name": "AgentKeyRotated",
+      "docs": [
+        "Emitted when the policy owner rotates the agent session key.",
+        "The server uses this to migrate all DB records from the old policy",
+        "pubkey to the new one and redirect the dashboard."
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "old_policy",
+            "docs": [
+              "The old PermissionPolicy PDA (now closed)."
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "new_policy",
+            "docs": [
+              "The new PermissionPolicy PDA with the rotated agent key."
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "old_agent",
+            "docs": [
+              "The agent session key being replaced."
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "new_agent",
+            "docs": [
+              "The new agent session key."
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "timestamp",
+            "docs": [
+              "Unix timestamp from the Solana clock."
+            ],
+            "type": "i64"
+          }
+        ]
+      }
+    },
     {
       "name": "AgentPaused",
       "docs": [
@@ -1534,6 +1707,18 @@
       }
     },
     {
+      "name": "RotateAgentKeyArgs",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "new_agent",
+            "type": "pubkey"
+          }
+        ]
+      }
+    },
+    {
       "name": "SpendTracker",
       "type": {
         "kind": "struct",
@@ -1585,6 +1770,62 @@
               "Initialized to Pubkey::default() (all zeros) until the first transaction."
             ],
             "type": "pubkey"
+          },
+          {
+            "name": "unique_destinations_24h",
+            "docs": [
+              "Count of distinct destination addresses in the current 24h window.",
+              "Server-managed — on-chain tracking would require storing all addresses."
+            ],
+            "type": "u32"
+          },
+          {
+            "name": "max_single_txn_lamports",
+            "docs": [
+              "Largest single transaction (lamports) in the current 24h window.",
+              "Updated on each successful guarded_execute."
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "failed_txn_count_24h",
+            "docs": [
+              "Number of CPI calls that failed in the current 24h window.",
+              "Server-managed — on-chain state rolls back on error so the program",
+              "cannot reliably increment this. Updated by the server via update_policy."
+            ],
+            "type": "u32"
+          },
+          {
+            "name": "unique_programs_24h",
+            "docs": [
+              "Number of distinct programs called in the current 24h window.",
+              "Approximated on-chain by comparing to last_txn_program."
+            ],
+            "type": "u8"
+          },
+          {
+            "name": "lamports_spent_1h",
+            "docs": [
+              "Lamports spent in the current rolling 1-hour window.",
+              "Provides a tighter burst-spend signal than the 24h counter."
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "window_start_1h",
+            "docs": [
+              "Unix timestamp marking the start of the current 1-hour window."
+            ],
+            "type": "i64"
+          },
+          {
+            "name": "consecutive_high_amount_count",
+            "docs": [
+              "Number of consecutive transactions where the amount exceeded 80%",
+              "of the per-tx cap. Reset to 0 on a transaction below that threshold."
+            ],
+            "type": "u8"
           },
           {
             "name": "bump",
