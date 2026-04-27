@@ -12,7 +12,7 @@ import {
 import type { Verdict } from "../../types/anomaly.js";
 import type { GuardedTxn } from "@prisma/client";
 
-const JUDGE_TIMEOUT_MS = 3_000;
+const JUDGE_TIMEOUT_MS = 10_000;
 const RETRY_DELAY_MS = 1_000;
 
 /**
@@ -152,13 +152,17 @@ async function callWithTimeout(userMessage: string): Promise<CallResult> {
 
   const latencyMs = Date.now() - start;
 
-  // Strip code fences and parse JSON
-  const cleaned = response.text.replace(/```json\s*|```\s*/g, "").trim();
+  // Strip code fences and extract only the JSON object
+  const stripped = response.text.replace(/```json\s*|```\s*/g, "").trim();
+  // Haiku sometimes appends text after the JSON — extract just the object
+  const jsonMatch = stripped.match(/\{[\s\S]*\}/);
+  const cleaned = jsonMatch ? jsonMatch[0] : stripped;
   let parsed: Verdict;
   try {
     const raw = JSON.parse(cleaned);
     parsed = sanitizeVerdict(raw);
-  } catch {
+  } catch (err) {
+    console.warn(`[judge] malformed LLM response: ${cleaned.replace(/\n/g, " ").slice(0, 200)}`);
     parsed = {
       verdict: "flag",
       confidence: 40,

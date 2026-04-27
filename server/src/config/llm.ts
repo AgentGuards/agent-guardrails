@@ -28,7 +28,7 @@ export interface LLMCallOptions {
 
 const DEFAULTS = {
   fast: "claude-haiku-4-5-20251001",
-  report: "claude-sonnet-4-5-20250514",
+  report: "claude-haiku-4-5-20251001",
 };
 
 function resolveModel(tier: "fast" | "report"): string {
@@ -57,9 +57,12 @@ async function callAnthropic(opts: LLMCallOptions): Promise<LLMResponse> {
     messages: [{ role: "user", content: opts.userMessage }],
   });
 
-  const textBlock = response.content.find((b: any) => b.type === "text");
+  const text = response.content
+    .filter((b: any) => b.type === "text")
+    .map((b: any) => b.text)
+    .join("");
   return {
-    text: textBlock?.type === "text" ? textBlock.text : "",
+    text,
     model,
     promptTokens: response.usage.input_tokens,
     completionTokens: response.usage.output_tokens,

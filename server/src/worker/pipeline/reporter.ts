@@ -54,7 +54,8 @@ export async function generateReport(
     });
     report = response.text;
     model = response.model;
-  } catch {
+  } catch (err) {
+    console.error(`[reporter] LLM call failed:`, err instanceof Error ? err.message : err);
     // No LLM available — generate a basic placeholder report
     report = [
       "# Incident Report",
