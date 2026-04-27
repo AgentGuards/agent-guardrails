@@ -30,7 +30,12 @@ function sleep(ms: number) {
 
 function isIdempotentCreateError(error: unknown) {
   const msg = getErrorMessage(error).toLowerCase();
-  return msg.includes("already in use") || msg.includes("already initialized");
+  return (
+    msg.includes("already in use") ||
+    msg.includes("already initialized") ||
+    msg.includes("already been processed") ||
+    msg.includes("already processed")
+  );
 }
 
 export function CreatePolicyWizard() {
