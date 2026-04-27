@@ -7,7 +7,7 @@ import { useWallet } from "@solana/wallet-adapter-react";
 import { Keypair } from "@solana/web3.js";
 import { WizardStepPanels } from "@/components/create-policy-wizard/wizard-step-panels";
 import { AgentSecretBackupModal } from "@/components/create-policy-wizard/agent-secret-backup-modal";
-import { getErrorMessage, patchPolicyLabel } from "@/lib/api/client";
+import { getErrorMessage } from "@/lib/api/client";
 import { queryKeys } from "@/lib/api/query-keys";
 import { buildInitializePolicyArgs } from "@/lib/create-policy/build-args";
 import { createSquadsMultisig } from "@/lib/create-policy/create-squads-multisig";
@@ -117,23 +117,11 @@ export function CreatePolicyWizard() {
         }
         const summary = permissionPolicyToSummary(pdaStr, chain);
 
-        // Set the label via server API (label is DB-only, not on-chain).
-        // Retry because the webhook may not have created the DB row yet.
+        // Set label in local cache immediately; the agent detail page
+        // will PATCH it to the server once the DB row exists (via SSE).
         const labelText = state.label.trim();
         if (labelText) {
-          for (let attempt = 0; attempt < 3; attempt++) {
-            try {
-              await patchPolicyLabel(pdaStr, labelText);
-              summary.label = labelText;
-              break;
-            } catch (labelErr) {
-              if (attempt < 2) {
-                await sleep(2000);
-              } else {
-                console.warn("[wizard] failed to set label after retries:", getErrorMessage(labelErr));
-              }
-            }
-          }
+          summary.label = labelText;
         }
 
         queryClient.setQueryData(queryKeys.policy(pdaStr), summary);
@@ -147,7 +135,8 @@ export function CreatePolicyWizard() {
 
         setAgentKeypair(null);
         resetWizard();
-        router.push(`/agents/${pdaStr}`);
+        const labelParam = labelText ? `?label=${encodeURIComponent(labelText)}` : "";
+        router.push(`/agents/${pdaStr}${labelParam}`);
       } catch (e) {
         publishError(getErrorMessage(e));
       } finally {

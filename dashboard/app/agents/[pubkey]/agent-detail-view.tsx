@@ -1,22 +1,35 @@
 "use client";
 
+import { useEffect, useRef } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { AppShell, IncidentTable, Metric, SpendGauge, TransactionRow } from "@/components/dashboard-ui";
 import { FundAgentButton } from "@/components/fund-agent-button";
 import { KillSwitchButton } from "@/components/kill-switch-button";
 import { RotateAgentKeyButton } from "@/components/rotate-agent-key-button";
 import { QueryEmpty, QueryError, QueryLoading } from "@/components/query-states";
-import { getErrorMessage } from "@/lib/api/client";
+import { getErrorMessage, patchPolicyLabel } from "@/lib/api/client";
 import { useInfiniteTransactionsQuery } from "@/lib/api/use-infinite-transactions-query";
 import { useIncidentsQuery } from "@/lib/api/use-incidents-query";
 import { useEscalationsQuery } from "@/lib/api/use-escalations-query";
 import { usePolicyQuery } from "@/lib/api/use-policy-query";
 
 export function AgentDetailView({ pubkey }: { pubkey: string }) {
+  const searchParams = useSearchParams();
+  const pendingLabel = searchParams.get("label");
+  const labelPatched = useRef(false);
   const policyQuery = usePolicyQuery(pubkey);
   const transactionsQuery = useInfiniteTransactionsQuery(pubkey, 10);
   const incidentsQuery = useIncidentsQuery(pubkey, 10);
   const escalationsQuery = useEscalationsQuery(pubkey);
+
+  // When redirected from wizard with ?label=X, PATCH it once the DB row exists
+  useEffect(() => {
+    if (!pendingLabel || labelPatched.current) return;
+    if (!policyQuery.data) return; // wait for policy to load (DB row exists)
+    labelPatched.current = true;
+    patchPolicyLabel(pubkey, pendingLabel).catch(() => {});
+  }, [pendingLabel, pubkey, policyQuery.data]);
 
   if (policyQuery.isLoading) {
     return (
