@@ -14,7 +14,6 @@ import {
   getConnection,
   getClient,
   shortKey,
-  sleep,
 } from "./demo-helpers";
 
 const SEVEN_DAYS_SECONDS = 7 * 24 * 60 * 60;
@@ -35,10 +34,10 @@ async function main() {
   console.log(`[demo] Funder: ${shortKey(funder.publicKey)}`);
 
   const funderBalance = await connection.getBalance(funder.publicKey);
-  console.log(`[demo] Funder balance: ${(funderBalance / LAMPORTS_PER_SOL).toFixed(2)} SOL`);
+  console.log(`[demo] Funder balance: ${(funderBalance / LAMPORTS_PER_SOL).toFixed(4)} SOL`);
 
-  if (funderBalance < 1 * LAMPORTS_PER_SOL) {
-    throw new Error("Funder needs at least 1 SOL to set up demo");
+  if (funderBalance < 0.3 * LAMPORTS_PER_SOL) {
+    throw new Error("Funder needs at least 0.3 SOL to set up demo");
   }
 
   // -------------------------------------------------------------------------
@@ -64,12 +63,14 @@ async function main() {
 
   console.log("\n[demo] Funding keypairs from funder wallet…");
 
+  // Minimal funding: owner needs enough for 3 policy creates + 3 PDA deposits.
+  // Agents + monitor only need enough for transaction fees (~0.005 SOL each).
   const fundingTx = new Transaction().add(
-    SystemProgram.transfer({ fromPubkey: funder.publicKey, toPubkey: owner.publicKey, lamports: Math.floor(0.5 * LAMPORTS_PER_SOL) }),
-    SystemProgram.transfer({ fromPubkey: funder.publicKey, toPubkey: trader.publicKey, lamports: Math.floor(0.1 * LAMPORTS_PER_SOL) }),
-    SystemProgram.transfer({ fromPubkey: funder.publicKey, toPubkey: staker.publicKey, lamports: Math.floor(0.1 * LAMPORTS_PER_SOL) }),
-    SystemProgram.transfer({ fromPubkey: funder.publicKey, toPubkey: attacker.publicKey, lamports: Math.floor(0.1 * LAMPORTS_PER_SOL) }),
-    SystemProgram.transfer({ fromPubkey: funder.publicKey, toPubkey: monitor.publicKey, lamports: Math.floor(0.1 * LAMPORTS_PER_SOL) }),
+    SystemProgram.transfer({ fromPubkey: funder.publicKey, toPubkey: owner.publicKey, lamports: Math.floor(0.15 * LAMPORTS_PER_SOL) }),
+    SystemProgram.transfer({ fromPubkey: funder.publicKey, toPubkey: trader.publicKey, lamports: Math.floor(0.01 * LAMPORTS_PER_SOL) }),
+    SystemProgram.transfer({ fromPubkey: funder.publicKey, toPubkey: staker.publicKey, lamports: Math.floor(0.01 * LAMPORTS_PER_SOL) }),
+    SystemProgram.transfer({ fromPubkey: funder.publicKey, toPubkey: attacker.publicKey, lamports: Math.floor(0.01 * LAMPORTS_PER_SOL) }),
+    SystemProgram.transfer({ fromPubkey: funder.publicKey, toPubkey: monitor.publicKey, lamports: Math.floor(0.01 * LAMPORTS_PER_SOL) }),
   );
   await sendAndConfirmTransaction(connection, fundingTx, [funder]);
   console.log("  ✓ All keypairs funded");
@@ -82,13 +83,13 @@ async function main() {
   const now = Math.floor(Date.now() / 1000);
   const sessionExpiry = new BN(now + SEVEN_DAYS_SECONDS);
 
-  // --- Trader policy: System Program, 2 SOL per-tx, 20 SOL daily ---
+  // --- Trader policy: System Program, 0.02 SOL per-tx, 0.2 SOL daily ---
   console.log("\n[demo] Creating trader policy…");
   const traderTxSig = await client.initializePolicy(trader.publicKey, {
     allowedPrograms: [SystemProgram.programId],
-    maxTxLamports: new BN(2 * LAMPORTS_PER_SOL),
+    maxTxLamports: new BN(0.02 * LAMPORTS_PER_SOL),
     maxTxTokenUnits: new BN(0),
-    dailyBudgetLamports: new BN(20 * LAMPORTS_PER_SOL),
+    dailyBudgetLamports: new BN(0.2 * LAMPORTS_PER_SOL),
     sessionExpiry,
     squadsMultisig: null,
     escalationThreshold: new BN(0),
@@ -96,13 +97,13 @@ async function main() {
   });
   console.log(`  ✓ Trader policy created: ${traderTxSig.slice(0, 20)}…`);
 
-  // --- Staker policy: System Program, 1 SOL per-tx, 10 SOL daily ---
+  // --- Staker policy: System Program, 0.01 SOL per-tx, 0.1 SOL daily ---
   console.log("[demo] Creating staker policy…");
   const stakerTxSig = await client.initializePolicy(staker.publicKey, {
     allowedPrograms: [SystemProgram.programId],
-    maxTxLamports: new BN(1 * LAMPORTS_PER_SOL),
+    maxTxLamports: new BN(0.01 * LAMPORTS_PER_SOL),
     maxTxTokenUnits: new BN(0),
-    dailyBudgetLamports: new BN(10 * LAMPORTS_PER_SOL),
+    dailyBudgetLamports: new BN(0.1 * LAMPORTS_PER_SOL),
     sessionExpiry,
     squadsMultisig: null,
     escalationThreshold: new BN(0),
@@ -110,13 +111,13 @@ async function main() {
   });
   console.log(`  ✓ Staker policy created: ${stakerTxSig.slice(0, 20)}…`);
 
-  // --- Attacker policy: System Program, 2 SOL per-tx, 20 SOL daily ---
+  // --- Attacker policy: System Program, 0.02 SOL per-tx, 0.2 SOL daily ---
   console.log("[demo] Creating attacker policy…");
   const attackerTxSig = await client.initializePolicy(attacker.publicKey, {
     allowedPrograms: [SystemProgram.programId],
-    maxTxLamports: new BN(2 * LAMPORTS_PER_SOL),
+    maxTxLamports: new BN(0.02 * LAMPORTS_PER_SOL),
     maxTxTokenUnits: new BN(0),
-    dailyBudgetLamports: new BN(20 * LAMPORTS_PER_SOL),
+    dailyBudgetLamports: new BN(0.2 * LAMPORTS_PER_SOL),
     sessionExpiry,
     squadsMultisig: null,
     escalationThreshold: new BN(0),
@@ -131,9 +132,9 @@ async function main() {
   console.log("\n[demo] Funding policy PDAs…");
 
   const fundingPlan: [string, Keypair, number][] = [
-    ["trader", trader, 0.1],
-    ["staker", staker, 0.1],
-    ["attacker", attacker, 0.1],
+    ["trader", trader, 0.03],
+    ["staker", staker, 0.03],
+    ["attacker", attacker, 0.05],
   ];
 
   for (const [label, agentKp, amount] of fundingPlan) {
@@ -161,9 +162,9 @@ async function main() {
   const dbUrl = process.env.DATABASE_URL ?? "postgresql://adilshaikh@localhost:5432/guardrails_dev";
 
   const policyRows: { label: string; agent: Keypair; maxTx: number; dailyBudget: number }[] = [
-    { label: "Yield Bot (trader)", agent: trader, maxTx: 2, dailyBudget: 20 },
-    { label: "Staking Agent (staker)", agent: staker, maxTx: 1, dailyBudget: 10 },
-    { label: "Alpha Scanner (attacker)", agent: attacker, maxTx: 2, dailyBudget: 20 },
+    { label: "Yield Bot (trader)", agent: trader, maxTx: 0.02, dailyBudget: 0.2 },
+    { label: "Staking Agent (staker)", agent: staker, maxTx: 0.01, dailyBudget: 0.1 },
+    { label: "Alpha Scanner (attacker)", agent: attacker, maxTx: 0.02, dailyBudget: 0.2 },
   ];
 
   for (const row of policyRows) {

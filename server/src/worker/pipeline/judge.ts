@@ -181,11 +181,13 @@ async function callWithTimeout(userMessage: string): Promise<CallResult> {
 // ---------------------------------------------------------------------------
 
 function fallbackVerdict(signals: string[]): Verdict {
+  // Without LLM confirmation we can't distinguish honest bursts from attacks.
+  // Flag for review but don't pause — avoid false-positive kill switches.
   if (signals.includes("burst_detected")) {
     return {
-      verdict: "pause",
-      confidence: 50,
-      reasoning: "LLM timeout — burst detected, pausing as precaution",
+      verdict: "flag",
+      confidence: 60,
+      reasoning: "Rule-based: burst detected — flagged for review (no LLM available)",
       signals: ["fallback", "burst_detected"],
     };
   }
@@ -193,7 +195,7 @@ function fallbackVerdict(signals: string[]): Verdict {
   return {
     verdict: "flag",
     confidence: 50,
-    reasoning: "LLM timeout — flagging for manual review",
+    reasoning: "Rule-based: flagged for manual review (no LLM available)",
     signals: ["fallback"],
   };
 }

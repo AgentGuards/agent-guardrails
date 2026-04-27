@@ -23,6 +23,5 @@ export function buildUpdatePolicyFullReplace(draft: CreatePolicyDraftInput): Upd
     squadsMultisig,
     escalationThreshold,
     authorizedMonitors: init.authorizedMonitors,
-    anomalyScore: null,
   };
 }

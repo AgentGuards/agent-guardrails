@@ -14,12 +14,12 @@ import {
   sleep,
 } from "../demo-helpers";
 
-// Phase 1: Blend in — small amounts, normal pace
-const NORMAL_AMOUNTS = [0.03, 0.04]; // SOL
+// Phase 1: Blend in — tiny amounts, normal pace (devnet-friendly)
+const NORMAL_AMOUNTS = [0.003, 0.004]; // SOL
 const NORMAL_INTERVAL_MS = 10_000;
 
-// Phase 2: Attack — high amounts approaching per-tx cap, rapid burst
-const ATTACK_AMOUNTS = [1.8, 1.9, 1.95, 1.98, 2.0]; // SOL (cap is 2 SOL)
+// Phase 2: Attack — amounts approaching per-tx cap (0.02 SOL), rapid burst
+const ATTACK_AMOUNTS = [0.015, 0.017, 0.018, 0.019, 0.02]; // SOL (cap is 0.02 SOL)
 const BURST_INTERVAL_MS = 2_000; // 2 seconds between txns
 
 async function main() {
@@ -92,7 +92,7 @@ async function main() {
         lamports,
       );
       txnCount++;
-      const pctOfCap = ((solAmt / 2.0) * 100).toFixed(0);
+      const pctOfCap = ((solAmt / 0.02) * 100).toFixed(0);
       console.log(
         `[attacker] #${txnCount} ✓ ${solAmount(lamports)} (${pctOfCap}% of cap) | ${sig.slice(0, 16)}…`,
       );

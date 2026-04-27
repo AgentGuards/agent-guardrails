@@ -7,6 +7,32 @@ import { env } from "../../config/env.js";
 import type { HeliusEnhancedTransaction } from "../routes/webhook.js";
 import type { GuardedTxn } from "@prisma/client";
 
+// Minimal base58 decoder — avoids adding a dependency for a single function.
+const BASE58_ALPHABET = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
+function bs58Decode(str: string): Uint8Array {
+  const bytes: number[] = [0];
+  for (const char of str) {
+    const idx = BASE58_ALPHABET.indexOf(char);
+    if (idx < 0) throw new Error(`Invalid base58 character: ${char}`);
+    let carry = idx;
+    for (let j = 0; j < bytes.length; j++) {
+      carry += bytes[j] * 58;
+      bytes[j] = carry & 0xff;
+      carry >>= 8;
+    }
+    while (carry > 0) {
+      bytes.push(carry & 0xff);
+      carry >>= 8;
+    }
+  }
+  // Leading '1's → leading zero bytes
+  for (const char of str) {
+    if (char !== "1") break;
+    bytes.push(0);
+  }
+  return new Uint8Array(bytes.reverse());
+}
+
 /** Rejection reason codes matching on-chain GuardedTxnRejected event. */
 const REJECT_REASONS: Record<number, string> = {
   0: "PolicyPaused",
@@ -55,10 +81,19 @@ const POLICY_ACCOUNT_INDEX: Record<string, number> = {
  */
 export function detectInstruction(ixData: string): InstructionType {
   if (!ixData) return "unknown";
-  const bytes = Buffer.from(ixData, "base64");
-  if (bytes.length < 8) return "unknown";
-  const disc = bytes.subarray(0, 8).toString("hex");
-  return DISCRIMINATORS[disc] ?? "unknown";
+  // Try base64 first (matches our test/fake webhooks)
+  let bytes = Buffer.from(ixData, "base64");
+  let disc = bytes.length >= 8 ? bytes.subarray(0, 8).toString("hex") : "";
+  if (DISCRIMINATORS[disc]) return DISCRIMINATORS[disc];
+
+  // Helius Enhanced Transactions encode instruction data as base58 — try that
+  try {
+    bytes = Buffer.from(bs58Decode(ixData));
+    disc = bytes.length >= 8 ? bytes.subarray(0, 8).toString("hex") : "";
+    return DISCRIMINATORS[disc] ?? "unknown";
+  } catch {
+    return "unknown";
+  }
 }
 
 /**

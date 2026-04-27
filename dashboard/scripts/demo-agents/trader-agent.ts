@@ -14,9 +14,9 @@ import {
   randomBetween,
 } from "../demo-helpers";
 
-// Normal trading behavior: small amounts, steady pace
-const MIN_AMOUNT_LAMPORTS = 0.01 * LAMPORTS_PER_SOL; // 0.01 SOL
-const MAX_AMOUNT_LAMPORTS = 0.05 * LAMPORTS_PER_SOL; // 0.05 SOL
+// Normal trading behavior: tiny amounts, steady pace (devnet-friendly)
+const MIN_AMOUNT_LAMPORTS = 0.001 * LAMPORTS_PER_SOL; // 0.001 SOL
+const MAX_AMOUNT_LAMPORTS = 0.005 * LAMPORTS_PER_SOL; // 0.005 SOL
 const MIN_INTERVAL_MS = 15_000;  // 15 seconds
 const MAX_INTERVAL_MS = 30_000;  // 30 seconds
 

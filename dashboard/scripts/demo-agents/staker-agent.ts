@@ -14,9 +14,9 @@ import {
   randomBetween,
 } from "../demo-helpers";
 
-// Staking behavior: moderate amounts, slow pace
-const MIN_AMOUNT_LAMPORTS = 0.05 * LAMPORTS_PER_SOL; // 0.05 SOL
-const MAX_AMOUNT_LAMPORTS = 0.2 * LAMPORTS_PER_SOL;  // 0.2 SOL
+// Staking behavior: moderate amounts, slow pace (devnet-friendly)
+const MIN_AMOUNT_LAMPORTS = 0.002 * LAMPORTS_PER_SOL; // 0.002 SOL
+const MAX_AMOUNT_LAMPORTS = 0.008 * LAMPORTS_PER_SOL; // 0.008 SOL
 const MIN_INTERVAL_MS = 30_000;  // 30 seconds
 const MAX_INTERVAL_MS = 60_000;  // 60 seconds
 
