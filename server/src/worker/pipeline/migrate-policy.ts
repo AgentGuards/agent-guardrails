@@ -12,7 +12,19 @@ import { prisma } from "../../db/client.js";
  * must be migrated before the old Policy row is deleted.
  */
 export async function migratePolicy(oldPubkey: string, newPubkey: string): Promise<void> {
+  // Copy DB-only fields (label) from old policy to new before deleting
+  const oldPolicy = await prisma.policy.findUnique({
+    where: { pubkey: oldPubkey },
+    select: { label: true },
+  });
+
   await prisma.$transaction([
+    // Carry over label to new policy (label is DB-only, not on-chain)
+    prisma.policy.update({
+      where: { pubkey: newPubkey },
+      data: { label: oldPolicy?.label ?? null },
+    }),
+
     // Move all guarded transactions to new policy
     prisma.guardedTxn.updateMany({
       where: { policyPubkey: oldPubkey },
