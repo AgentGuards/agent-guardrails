@@ -53,9 +53,15 @@ export function KillSwitchButton({ policy }: { policy: PolicySummary }) {
     });
   };
 
-  const isAlreadyProcessed = (e: unknown) => {
+  /** Check if the error actually confirms the desired state. */
+  const isAlreadyInState = (e: unknown, desiredPaused: boolean) => {
     const msg = getErrorMessage(e).toLowerCase();
-    return msg.includes("already been processed") || msg.includes("already processed");
+    if (msg.includes("already been processed") || msg.includes("already processed")) return true;
+    // PolicyPaused error on pause attempt = already paused = success
+    if (desiredPaused && (msg.includes("policypaused") || msg.includes("policy is paused"))) return true;
+    // PolicyNotPaused error on resume attempt = already active = success
+    if (!desiredPaused && (msg.includes("policynotpaused") || msg.includes("policy is not paused"))) return true;
+    return false;
   };
 
   const onPause = async () => {
@@ -71,9 +77,9 @@ export function KillSwitchButton({ policy }: { policy: PolicySummary }) {
       setOpen(false);
       setReason("");
     } catch (e) {
-      if (isAlreadyProcessed(e)) {
+      if (isAlreadyInState(e, true)) {
         updateCache(false);
-        setBanner("Agent paused on-chain.");
+        setBanner("Agent is paused on-chain.");
         setOpen(false);
         setReason("");
       } else {
@@ -97,9 +103,9 @@ export function KillSwitchButton({ policy }: { policy: PolicySummary }) {
       updateCache(true);
       setBanner("Agent resumed on-chain.");
     } catch (e) {
-      if (isAlreadyProcessed(e)) {
+      if (isAlreadyInState(e, false)) {
         updateCache(true);
-        setBanner("Agent resumed on-chain.");
+        setBanner("Agent is active on-chain.");
       } else {
         const message = getErrorMessage(e);
         setError(message);

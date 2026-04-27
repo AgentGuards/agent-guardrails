@@ -6,6 +6,23 @@ import { PublicKey } from "@solana/web3.js";
 import { prisma } from "../../db/client.js";
 import { getReadClient } from "./read-client.js";
 
+/** Safely convert BN, number, or bigint to BigInt for Prisma. */
+function toBigInt(value: unknown): bigint {
+  if (typeof value === "bigint") return value;
+  if (typeof value === "number") return BigInt(value);
+  if (value && typeof (value as any).toBigInt === "function") return (value as any).toBigInt();
+  if (value && typeof (value as any).toNumber === "function") return BigInt((value as any).toNumber());
+  return BigInt(String(value));
+}
+
+/** Safely convert BN, number, or bigint to number. */
+function toNum(value: unknown): number {
+  if (typeof value === "number") return value;
+  if (typeof value === "bigint") return Number(value);
+  if (value && typeof (value as any).toNumber === "function") return (value as any).toNumber();
+  return Number(value);
+}
+
 // ---------------------------------------------------------------------------
 // Sync
 // ---------------------------------------------------------------------------
@@ -37,12 +54,12 @@ export async function syncPolicyFromChain(policyPubkey: string): Promise<void> {
       owner: policy.owner.toBase58(),
       agent: policy.agent.toBase58(),
       allowedPrograms: policy.allowedPrograms.map((p) => p.toBase58()),
-      maxTxLamports: policy.maxTxLamports.toBigInt(),
-      dailyBudgetLamports: policy.dailyBudgetLamports.toBigInt(),
-      sessionExpiry: new Date(policy.sessionExpiry.toNumber() * 1000),
+      maxTxLamports: toBigInt(policy.maxTxLamports),
+      dailyBudgetLamports: toBigInt(policy.dailyBudgetLamports),
+      sessionExpiry: new Date(toNum(policy.sessionExpiry) * 1000),
       isActive: policy.isActive,
       squadsMultisig: policy.squadsMultisig?.toBase58() ?? null,
-      escalationThreshold: policy.escalationThreshold.toBigInt(),
+      escalationThreshold: toBigInt(policy.escalationThreshold),
       anomalyScore: policy.anomalyScore,
     },
     create: {
@@ -50,12 +67,12 @@ export async function syncPolicyFromChain(policyPubkey: string): Promise<void> {
       owner: policy.owner.toBase58(),
       agent: policy.agent.toBase58(),
       allowedPrograms: policy.allowedPrograms.map((p) => p.toBase58()),
-      maxTxLamports: policy.maxTxLamports.toBigInt(),
-      dailyBudgetLamports: policy.dailyBudgetLamports.toBigInt(),
-      sessionExpiry: new Date(policy.sessionExpiry.toNumber() * 1000),
+      maxTxLamports: toBigInt(policy.maxTxLamports),
+      dailyBudgetLamports: toBigInt(policy.dailyBudgetLamports),
+      sessionExpiry: new Date(toNum(policy.sessionExpiry) * 1000),
       isActive: policy.isActive,
       squadsMultisig: policy.squadsMultisig?.toBase58() ?? null,
-      escalationThreshold: policy.escalationThreshold.toBigInt(),
+      escalationThreshold: toBigInt(policy.escalationThreshold),
       anomalyScore: policy.anomalyScore,
     },
   });

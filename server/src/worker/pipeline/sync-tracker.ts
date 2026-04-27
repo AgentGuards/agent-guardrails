@@ -7,6 +7,22 @@ import { prisma } from "../../db/client.js";
 import { getReadClient } from "./read-client.js";
 import type { SpendTracker } from "@prisma/client";
 
+/** Safely convert BN, number, or bigint to BigInt for Prisma. */
+function toBigInt(value: unknown): bigint {
+  if (typeof value === "bigint") return value;
+  if (typeof value === "number") return BigInt(value);
+  if (value && typeof (value as any).toBigInt === "function") return (value as any).toBigInt();
+  return BigInt(String(value));
+}
+
+/** Safely convert BN, number, or bigint to number. */
+function toNum(value: unknown): number {
+  if (typeof value === "number") return value;
+  if (typeof value === "bigint") return Number(value);
+  if (value && typeof (value as any).toNumber === "function") return (value as any).toNumber();
+  return Number(value);
+}
+
 /**
  * Fetch the on-chain SpendTracker account and upsert into the spend_trackers table.
  * Computes server-managed fields from GuardedTxn history.
@@ -31,7 +47,7 @@ export async function syncTrackerFromChain(policyPubkey: string): Promise<SpendT
   }
 
   // Convert on-chain window start to Date for DB queries
-  const windowStart = new Date(tracker.windowStart.toNumber() * 1000);
+  const windowStart = new Date(toNum(tracker.windowStart) * 1000);
 
   // Compute server-managed fields from GuardedTxn rows
   const [failedCount, uniqueDestinations] = await Promise.all([
@@ -53,20 +69,20 @@ export async function syncTrackerFromChain(policyPubkey: string): Promise<SpendT
     }),
   ]);
 
-  const lastTxnTs = tracker.lastTxnTs.toNumber();
-  const windowStart1h = tracker.windowStart1H.toNumber();
+  const lastTxnTs = toNum(tracker.lastTxnTs);
+  const windowStart1h = toNum(tracker.windowStart1H);
 
   const data = {
     windowStart,
     txnCount24h: tracker.txnCount24H,
-    lamportsSpent24h: tracker.lamportsSpent24H.toBigInt(),
+    lamportsSpent24h: toBigInt(tracker.lamportsSpent24H),
     lastTxnTs: lastTxnTs === 0 ? new Date(0) : new Date(lastTxnTs * 1000),
     lastTxnProgram: tracker.lastTxnProgram.toBase58(),
     uniqueDestinations24h: uniqueDestinations.length,
-    maxSingleTxnLamports: tracker.maxSingleTxnLamports.toBigInt(),
+    maxSingleTxnLamports: toBigInt(tracker.maxSingleTxnLamports),
     failedTxnCount24h: failedCount,
     uniquePrograms24h: tracker.uniquePrograms24H,
-    lamportsSpent1h: tracker.lamportsSpent1H.toBigInt(),
+    lamportsSpent1h: toBigInt(tracker.lamportsSpent1H),
     windowStart1h: windowStart1h === 0 ? new Date(0) : new Date(windowStart1h * 1000),
     consecutiveHighAmountCount: tracker.consecutiveHighAmountCount,
   };

@@ -113,7 +113,13 @@ export function detectAndExtract(txn: HeliusEnhancedTransaction): {
     if (ix.programId !== programId) continue;
 
     const instructionType = detectInstruction(ix.data);
-    if (instructionType === "unknown") continue;
+    if (instructionType === "unknown") {
+      // Debug: log the raw data to diagnose encoding mismatches
+      console.warn(
+        `[ingest] unknown discriminator for program ix, data(first40)="${ix.data?.slice(0, 40)}" accounts=${ix.accounts?.length}`,
+      );
+      continue;
+    }
 
     const accountIdx = POLICY_ACCOUNT_INDEX[instructionType];
     if (accountIdx === undefined || ix.accounts.length <= accountIdx) continue;
