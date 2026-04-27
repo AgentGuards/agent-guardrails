@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { AppShell, IncidentTable, Metric, SpendGauge, TransactionRow } from "@/components/dashboard-ui";
+import { FundAgentButton } from "@/components/fund-agent-button";
 import { KillSwitchButton } from "@/components/kill-switch-button";
 import { RotateAgentKeyButton } from "@/components/rotate-agent-key-button";
 import { QueryEmpty, QueryError, QueryLoading } from "@/components/query-states";
@@ -54,8 +55,11 @@ export function AgentDetailView({ pubkey }: { pubkey: string }) {
         <Metric label="Session expiry" value={new Date(policy.sessionExpiry).toLocaleString()} />
       </div>
 
-      <KillSwitchButton policy={policy} />
-      <RotateAgentKeyButton policy={policy} />
+      <div className="flex flex-wrap gap-2">
+        <KillSwitchButton policy={policy} />
+        <RotateAgentKeyButton policy={policy} />
+        <FundAgentButton policy={policy} />
+      </div>
 
       {policy.squadsMultisig ? (() => {
         const escalations = escalationsQuery.data ?? [];
