@@ -7,6 +7,6 @@ import { env } from "../../config/env.js";
 export const corsMiddleware = cors({
   origin: env.CORS_ORIGIN,
   credentials: true,
-  methods: ["GET", "POST", "OPTIONS"],
+  methods: ["GET", "POST", "PATCH", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization"],
 });
