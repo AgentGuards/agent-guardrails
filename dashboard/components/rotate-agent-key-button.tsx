@@ -48,7 +48,7 @@ export function RotateAgentKeyButton({ policy }: { policy: PolicySummary }) {
   };
 
   const onConfirm = async () => {
-    if (!newKeypair || !provider || !programId) return;
+    if (!newKeypair || !provider || !programId || busy) return;
     setBusy(true);
     setError(null);
     try {
@@ -61,7 +61,18 @@ export function RotateAgentKeyButton({ policy }: { policy: PolicySummary }) {
       queryClient.invalidateQueries({ queryKey: queryKeys.policies() });
       router.push(`/agents/${newPolicyPda.toBase58()}`);
     } catch (e) {
-      setError(getErrorMessage(e));
+      // "Already processed" means the first click succeeded — treat as success
+      const msg = getErrorMessage(e).toLowerCase();
+      if (msg.includes("already been processed") || msg.includes("already processed")) {
+        queryClient.removeQueries({ queryKey: queryKeys.policy(policy.pubkey) });
+        queryClient.invalidateQueries({ queryKey: queryKeys.policies() });
+        // Derive the new PDA to redirect
+        const client = new GuardrailsClient(provider, programId);
+        const [newPda] = client.findPolicyPda(new PublicKey(policy.owner), newKeypair.publicKey);
+        router.push(`/agents/${newPda.toBase58()}`);
+      } else {
+        setError(getErrorMessage(e));
+      }
     } finally {
       setBusy(false);
     }

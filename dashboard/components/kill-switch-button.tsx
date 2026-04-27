@@ -53,8 +53,13 @@ export function KillSwitchButton({ policy }: { policy: PolicySummary }) {
     });
   };
 
+  const isAlreadyProcessed = (e: unknown) => {
+    const msg = getErrorMessage(e).toLowerCase();
+    return msg.includes("already been processed") || msg.includes("already processed");
+  };
+
   const onPause = async () => {
-    if (!reasonOk || !provider || !programId) return;
+    if (!reasonOk || !provider || !programId || busy) return;
     setBusy(true);
     setError(null);
     setBanner(null);
@@ -66,16 +71,23 @@ export function KillSwitchButton({ policy }: { policy: PolicySummary }) {
       setOpen(false);
       setReason("");
     } catch (e) {
-      const message = getErrorMessage(e);
-      setError(message);
-      setToastError(message);
+      if (isAlreadyProcessed(e)) {
+        updateCache(false);
+        setBanner("Agent paused on-chain.");
+        setOpen(false);
+        setReason("");
+      } else {
+        const message = getErrorMessage(e);
+        setError(message);
+        setToastError(message);
+      }
     } finally {
       setBusy(false);
     }
   };
 
   const onResume = async () => {
-    if (!provider || !programId) return;
+    if (!provider || !programId || busy) return;
     setBusy(true);
     setError(null);
     setBanner(null);
@@ -85,9 +97,14 @@ export function KillSwitchButton({ policy }: { policy: PolicySummary }) {
       updateCache(true);
       setBanner("Agent resumed on-chain.");
     } catch (e) {
-      const message = getErrorMessage(e);
-      setError(message);
-      setToastError(message);
+      if (isAlreadyProcessed(e)) {
+        updateCache(true);
+        setBanner("Agent resumed on-chain.");
+      } else {
+        const message = getErrorMessage(e);
+        setError(message);
+        setToastError(message);
+      }
     } finally {
       setBusy(false);
     }
