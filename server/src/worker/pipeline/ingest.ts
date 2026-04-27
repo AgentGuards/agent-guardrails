@@ -125,43 +125,70 @@ export function detectAndExtract(txn: HeliusEnhancedTransaction): {
 }
 
 /**
- * Extract the target program from the CPI inner instructions.
- * The guardrails program CPIs to the target — look for inner instructions
- * under the guardrails instruction that call a different program.
+ * Extract the target program from the guardrails instruction.
+ * First tries inner instructions (Token Program CPI path).
+ * Falls back to accounts[3] which is the target_program account in
+ * the GuardedExecute accounts struct (SOL transfer path uses direct
+ * lamport manipulation with no inner CPI).
  */
 function extractTargetProgram(txn: HeliusEnhancedTransaction): string {
   const programId = env.GUARDRAILS_PROGRAM_ID;
 
   for (const ix of txn.instructions) {
-    if (ix.programId === programId && ix.innerInstructions) {
+    if (ix.programId !== programId) continue;
+
+    // Try inner instructions first (Token Program CPI path)
+    if (ix.innerInstructions) {
       for (const inner of ix.innerInstructions) {
         if (inner.programId !== programId) {
           return inner.programId;
         }
       }
     }
+
+    // Fallback: target_program is accounts[3] in GuardedExecute
+    // [agent, policy, tracker, target_program, system_program, ...remaining]
+    if (ix.accounts.length > 3) {
+      return ix.accounts[3];
+    }
   }
 
-  // Fallback: use the type field from Helius or "unknown"
-  return txn.type || "unknown";
+  return txn.type || "UNKNOWN";
 }
 
 /**
- * Extract the SOL amount from native transfers in the transaction.
- * Sums transfers originating from the fee payer (agent) excluding fee.
+ * Extract the SOL amount from native transfers or accountData balance changes.
+ * Tries nativeTransfers first (standard CPI path). Falls back to accountData
+ * balance changes (direct lamport manipulation path used for SOL transfers
+ * in guarded_execute — no System Program CPI, so no nativeTransfers).
  */
 function extractAmountLamports(txn: HeliusEnhancedTransaction): bigint | null {
-  if (!txn.nativeTransfers || txn.nativeTransfers.length === 0) return null;
+  // Try nativeTransfers first (Token Program CPI path)
+  if (txn.nativeTransfers && txn.nativeTransfers.length > 0) {
+    const agentTransfers = txn.nativeTransfers.filter(
+      (t) => t.fromUserAccount === txn.feePayer && t.amount > 0,
+    );
+    if (agentTransfers.length > 0) {
+      const total = agentTransfers.reduce((sum, t) => sum + BigInt(t.amount), 0n);
+      return total;
+    }
+  }
 
-  // Sum all native transfers from the fee payer (agent), excluding fee payments
-  const agentTransfers = txn.nativeTransfers.filter(
-    (t) => t.fromUserAccount === txn.feePayer && t.amount > 0,
-  );
+  // Fallback: use accountData balance changes.
+  // Look for the account that lost SOL (policy PDA) — its negative balance
+  // change is the transfer amount. Exclude the fee payer (agent) since their
+  // balance change includes tx fees.
+  if (txn.accountData && txn.accountData.length > 0) {
+    const debits = txn.accountData.filter(
+      (a) => a.nativeBalanceChange < 0 && a.account !== txn.feePayer,
+    );
+    if (debits.length > 0) {
+      const total = debits.reduce((sum, a) => sum + BigInt(Math.abs(a.nativeBalanceChange)), 0n);
+      return total;
+    }
+  }
 
-  if (agentTransfers.length === 0) return null;
-
-  const total = agentTransfers.reduce((sum, t) => sum + BigInt(t.amount), 0n);
-  return total;
+  return null;
 }
 
 /**

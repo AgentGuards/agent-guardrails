@@ -44,7 +44,8 @@ async function main() {
   // Step 1: Generate keypairs
   // -------------------------------------------------------------------------
 
-  const owner = Keypair.generate();
+  // Use funder as owner so on-chain authority matches the dashboard wallet
+  const owner = funder;
   const monitor = Keypair.generate();
   const trader = Keypair.generate();
   const staker = Keypair.generate();
@@ -65,8 +66,8 @@ async function main() {
 
   // Minimal funding: owner needs enough for 3 policy creates + 3 PDA deposits.
   // Agents + monitor only need enough for transaction fees (~0.005 SOL each).
+  // Owner IS the funder — no need to fund owner separately
   const fundingTx = new Transaction().add(
-    SystemProgram.transfer({ fromPubkey: funder.publicKey, toPubkey: owner.publicKey, lamports: Math.floor(0.15 * LAMPORTS_PER_SOL) }),
     SystemProgram.transfer({ fromPubkey: funder.publicKey, toPubkey: trader.publicKey, lamports: Math.floor(0.01 * LAMPORTS_PER_SOL) }),
     SystemProgram.transfer({ fromPubkey: funder.publicKey, toPubkey: staker.publicKey, lamports: Math.floor(0.01 * LAMPORTS_PER_SOL) }),
     SystemProgram.transfer({ fromPubkey: funder.publicKey, toPubkey: attacker.publicKey, lamports: Math.floor(0.01 * LAMPORTS_PER_SOL) }),

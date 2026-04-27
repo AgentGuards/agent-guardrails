@@ -5,13 +5,9 @@
 //! All config is copied, spend counters are reset, and operational SOL
 //! is transferred atomically from the old PDA to the new one.
 //!
-//! Flow:
-//!   1. Validate new_agent != old agent
-//!   2. Copy config from old policy to new policy (agent = new_agent)
-//!   3. Initialize new SpendTracker with zeroed counters
-//!   4. Transfer operational SOL from old policy to new policy
-//!   5. Emit AgentKeyRotated event
-//!   6. Anchor closes old_policy + old_tracker at instruction exit
+//! NOTE: We do NOT use Anchor's `close` constraint because it conflicts
+//! with manual lamport manipulation and doesn't work reliably with
+//! `Box<Account>`. Instead, accounts are closed manually in the handler.
 
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::rent::Rent;
@@ -43,14 +39,12 @@ pub struct RotateAgentKey<'info> {
     pub owner: Signer<'info>,
 
     /// The existing PermissionPolicy PDA to close.
-    /// `close = owner` refunds remaining lamports at instruction exit.
-    /// Boxed to reduce stack frame size (PermissionPolicy is 685 bytes).
+    /// Closed manually in handler (not via Anchor `close` constraint).
     #[account(
         mut,
         seeds = [b"policy", old_policy.owner.as_ref(), old_policy.agent.as_ref()],
         bump = old_policy.bump,
         has_one = owner,
-        close = owner,
     )]
     pub old_policy: Box<Account<'info, PermissionPolicy>>,
 
@@ -60,7 +54,6 @@ pub struct RotateAgentKey<'info> {
         seeds = [b"tracker", old_policy.key().as_ref()],
         bump = old_tracker.bump,
         constraint = old_tracker.policy == old_policy.key(),
-        close = owner,
     )]
     pub old_tracker: Account<'info, SpendTracker>,
 
@@ -69,7 +62,6 @@ pub struct RotateAgentKey<'info> {
     pub new_agent: UncheckedAccount<'info>,
 
     /// The new PermissionPolicy PDA derived with the new agent key.
-    /// Boxed to reduce stack frame size.
     #[account(
         init,
         payer = owner,
@@ -108,12 +100,10 @@ pub fn handler(ctx: Context<RotateAgentKey>, args: RotateAgentKeyArgs) -> Result
     // Capture values and account infos before mutable borrows
     let old_policy_key = ctx.accounts.old_policy.key();
     let old_agent = ctx.accounts.old_policy.agent;
-    let old_policy_info = ctx.accounts.old_policy.to_account_info();
-    let new_policy_info = ctx.accounts.new_policy.to_account_info();
     let new_policy_key = ctx.accounts.new_policy.key();
 
-    // Snapshot config from old policy (avoids borrow conflicts)
-    let owner = ctx.accounts.old_policy.owner;
+    // Snapshot config from old policy
+    let owner_key = ctx.accounts.old_policy.owner;
     let allowed_programs = ctx.accounts.old_policy.allowed_programs.clone();
     let max_tx_lamports = ctx.accounts.old_policy.max_tx_lamports;
     let max_tx_token_units = ctx.accounts.old_policy.max_tx_token_units;
@@ -129,7 +119,7 @@ pub fn handler(ctx: Context<RotateAgentKey>, args: RotateAgentKeyArgs) -> Result
 
     // 2. Write config to new policy
     let new_policy = &mut ctx.accounts.new_policy;
-    new_policy.owner = owner;
+    new_policy.owner = owner_key;
     new_policy.agent = args.new_agent;
     new_policy.allowed_programs = allowed_programs;
     new_policy.max_tx_lamports = max_tx_lamports;
@@ -164,21 +154,39 @@ pub fn handler(ctx: Context<RotateAgentKey>, args: RotateAgentKeyArgs) -> Result
     new_tracker.consecutive_high_amount_count = 0;
     new_tracker.bump = ctx.bumps.new_tracker;
 
-    // 4. Transfer operational SOL from old policy to new policy
-    //    Anchor's `close = owner` runs after this handler returns, transferring
-    //    remaining lamports to owner. We move operational SOL (beyond rent) to
-    //    the new policy first, so only rent-exempt minimum is refunded.
+    // 4. Transfer operational SOL from old policy to new policy, then close old accounts.
+    //    We do this manually instead of using Anchor's `close` constraint because
+    //    `close` on Box<Account> doesn't reliably fire, and we need to split the
+    //    lamports between new_policy (operational SOL) and owner (rent refund).
     let rent = Rent::get()?;
-    let min_balance = rent.minimum_balance(old_policy_info.data_len());
-    let operational_sol = old_policy_info
-        .lamports()
-        .checked_sub(min_balance)
-        .unwrap_or(0);
 
+    // --- Close old policy ---
+    let old_policy_info = ctx.accounts.old_policy.to_account_info();
+    let new_policy_info = ctx.accounts.new_policy.to_account_info();
+    let owner_info = ctx.accounts.owner.to_account_info();
+
+    let old_policy_lamports = old_policy_info.lamports();
+    let policy_rent = rent.minimum_balance(old_policy_info.data_len());
+    let operational_sol = old_policy_lamports.saturating_sub(policy_rent);
+
+    // Operational SOL → new policy
     if operational_sol > 0 {
-        **old_policy_info.try_borrow_mut_lamports()? -= operational_sol;
         **new_policy_info.try_borrow_mut_lamports()? += operational_sol;
     }
+    // Rent → owner
+    **owner_info.try_borrow_mut_lamports()? += policy_rent;
+    // Zero out old policy — runtime garbage-collects zero-lamport accounts
+    **old_policy_info.try_borrow_mut_lamports()? = 0;
+    old_policy_info.data.borrow_mut().fill(0);
+
+    // --- Close old tracker ---
+    let old_tracker_info = ctx.accounts.old_tracker.to_account_info();
+    let tracker_lamports = old_tracker_info.lamports();
+
+    // All tracker lamports → owner (tracker holds no operational funds)
+    **owner_info.try_borrow_mut_lamports()? += tracker_lamports;
+    **old_tracker_info.try_borrow_mut_lamports()? = 0;
+    old_tracker_info.data.borrow_mut().fill(0);
 
     // 5. Emit event
     emit!(AgentKeyRotated {
