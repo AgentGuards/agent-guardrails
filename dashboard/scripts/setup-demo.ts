@@ -4,7 +4,7 @@
 // Creates three agents (trader, staker, attacker) with policies under one owner.
 // Saves all keypairs to .demo-keys.json for the agent scripts to load.
 
-import { Keypair, LAMPORTS_PER_SOL, SystemProgram, Transaction, sendAndConfirmTransaction } from "@solana/web3.js";
+import { Keypair, PublicKey, LAMPORTS_PER_SOL, SystemProgram, Transaction, sendAndConfirmTransaction } from "@solana/web3.js";
 import { BN } from "@coral-xyz/anchor";
 import * as fs from "fs";
 import * as os from "os";
@@ -46,7 +46,11 @@ async function main() {
 
   // Use funder as owner so on-chain authority matches the dashboard wallet
   const owner = funder;
-  const monitor = Keypair.generate();
+  // Use the server's monitor pubkey so the executor can pause agents on-chain
+  const serverMonitorPubkey = process.env.NEXT_PUBLIC_MONITOR_PUBKEY;
+  const monitor = serverMonitorPubkey
+    ? { publicKey: new PublicKey(serverMonitorPubkey) } as Keypair
+    : Keypair.generate();
   const trader = Keypair.generate();
   const staker = Keypair.generate();
   const attacker = Keypair.generate();
@@ -172,7 +176,7 @@ async function main() {
     const [pda] = client.findPolicyPda(owner.publicKey, row.agent.publicKey);
     // Escape single quotes in label to prevent SQL injection
     const safeLabel = row.label.replace(/'/g, "''");
-    const sql = `INSERT INTO policies (pubkey, owner, agent, allowed_programs, max_tx_lamports, daily_budget_lamports, session_expiry, is_active, escalation_threshold, anomaly_score, label, created_at, updated_at) VALUES ('${pda.toBase58()}', '${owner.publicKey.toBase58()}', '${row.agent.publicKey.toBase58()}', '{${SystemProgram.programId.toBase58()}}', ${row.maxTx * LAMPORTS_PER_SOL}, ${row.dailyBudget * LAMPORTS_PER_SOL}, '${new Date((now + SEVEN_DAYS_SECONDS) * 1000).toISOString()}', true, 0, 0, '${safeLabel}', NOW(), NOW()) ON CONFLICT (pubkey) DO NOTHING;`;
+    const sql = `INSERT INTO policies (pubkey, owner, agent, allowed_programs, max_tx_lamports, daily_budget_lamports, session_expiry, is_active, escalation_threshold, anomaly_score, label, created_at, updated_at) VALUES ('${pda.toBase58()}', '${owner.publicKey.toBase58()}', '${row.agent.publicKey.toBase58()}', '{${SystemProgram.programId.toBase58()}}', ${row.maxTx * LAMPORTS_PER_SOL}, ${row.dailyBudget * LAMPORTS_PER_SOL}, '${new Date((now + SEVEN_DAYS_SECONDS) * 1000).toISOString()}', true, 0, 0, '${safeLabel}', NOW(), NOW()) ON CONFLICT (pubkey) DO UPDATE SET label = '${safeLabel}';`;
     execSync(`psql "${dbUrl}" -c "${sql}"`, { stdio: "pipe" });
     console.log(`  ✓ ${row.label} → ${shortKey(pda)}`);
   }
@@ -183,7 +187,7 @@ async function main() {
 
   saveDemoKeys({
     owner: Array.from(owner.secretKey),
-    monitor: Array.from(monitor.secretKey),
+    monitor: monitor.secretKey ? Array.from(monitor.secretKey) : [],
     trader: Array.from(trader.secretKey),
     staker: Array.from(staker.secretKey),
     attacker: Array.from(attacker.secretKey),
