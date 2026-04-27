@@ -206,19 +206,34 @@ export async function ingest(txn: HeliusEnhancedTransaction, policyPubkey: strin
     return null;
   }
 
-  const row = await prisma.guardedTxn.create({
-    data: {
-      policyPubkey,
-      txnSig: txn.signature,
-      slot: BigInt(txn.slot),
-      blockTime: new Date(txn.timestamp * 1000),
-      targetProgram,
-      amountLamports,
-      status,
-      rejectReason,
-      rawEvent: JSON.parse(JSON.stringify(txn)),
-    },
-  });
+  let row: GuardedTxn;
+  try {
+    row = await prisma.guardedTxn.create({
+      data: {
+        policyPubkey,
+        txnSig: txn.signature,
+        slot: BigInt(txn.slot),
+        blockTime: new Date(txn.timestamp * 1000),
+        targetProgram,
+        amountLamports,
+        status,
+        rejectReason,
+        rawEvent: JSON.parse(JSON.stringify(txn)),
+      },
+    });
+  } catch (err: unknown) {
+    // P2002 = unique constraint violation — webhook and poller raced on same txn
+    if (
+      typeof err === "object" &&
+      err !== null &&
+      "code" in err &&
+      (err as { code: string }).code === "P2002"
+    ) {
+      console.log(`[ingest] duplicate txn ${txn.signature.slice(0, 16)}… (concurrent insert), skipping`);
+      return null;
+    }
+    throw err;
+  }
 
   // Emit SSE event with bigint fields serialized as strings
   sseEmitter.emitEvent("new_transaction", {

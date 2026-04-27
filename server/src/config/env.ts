@@ -25,10 +25,18 @@ function port(name: string, fallback: string): number {
   return parsed;
 }
 
-// LLM API keys — at least one must be set. Priority: Anthropic > OpenAI > Gemini.
+function optionalNumber(name: string, fallback: number): number {
+  const raw = process.env[name];
+  if (!raw) return fallback;
+  const parsed = Number(raw);
+  if (!Number.isFinite(parsed) || parsed < 0) {
+    throw new Error(`Invalid env var ${name}: "${raw}" (expected non-negative number)`);
+  }
+  return parsed;
+}
+
+// LLM API key — optional, enables AI judge + report generation.
 const ANTHROPIC_API_KEY = optionalKey("ANTHROPIC_API_KEY");
-const OPENAI_API_KEY = optionalKey("OPENAI_API_KEY");
-const GEMINI_API_KEY = optionalKey("GEMINI_API_KEY");
 
 // Webhook auth — at least one method must be set.
 const HELIUS_WEBHOOK_SECRET = optionalKey("HELIUS_WEBHOOK_SECRET");
@@ -40,9 +48,9 @@ if (!HELIUS_WEBHOOK_SECRET && !HELIUS_AUTH_HEADER) {
   );
 }
 
-if (!ANTHROPIC_API_KEY && !OPENAI_API_KEY && !GEMINI_API_KEY) {
+if (!ANTHROPIC_API_KEY) {
   console.warn(
-    "[env] No LLM API key found (ANTHROPIC_API_KEY, OPENAI_API_KEY, GEMINI_API_KEY). Judge will use rule-based fallback only.",
+    "[env] ANTHROPIC_API_KEY not set. Judge will use rule-based fallback only.",
   );
 }
 
@@ -54,12 +62,11 @@ export const env = {
   HELIUS_WEBHOOK_SECRET,
   HELIUS_AUTH_HEADER,
   ANTHROPIC_API_KEY,
-  OPENAI_API_KEY,
-  GEMINI_API_KEY,
   LLM_JUDGE_MODEL: optionalKey("LLM_JUDGE_MODEL"),
   LLM_REPORT_MODEL: optionalKey("LLM_REPORT_MODEL"),
   DATABASE_URL: required("DATABASE_URL"),
   DIRECT_URL: required("DIRECT_URL"),
   JWT_SECRET: required("JWT_SECRET"),
   CORS_ORIGIN: optional("CORS_ORIGIN", "http://localhost:3000"),
+  POLL_INTERVAL_MS: optionalNumber("POLL_INTERVAL_MS", 30_000),
 } as const;

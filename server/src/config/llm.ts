@@ -1,5 +1,4 @@
-// LLM provider abstraction — auto-selects based on available API keys.
-// Priority: Anthropic > OpenAI > Gemini.
+// LLM provider — Anthropic only.
 // Override models via LLM_JUDGE_MODEL and LLM_REPORT_MODEL env vars.
 
 import { env } from "./env.js";
@@ -24,30 +23,24 @@ export interface LLMCallOptions {
 }
 
 // ---------------------------------------------------------------------------
-// Default models per provider and tier
+// Default models
 // ---------------------------------------------------------------------------
 
-type LLMProviderName = "anthropic" | "openai" | "gemini";
-
-const DEFAULTS: Record<LLMProviderName, { fast: string; report: string }> = {
-  anthropic: { fast: "claude-haiku-4-5-20251001", report: "claude-sonnet-4-5-20250514" },
-  openai:    { fast: "gpt-4o-mini",               report: "gpt-4o" },
-  gemini:    { fast: "gemini-2.0-flash",           report: "gemini-2.5-pro" },
+const DEFAULTS = {
+  fast: "claude-haiku-4-5-20251001",
+  report: "claude-sonnet-4-5-20250514",
 };
 
-function resolveModel(providerName: LLMProviderName, tier: "fast" | "report"): string {
+function resolveModel(tier: "fast" | "report"): string {
   const envOverride = tier === "fast" ? env.LLM_JUDGE_MODEL : env.LLM_REPORT_MODEL;
-  return envOverride || DEFAULTS[providerName][tier];
+  return envOverride || DEFAULTS[tier];
 }
 
 // ---------------------------------------------------------------------------
-// Provider implementations
+// Anthropic provider
 // ---------------------------------------------------------------------------
 
-// Lazy singletons — SDK client instantiated once, reused across calls.
 let _anthropicClient: any = null;
-let _openaiClient: any = null;
-let _geminiClient: any = null;
 
 async function callAnthropic(opts: LLMCallOptions): Promise<LLMResponse> {
   if (!_anthropicClient) {
@@ -55,7 +48,7 @@ async function callAnthropic(opts: LLMCallOptions): Promise<LLMResponse> {
     _anthropicClient = new Anthropic({ apiKey: env.ANTHROPIC_API_KEY! });
   }
 
-  const model = resolveModel("anthropic", opts.tier);
+  const model = resolveModel(opts.tier);
 
   const response = await _anthropicClient.messages.create({
     model,
@@ -73,61 +66,11 @@ async function callAnthropic(opts: LLMCallOptions): Promise<LLMResponse> {
   };
 }
 
-async function callOpenAI(opts: LLMCallOptions): Promise<LLMResponse> {
-  if (!_openaiClient) {
-    const { default: OpenAI } = await import("openai");
-    _openaiClient = new OpenAI({ apiKey: env.OPENAI_API_KEY! });
-  }
-
-  const model = resolveModel("openai", opts.tier);
-
-  const response = await _openaiClient.chat.completions.create({
-    model,
-    max_tokens: opts.maxTokens,
-    messages: [
-      { role: "system", content: opts.system },
-      { role: "user", content: opts.userMessage },
-    ],
-  });
-
-  return {
-    text: response.choices[0]?.message?.content ?? "",
-    model,
-    promptTokens: response.usage?.prompt_tokens ?? 0,
-    completionTokens: response.usage?.completion_tokens ?? 0,
-  };
-}
-
-async function callGemini(opts: LLMCallOptions): Promise<LLMResponse> {
-  if (!_geminiClient) {
-    const { GoogleGenAI } = await import("@google/genai");
-    _geminiClient = new GoogleGenAI({ apiKey: env.GEMINI_API_KEY! });
-  }
-
-  const model = resolveModel("gemini", opts.tier);
-
-  const response = await _geminiClient.models.generateContent({
-    model,
-    config: {
-      maxOutputTokens: opts.maxTokens,
-      systemInstruction: opts.system,
-    },
-    contents: opts.userMessage,
-  });
-
-  return {
-    text: response.text ?? "",
-    model,
-    promptTokens: response.usageMetadata?.promptTokenCount ?? 0,
-    completionTokens: response.usageMetadata?.candidatesTokenCount ?? 0,
-  };
-}
-
 // ---------------------------------------------------------------------------
-// Provider selection (evaluated once at import time)
+// Provider selection
 // ---------------------------------------------------------------------------
 
-type ProviderName = "anthropic" | "openai" | "gemini" | "none";
+type ProviderName = "anthropic" | "none";
 
 /** No-key fallback — throws so the judge's catch block triggers the rule-based fallback. */
 async function callNone(_opts: LLMCallOptions): Promise<LLMResponse> {
@@ -136,8 +79,6 @@ async function callNone(_opts: LLMCallOptions): Promise<LLMResponse> {
 
 function selectProvider(): { name: ProviderName; call: (opts: LLMCallOptions) => Promise<LLMResponse> } {
   if (env.ANTHROPIC_API_KEY) return { name: "anthropic", call: callAnthropic };
-  if (env.OPENAI_API_KEY) return { name: "openai", call: callOpenAI };
-  if (env.GEMINI_API_KEY) return { name: "gemini", call: callGemini };
   return { name: "none", call: callNone };
 }
 
@@ -152,7 +93,7 @@ export const llmCall = provider.call;
 if (provider.name === "none") {
   console.log(`[llm] no provider configured — rule-based fallback only`);
 } else {
-  const judgeModel = resolveModel(provider.name as LLMProviderName, "fast");
-  const reportModel = resolveModel(provider.name as LLMProviderName, "report");
-  console.log(`[llm] provider=${provider.name} judge=${judgeModel} report=${reportModel}`);
+  const judgeModel = resolveModel("fast");
+  const reportModel = resolveModel("report");
+  console.log(`[llm] provider=anthropic judge=${judgeModel} report=${reportModel}`);
 }

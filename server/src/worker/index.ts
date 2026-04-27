@@ -3,6 +3,8 @@
 import express from "express";
 import { webhookHandler } from "./routes/webhook.js";
 
+export { startPoller } from "./poller.js";
+
 export const workerRouter: express.Router = express.Router();
 
 // Parse JSON body and store raw buffer for HMAC verification.

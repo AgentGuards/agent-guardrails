@@ -4,11 +4,7 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 import type { Request, Response } from "express";
 import { env } from "../../config/env.js";
-import { ingest, detectAndExtract } from "../pipeline/ingest.js";
-import { syncPolicyFromChain } from "../pipeline/sync-policy.js";
-import { prefilter } from "../pipeline/prefilter.js";
-import { judgeTransaction } from "../pipeline/judge.js";
-import { executePause } from "../pipeline/executor.js";
+import { processTransaction } from "../pipeline/process-transaction.js";
 
 /**
  * Verify the Helius webhook request.
@@ -115,46 +111,10 @@ export async function webhookHandler(req: Request, res: Response): Promise<void>
   // Respond immediately — pipeline runs async
   res.status(200).json({ received: transactions.length });
 
-  // Process each transaction — route by instruction type
+  // Process each transaction through the shared pipeline
   for (const txn of transactions) {
     try {
-      const { instructionType, policyPubkey } = detectAndExtract(txn);
-
-      if (!policyPubkey) {
-        console.warn(`[webhook] no policy in txn ${txn.signature?.slice(0, 16)}…, skipping`);
-        continue;
-      }
-
-      switch (instructionType) {
-        // Policy lifecycle — sync on-chain state to DB
-        case "initialize_policy":
-        case "update_policy":
-        case "pause_agent":
-        case "resume_agent":
-        case "update_anomaly_score":
-          await syncPolicyFromChain(policyPubkey);
-          break;
-
-        // Core pipeline — ingest → prefilter → judge → executor
-        case "guarded_execute": {
-          const row = await ingest(txn, policyPubkey);
-          if (!row) continue;
-
-          const { signals, skipped } = await prefilter(row);
-          if (skipped) continue;
-
-          const { verdict, verdictId } = await judgeTransaction(row, signals);
-
-          if (verdict.verdict === "pause") {
-            await executePause(row, verdictId, verdict.reasoning);
-          }
-          break;
-        }
-
-        default:
-          console.log(`[webhook] unhandled instruction in txn ${txn.signature?.slice(0, 16)}…, skipping`);
-          break;
-      }
+      await processTransaction(txn);
     } catch (err) {
       console.error(`[webhook] pipeline error for ${txn.signature}:`, err);
     }

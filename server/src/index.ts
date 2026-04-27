@@ -7,7 +7,7 @@ import cookieParser from "cookie-parser";
 import { env } from "./config/env.js";
 import { prisma } from "./db/client.js";
 import { corsMiddleware } from "./api/middleware/cors.js";
-import { workerRouter } from "./worker/index.js";
+import { workerRouter, startPoller } from "./worker/index.js";
 import { apiRouter } from "./api/index.js";
 
 const app = express();
@@ -37,8 +37,13 @@ app.get("/health", (_req, res) => res.json({ ok: true }));
 // Start
 // ---------------------------------------------------------------------------
 
+let poller: { stop: () => void } | null = null;
+
 const server = app.listen(env.PORT, () => {
   console.log(`[guardrails-server] listening on port ${env.PORT}`);
+
+  // Start RPC polling fallback for missed webhook deliveries
+  poller = startPoller();
 
   // Clean up expired auth sessions every 5 minutes
   setInterval(async () => {
@@ -64,6 +69,7 @@ const server = app.listen(env.PORT, () => {
 for (const signal of ["SIGTERM", "SIGINT"] as const) {
   process.on(signal, () => {
     console.log(`[guardrails-server] ${signal} received, shutting down…`);
+    poller?.stop();
     server.close(async () => {
       await prisma.$disconnect();
       process.exit(0);
