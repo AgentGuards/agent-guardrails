@@ -36,3 +36,31 @@ export interface ApiErrorPayload {
 }
 
 export type ApiListResponse<T> = PaginatedResponse<T> | T[];
+
+export interface EscalationSummary {
+  id: string;
+  policyPubkey: string;
+  txnId: string;
+  squadsMultisig: string;
+  targetProgram: string;
+  amountLamports: string;
+  proposalPda: string | null;
+  transactionIndex: string | null;
+  status: string;
+  approvals: Array<{ member: string; timestamp: string }>;
+  rejections: Array<{ member: string; timestamp: string }>;
+  executedTxnSig: string | null;
+  expiresAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface EscalationDetail extends EscalationSummary {
+  txn: TransactionSummary;
+  instruction: {
+    programId: string;
+    data: string;
+    accounts: Array<{ pubkey: string; isSigner: boolean; isWritable: boolean }>;
+    amountLamports: string;
+  } | null;
+}

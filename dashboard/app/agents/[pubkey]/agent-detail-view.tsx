@@ -1,17 +1,20 @@
 "use client";
 
+import Link from "next/link";
 import { AppShell, IncidentTable, Metric, SpendGauge, TransactionRow } from "@/components/dashboard-ui";
 import { KillSwitchButton } from "@/components/kill-switch-button";
 import { QueryEmpty, QueryError, QueryLoading } from "@/components/query-states";
 import { getErrorMessage } from "@/lib/api/client";
 import { useInfiniteTransactionsQuery } from "@/lib/api/use-infinite-transactions-query";
 import { useIncidentsQuery } from "@/lib/api/use-incidents-query";
+import { useEscalationsQuery } from "@/lib/api/use-escalations-query";
 import { usePolicyQuery } from "@/lib/api/use-policy-query";
 
 export function AgentDetailView({ pubkey }: { pubkey: string }) {
   const policyQuery = usePolicyQuery(pubkey);
   const transactionsQuery = useInfiniteTransactionsQuery(pubkey, 10);
   const incidentsQuery = useIncidentsQuery(pubkey, 10);
+  const escalationsQuery = useEscalationsQuery(pubkey);
 
   if (policyQuery.isLoading) {
     return (
@@ -51,6 +54,31 @@ export function AgentDetailView({ pubkey }: { pubkey: string }) {
       </div>
 
       <KillSwitchButton policy={policy} />
+
+      {policy.squadsMultisig ? (() => {
+        const escalations = escalationsQuery.data ?? [];
+        const pendingCount = escalations.filter(
+          (e) => e.status === "awaiting_proposal" || e.status === "pending" || e.status === "approved",
+        ).length;
+        return (
+          <Link
+            href={`/agents/${pubkey}/proposals`}
+            className="panel-glow panel-glow-hover mt-4 flex items-center justify-between p-4 transition-colors"
+          >
+            <div className="flex items-center gap-3">
+              <div className="inline-flex items-center gap-2 rounded-lg bg-gradient-to-r from-blue-600 to-cyan-500 bg-clip-text text-sm font-bold uppercase tracking-widest text-transparent">
+                Multisig Proposals
+              </div>
+              {pendingCount > 0 ? (
+                <span className="rounded-full bg-amber-500/20 px-2 py-0.5 text-xs font-semibold text-amber-300 shadow-sm">
+                  {pendingCount} pending
+                </span>
+              ) : null}
+            </div>
+            <span className="text-sm text-zinc-500">View all &rarr;</span>
+          </Link>
+        );
+      })() : null}
 
       <div className="panel-glow mt-4 p-6">
         <div className="inline-flex items-center gap-2 rounded-lg bg-gradient-to-r from-blue-600 to-cyan-500 bg-clip-text text-sm font-bold uppercase tracking-widest text-transparent">Daily spend</div>

@@ -314,3 +314,21 @@ export function applyReportReadyEvent(queryClient: QueryClient, raw: unknown): v
     fullReport,
   }));
 }
+
+// ---------------------------------------------------------------------------
+// escalation_created / escalation_updated
+// ---------------------------------------------------------------------------
+
+export function applyEscalationEvent(
+  queryClient: QueryClient,
+  payload: { policyPubkey?: string },
+): void {
+  // Invalidate all escalation queries so they refetch
+  queryClient.invalidateQueries({ queryKey: queryKeys.escalations() });
+
+  if (payload.policyPubkey) {
+    queryClient.invalidateQueries({
+      queryKey: queryKeys.escalationsByPolicy(payload.policyPubkey),
+    });
+  }
+}

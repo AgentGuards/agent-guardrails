@@ -1,6 +1,8 @@
 import { INCIDENTS, POLICIES, TRANSACTIONS, VERDICTS } from "@/lib/mock";
 import type {
   ApiErrorPayload,
+  EscalationDetail,
+  EscalationSummary,
   IncidentDetail,
   IncidentSummary,
   PaginatedResponse,
@@ -101,6 +103,27 @@ async function postJson<T>(path: string, body: unknown): Promise<T> {
     `${API_URL}${path}`,
     buildApiRequestInit({
       method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    }),
+  );
+
+  if (!response.ok) {
+    await throwIfNotOk(response);
+  }
+
+  return response.json() as Promise<T>;
+}
+
+async function patchJson<T>(path: string, body: unknown): Promise<T> {
+  if (!API_URL) {
+    throw new Error("NEXT_PUBLIC_API_URL is not configured");
+  }
+
+  const response = await safeFetch(
+    `${API_URL}${path}`,
+    buildApiRequestInit({
+      method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
     }),
@@ -524,5 +547,44 @@ export async function fetchIncident(id: string): Promise<IncidentDetail> {
           signals: [],
         }
       : null,
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Escalations
+// ---------------------------------------------------------------------------
+
+const DEFAULT_ESCALATIONS_LIMIT = 25;
+
+export async function fetchEscalations(
+  policyPubkey?: string,
+  limit = DEFAULT_ESCALATIONS_LIMIT,
+): Promise<EscalationSummary[]> {
+  if (USE_MOCK_API) return [];
+
+  const params = new URLSearchParams();
+  if (policyPubkey) params.set("policy", policyPubkey);
+  params.set("limit", String(normalizeLimit(limit, DEFAULT_ESCALATIONS_LIMIT)));
+
+  const { escalations } = await getJson<{
+    escalations: EscalationSummary[];
+    total: number;
+  }>(`/api/escalations${toQueryString(params)}`);
+
+  return escalations;
+}
+
+export async function fetchEscalation(id: string): Promise<EscalationDetail> {
+  return getJson<EscalationDetail>(`/api/escalations/${id}`);
+}
+
+export async function updateEscalationProposal(
+  id: string,
+  proposalPda: string,
+  transactionIndex: string,
+): Promise<EscalationSummary> {
+  return patchJson<EscalationSummary>(`/api/escalations/${id}`, {
+    proposalPda,
+    transactionIndex,
   });
 }

@@ -16,4 +16,9 @@ export const queryKeys = {
   incidents: () => ["incidents"] as const,
   incidentsByPolicy: (policyPubkey: string) => ["incidents", policyPubkey] as const,
   incident: (incidentId: string) => ["incident", incidentId] as const,
+
+  // Escalation reads
+  escalations: () => ["escalations"] as const,
+  escalationsByPolicy: (policyPubkey: string) => ["escalations", policyPubkey] as const,
+  escalation: (id: string) => ["escalation", id] as const,
 };

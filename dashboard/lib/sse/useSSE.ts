@@ -4,6 +4,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef } from "react";
 import {
   applyAgentPausedEvent,
+  applyEscalationEvent,
   applyNewTransactionEvent,
   applyReportReadyEvent,
   applyVerdictEvent,
@@ -73,6 +74,20 @@ export function useSSE(): void {
       eventSource.addEventListener("report_ready", (e) => {
         try {
           applyReportReadyEvent(qc, JSON.parse(e.data));
+        } catch {
+          /* ignore */
+        }
+      });
+      eventSource.addEventListener("escalation_created", (e) => {
+        try {
+          applyEscalationEvent(qc, JSON.parse(e.data));
+        } catch {
+          /* ignore */
+        }
+      });
+      eventSource.addEventListener("escalation_updated", (e) => {
+        try {
+          applyEscalationEvent(qc, JSON.parse(e.data));
         } catch {
           /* ignore */
         }
