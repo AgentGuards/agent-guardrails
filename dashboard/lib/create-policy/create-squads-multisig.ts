@@ -39,11 +39,16 @@ export async function createSquadsMultisig(
     permissions: multisig.types.Permissions.all(),
   }));
 
-  // Derive the Squads program config PDA (protocol treasury)
-  const [programConfigPda] = PublicKey.findProgramAddressSync(
-    [Buffer.from("program_config")],
-    multisig.PROGRAM_ID,
-  );
+  // Read the Squads program config to get the protocol treasury address
+  const [programConfigPda] = multisig.getProgramConfigPda({ programId: multisig.PROGRAM_ID });
+  const configAccount = await connection.getAccountInfo(programConfigPda);
+  let treasury: PublicKey;
+  if (configAccount && configAccount.data.length >= 80) {
+    // Treasury pubkey is at offset 48 (after 8 discriminator + 32 authority + 8 fee)
+    treasury = new PublicKey(configAccount.data.subarray(48, 80));
+  } else {
+    treasury = programConfigPda;
+  }
 
   // Build the create multisig instruction
   const createIx = multisig.instructions.multisigCreateV2({
@@ -55,7 +60,7 @@ export async function createSquadsMultisig(
     members: membersList,
     threshold,
     rentCollector: null,
-    treasury: programConfigPda,
+    treasury,
   });
 
   // Build and send the transaction
