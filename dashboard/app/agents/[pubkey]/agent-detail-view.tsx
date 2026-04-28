@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { AppShell, IncidentTable, Metric, SpendGauge, TransactionRow } from "@/components/dashboard-ui";
+import { ClosePolicyButton } from "@/components/close-policy-button";
 import { FundAgentButton } from "@/components/fund-agent-button";
 import { KillSwitchButton } from "@/components/kill-switch-button";
 import { RotateAgentKeyButton } from "@/components/rotate-agent-key-button";
@@ -58,6 +59,7 @@ export function AgentDetailView({ pubkey }: { pubkey: string }) {
         <KillSwitchButton policy={policy} />
         <RotateAgentKeyButton policy={policy} />
         <FundAgentButton policy={policy} />
+        <ClosePolicyButton policy={policy} />
       </div>
 
       {policy.squadsMultisig ? (() => {

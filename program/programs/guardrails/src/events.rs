@@ -118,6 +118,16 @@ pub struct AgentKeyRotated {
     pub timestamp: i64,
 }
 
+/// Emitted when a policy is permanently closed by the owner.
+/// All SOL (rent + operational) is refunded to the owner.
+#[event]
+pub struct PolicyClosed {
+    pub policy: Pubkey,
+    pub owner: Pubkey,
+    pub refunded_lamports: u64,
+    pub timestamp: i64,
+}
+
 /// Emitted before the CPI in `guarded_execute` (step 9 of the 12-step flow).
 /// Gives the server pipeline visibility into every CPI attempt that passed
 /// pre-validation, regardless of whether the CPI itself succeeds or fails.

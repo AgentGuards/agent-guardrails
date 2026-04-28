@@ -148,6 +148,13 @@ export interface EscalatedToSquadsEvent {
   amount: BN;
 }
 
+export interface PolicyClosedEvent {
+  policy: PublicKey;
+  owner: PublicKey;
+  refundedLamports: BN;
+  timestamp: BN;
+}
+
 export interface AgentKeyRotatedEvent {
   oldPolicy: PublicKey;
   newPolicy: PublicKey;

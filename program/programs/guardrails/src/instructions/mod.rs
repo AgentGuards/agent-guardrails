@@ -4,6 +4,7 @@
 //! re-export their Accounts context and Args structs so `lib.rs` can
 //! import them via `use crate::instructions::*`.
 
+pub mod close_policy;
 pub mod escalate_to_squads;
 pub mod guarded_execute;
 pub mod initialize_policy;

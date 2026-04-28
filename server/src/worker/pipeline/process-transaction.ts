@@ -9,6 +9,7 @@ import { migratePolicy } from "./migrate-policy.js";
 import { prefilter } from "./prefilter.js";
 import { judgeTransaction } from "./judge.js";
 import { executePause } from "./executor.js";
+import { prisma } from "../../db/client.js";
 import { sseEmitter } from "../../sse/emitter.js";
 import { env } from "../../config/env.js";
 import type { HeliusEnhancedTransaction } from "../routes/webhook.js";
@@ -67,6 +68,22 @@ export async function processTransaction(txn: HeliusEnhancedTransaction): Promis
       console.log(
         `[pipeline] rotated agent key: ${policyPubkey.slice(0, 8)}… → ${newPolicyPubkey.slice(0, 8)}…`,
       );
+      break;
+    }
+
+    // Policy closed — delete all records from DB
+    case "close_policy": {
+      await prisma.$transaction([
+        prisma.guardedTxn.deleteMany({ where: { policyPubkey } }),
+        prisma.anomalyVerdict.deleteMany({ where: { policyPubkey } }),
+        prisma.incident.deleteMany({ where: { policyPubkey } }),
+        prisma.escalationProposal.deleteMany({ where: { policyPubkey } }),
+        prisma.spendTracker.deleteMany({ where: { policyPubkey } }),
+        prisma.policy.deleteMany({ where: { pubkey: policyPubkey } }),
+      ]);
+
+      sseEmitter.emitEvent("policy_closed", { policyPubkey });
+      console.log(`[pipeline] policy ${policyPubkey.slice(0, 8)}… closed and deleted`);
       break;
     }
 

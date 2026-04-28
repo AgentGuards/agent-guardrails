@@ -57,6 +57,16 @@ export function WalletControls() {
               Signed in as {signedInLabel}
             </span>
           ) : null}
+          <button
+            type="button"
+            className="inline-flex items-center rounded-full border border-zinc-700/60 bg-zinc-900/50 px-3 py-1.5 text-xs text-zinc-400 transition-colors hover:border-red-800/60 hover:bg-red-950/30 hover:text-red-300"
+            onClick={() => {
+              useSiwsAuthStore.getState().clearSignedIn();
+              void walletAdapter.disconnect();
+            }}
+          >
+            Disconnect
+          </button>
           {!isSigninPage && !isSiwsSignedIn ? (
             <Link
               href="/signin"

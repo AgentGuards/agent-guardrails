@@ -54,6 +54,7 @@ export type InstructionType =
   | "resume_agent"
   | "guarded_execute"
   | "rotate_agent_key"
+  | "close_policy"
   | "update_anomaly_score"
   | "wrap_sol"
   | "unwrap_sol"
@@ -66,6 +67,7 @@ const DISCRIMINATORS: Record<string, InstructionType> = {
   "7cfc788cdd7d55f7": "resume_agent",
   "18068369ba16f7e1": "guarded_execute",
   "551f11d4a2359973": "rotate_agent_key",
+  "372af8e5de8a1afc": "close_policy",
   // update_anomaly_score, wrap_sol, unwrap_sol — not routed in pipeline
 };
 
@@ -77,6 +79,7 @@ const POLICY_ACCOUNT_INDEX: Record<string, number> = {
   resume_agent: 1,        // [owner, policy]
   guarded_execute: 1,     // [agent, policy, tracker, target, system]
   rotate_agent_key: 1,    // [owner, old_policy, old_tracker, new_agent, new_policy, new_tracker, system]
+  close_policy: 1,        // [owner, policy, tracker]
   update_anomaly_score: 1, // [caller, policy]
 };
 

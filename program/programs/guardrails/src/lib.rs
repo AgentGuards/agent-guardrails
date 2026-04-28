@@ -14,6 +14,7 @@ pub mod state;
 // that looks for __client_accounts_* modules at crate::*, so glob re-exports are
 // needed for each implemented instruction module.
 #[allow(ambiguous_glob_reexports)]
+pub use instructions::close_policy::*;
 pub use instructions::escalate_to_squads::*;
 pub use instructions::guarded_execute::*;
 pub use instructions::initialize_policy::*;
@@ -71,6 +72,12 @@ pub mod guardrails {
     /// operational SOL atomically.
     pub fn rotate_agent_key(ctx: Context<RotateAgentKey>, args: RotateAgentKeyArgs) -> Result<()> {
         instructions::rotate_agent_key::handler(ctx, args)
+    }
+
+    /// Permanently closes a policy and its tracker. Returns all SOL to owner.
+    /// Policy must be paused first.
+    pub fn close_policy(ctx: Context<ClosePolicy>) -> Result<()> {
+        instructions::close_policy::handler(ctx)
     }
 
     /// Standalone Squads escalation. STUB — escalation is handled inside

@@ -260,6 +260,23 @@ export class GuardrailsClient {
     return { txSig, newPolicyPda };
   }
 
+  /**
+   * Permanently closes a policy and its tracker. Returns all SOL to owner.
+   * Policy must be paused first. Owner-only (wallet).
+   */
+  async closePolicy(policyPda: PublicKey): Promise<string> {
+    const owner = this.walletPublicKey();
+    const [trackerPda] = this.findTrackerPda(policyPda);
+    return await (this.program.methods as any)
+      .closePolicy()
+      .accounts({
+        owner,
+        policy: policyPda,
+        tracker: trackerPda,
+      })
+      .rpc();
+  }
+
   /** Resumes a paused agent. Owner-only (wallet). */
   async resumeAgent(policyPda: PublicKey): Promise<string> {
     const owner = this.walletPublicKey();

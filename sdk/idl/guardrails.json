@@ -8,6 +8,96 @@
   },
   "instructions": [
     {
+      "name": "close_policy",
+      "docs": [
+        "Permanently closes a policy and its tracker. Returns all SOL to owner.",
+        "Policy must be paused first."
+      ],
+      "discriminator": [
+        55,
+        42,
+        248,
+        229,
+        222,
+        138,
+        26,
+        252
+      ],
+      "accounts": [
+        {
+          "name": "owner",
+          "docs": [
+            "Only the policy owner can close it."
+          ],
+          "writable": true,
+          "signer": true,
+          "relations": [
+            "policy"
+          ]
+        },
+        {
+          "name": "policy",
+          "docs": [
+            "The PermissionPolicy PDA to close. Must be paused."
+          ],
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  112,
+                  111,
+                  108,
+                  105,
+                  99,
+                  121
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "policy.owner",
+                "account": "PermissionPolicy"
+              },
+              {
+                "kind": "account",
+                "path": "policy.agent",
+                "account": "PermissionPolicy"
+              }
+            ]
+          }
+        },
+        {
+          "name": "tracker",
+          "docs": [
+            "The SpendTracker PDA to close."
+          ],
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  116,
+                  114,
+                  97,
+                  99,
+                  107,
+                  101,
+                  114
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "policy"
+              }
+            ]
+          }
+        }
+      ],
+      "args": []
+    },
+    {
       "name": "escalate_to_squads",
       "docs": [
         "Standalone Squads escalation. STUB — escalation is handled inside",
@@ -432,8 +522,7 @@
           "name": "old_policy",
           "docs": [
             "The existing PermissionPolicy PDA to close.",
-            "`close = owner` refunds remaining lamports at instruction exit.",
-            "Boxed to reduce stack frame size (PermissionPolicy is 685 bytes)."
+            "Closed manually in handler (not via Anchor `close` constraint)."
           ],
           "writable": true,
           "pda": {
@@ -498,8 +587,7 @@
         {
           "name": "new_policy",
           "docs": [
-            "The new PermissionPolicy PDA derived with the new agent key.",
-            "Boxed to reduce stack frame size."
+            "The new PermissionPolicy PDA derived with the new agent key."
           ],
           "writable": true,
           "pda": {
@@ -984,6 +1072,19 @@
         3,
         80,
         39
+      ]
+    },
+    {
+      "name": "PolicyClosed",
+      "discriminator": [
+        19,
+        126,
+        82,
+        173,
+        79,
+        86,
+        50,
+        51
       ]
     }
   ],
@@ -1702,6 +1803,34 @@
               "PDA bump seed, stored to avoid recomputing on every constraint check."
             ],
             "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "PolicyClosed",
+      "docs": [
+        "Emitted when a policy is permanently closed by the owner.",
+        "All SOL (rent + operational) is refunded to the owner."
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "policy",
+            "type": "pubkey"
+          },
+          {
+            "name": "owner",
+            "type": "pubkey"
+          },
+          {
+            "name": "refunded_lamports",
+            "type": "u64"
+          },
+          {
+            "name": "timestamp",
+            "type": "i64"
           }
         ]
       }

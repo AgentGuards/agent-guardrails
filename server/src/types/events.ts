@@ -99,6 +99,11 @@ export interface SSEReportReady {
   fullReport: string;
 }
 
+/** Payload for `policy_closed` SSE event. Policy permanently deleted. */
+export interface SSEPolicyClosed {
+  policyPubkey: string;
+}
+
 /** Payload for `escalation_created` SSE event. New Squads escalation proposal. */
 export interface SSEEscalationCreated {
   id: string;
