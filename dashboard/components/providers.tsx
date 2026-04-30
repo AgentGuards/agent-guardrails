@@ -9,6 +9,8 @@ import { WalletModalProvider } from "@solana/wallet-adapter-react-ui";
 import type { Adapter } from "@solana/wallet-adapter-base";
 import { PhantomWalletAdapter, SolflareWalletAdapter } from "@solana/wallet-adapter-wallets";
 import { BackpackWalletAdapter } from "@solana/wallet-adapter-backpack";
+import NextTopLoader from "nextjs-toploader";
+import { Toaster } from "sonner";
 import { ApiClientError, isUnauthorizedError } from "@/lib/api/client";
 import { clearSiwsAndRedirectToSignin } from "@/lib/auth/siws-session";
 import { useSSE } from "@/lib/sse/useSSE";
@@ -76,6 +78,29 @@ export function AppProviders({ children }: { children: ReactNode }) {
         <WalletModalProvider>
           <QueryClientProvider client={queryClient}>
             <RealtimeBridge />
+            <NextTopLoader
+              color="#00FFD1"
+              initialPosition={0.12}
+              crawlSpeed={200}
+              height={3}
+              crawl
+              showSpinner={false}
+              easing="ease"
+              speed={200}
+              shadow="0 0 10px #00FFD1,0 0 5px #00FFD1"
+            />
+            <Toaster
+              theme="dark"
+              richColors
+              position="top-right"
+              toastOptions={{
+                style: {
+                  background: "hsl(var(--card))",
+                  border: "1px solid hsl(var(--border))",
+                  color: "hsl(var(--foreground))",
+                },
+              }}
+            />
             {children}
           </QueryClientProvider>
         </WalletModalProvider>

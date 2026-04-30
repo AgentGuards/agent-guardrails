@@ -3,16 +3,48 @@
 @tailwind utilities;
 
 @layer base {
+  :root,
+  .dark {
+    --background: 214 30% 5%;
+    --foreground: 210 40% 98%;
+    --card: 215 18% 13%;
+    --card-foreground: 210 40% 98%;
+    --card-border: 218 21% 21%;
+    --popover: 215 18% 13%;
+    --popover-foreground: 210 40% 98%;
+    --popover-border: 218 21% 21%;
+    --primary: 169 100% 50%;
+    --primary-foreground: 214 30% 5%;
+    --secondary: 215 18% 13%;
+    --secondary-foreground: 210 40% 98%;
+    --muted: 215 18% 13%;
+    --muted-foreground: 215 14% 65%;
+    --accent: 215 18% 20%;
+    --accent-foreground: 210 40% 98%;
+    --destructive: 350 100% 62%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 218 21% 21%;
+    --input: 218 21% 21%;
+    --ring: 169 100% 50%;
+    --teal: 169 100% 50%;
+    --amber: 39 100% 59%;
+    --crimson: 350 100% 62%;
+  }
+
+  * {
+    @apply border-border;
+  }
+
   html,
   body {
     @apply min-h-full overflow-x-hidden;
   }
 
   body {
-    @apply bg-zinc-950 text-zinc-100 antialiased;
+    @apply bg-background text-foreground antialiased;
     background-image:
-      radial-gradient(circle at 10% -10%, rgba(59, 130, 246, 0.18), transparent 45%),
-      radial-gradient(circle at 100% 0%, rgba(14, 165, 233, 0.12), transparent 35%);
+      radial-gradient(circle at 10% -10%, hsl(var(--teal) / 0.16), transparent 45%),
+      radial-gradient(circle at 100% 0%, hsl(var(--teal) / 0.08), transparent 35%);
   }
 }
 
@@ -22,19 +54,19 @@
   }
 
   .button-primary {
-    @apply border border-blue-500 bg-gradient-to-r from-blue-600 to-blue-500 text-white shadow-[0_0_0_1px_rgba(59,130,246,0.85),0_0_24px_rgba(59,130,246,0.32)] hover:from-blue-500 hover:to-blue-400 hover:shadow-[0_0_0_1px_rgba(59,130,246,0.95),0_0_30px_rgba(59,130,246,0.42)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950;
+    @apply border border-primary bg-primary text-primary-foreground shadow-[0_0_0_1px_hsl(var(--primary)/0.75),0_0_24px_hsl(var(--primary)/0.25)] hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background;
   }
 
   .button-secondary {
-    @apply border border-[#2a3142] bg-[#10131c] text-zinc-100 hover:border-[#384056] hover:bg-[#151925] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400/70 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950;
+    @apply border border-input bg-secondary text-secondary-foreground hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70 focus-visible:ring-offset-2 focus-visible:ring-offset-background;
   }
 
   .panel-glow {
-    @apply rounded-xl border border-[#1e2433] bg-[#0b0d14] shadow-[0_12px_36px_-22px_rgba(59,130,246,0.35)] transition-all duration-300;
+    @apply rounded-xl border border-card-border bg-card shadow-[0_12px_36px_-22px_hsl(var(--primary)/0.2)] transition-all duration-300;
   }
 
   .panel-glow-hover {
-    @apply hover:border-[#2a3142] hover:shadow-[0_0_0_1px_rgba(59,130,246,0.25),0_0_24px_rgba(59,130,246,0.08)];
+    @apply hover:border-primary/35 hover:shadow-[0_0_0_1px_hsl(var(--primary)/0.2),0_0_24px_hsl(var(--primary)/0.08)];
   }
 }
 
