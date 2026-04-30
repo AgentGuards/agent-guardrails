@@ -16,7 +16,7 @@ export function WalletControls() {
   const siwsWallet = useSiwsAuthStore((s) => s.siwsWallet);
   const siwsSignedInAt = useSiwsAuthStore((s) => s.siwsSignedInAt);
   const [connectError, setConnectError] = useState<string | null>(null);
-  const isSigninPage = pathname === "/signin";
+  const isHome = pathname === "/";
   let connectedWalletPubkey: string | null = null;
   let wallet = "Not connected";
   let connected = false;
@@ -67,9 +67,9 @@ export function WalletControls() {
           >
             Disconnect
           </button>
-          {!isSigninPage && !isSiwsSignedIn ? (
+          {!isHome && !isSiwsSignedIn ? (
             <Link
-              href="/signin"
+              href="/"
               className="inline-flex items-center rounded-full border border-blue-800/60 bg-blue-950/35 px-4 py-2 text-xs font-semibold text-blue-100 transition-colors hover:bg-blue-900/40"
             >
               Connect wallet + Sign in
@@ -88,8 +88,8 @@ export function WalletControls() {
             void walletAdapter
               .connect()
               .then(() => {
-                if (pathname !== "/signin") {
-                  router.push("/signin");
+                if (!isHome) {
+                  router.push("/");
                 }
               })
               .catch((error: unknown) => {

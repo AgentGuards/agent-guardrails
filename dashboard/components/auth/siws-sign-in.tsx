@@ -4,6 +4,7 @@ import { useWallet } from "@solana/wallet-adapter-react";
 import { useRouter } from "nextjs-toploader/app";
 import { useSearchParams } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
+import { Wallet } from "lucide-react";
 import { useCallback, useState } from "react";
 import {
   ApiClientError,
@@ -19,26 +20,6 @@ function uint8ArrayToBase64(bytes: Uint8Array): string {
     binary += String.fromCharCode(bytes[i]!);
   }
   return btoa(binary);
-}
-
-function WalletIcon({ size = 14 }: { size?: number }) {
-  return (
-    <svg
-      width={size}
-      height={size}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={1.8}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      <rect x="3" y="6" width="18" height="13" rx="2" />
-      <path d="M16 12h2" />
-      <path d="M3 9V7a2 2 0 012-2h12" />
-    </svg>
-  );
 }
 
 function resolveRedirectTarget(from: string | null): string {
@@ -96,7 +77,7 @@ export function SiwsSignIn() {
           disabled={busy || connecting}
           onClick={() => void onSignIn()}
         >
-          <WalletIcon />
+          <Wallet size={14} strokeWidth={1.8} aria-hidden />
           {busy || connecting ? "Signing…" : "Sign in with Solana"}
         </button>
       ) : (

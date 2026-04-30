@@ -28,7 +28,7 @@ vi.mock("next/link", () => ({
 }));
 
 vi.mock("next/navigation", () => ({
-  useRouter: () => ({ push: pushMock }),
+  useRouter: () => ({ push: pushMock, replace: pushMock }),
 }));
 
 vi.mock("@solana/wallet-adapter-react", () => ({
@@ -37,6 +37,11 @@ vi.mock("@solana/wallet-adapter-react", () => ({
     signMessage: vi.fn(async () => new Uint8Array([1, 2, 3])),
     signTransaction: vi.fn(),
     signAllTransactions: vi.fn(),
+    connected: true,
+    connecting: false,
+    disconnect: vi.fn(),
+    connect: vi.fn().mockResolvedValue(undefined),
+    wallet: { adapter: {} },
   }),
 }));
 
@@ -109,7 +114,7 @@ describe("phase 1 route smoke tests", () => {
   it("renders landing and agents routes", async () => {
     const Home = (await import("@/app/page")).default;
     render(createElement(Home));
-    expect(screen.getByText("Sign in with Solana")).toBeTruthy();
+    expect(screen.getByText("Agent Guardrails")).toBeTruthy();
     cleanup();
 
     const AgentsPage = (await import("@/app/agents/page")).default;
@@ -155,7 +160,7 @@ describe("phase 1 route smoke tests", () => {
   it("renders signin, agent detail, policy edit, and incident detail routes", async () => {
     const SignInPage = (await import("@/app/(auth)/signin/page")).default;
     render(createElement(SignInPage));
-    expect(screen.getByRole("heading", { name: "Sign In" })).toBeTruthy();
+    expect(screen.getByText("Redirecting…")).toBeTruthy();
     cleanup();
 
     const AgentDetailPage = (await import("@/app/agents/[pubkey]/page")).default;

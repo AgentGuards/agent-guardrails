@@ -1,5 +1,7 @@
 import { PROGRAM_LABELS } from "@/lib/mock/policies";
 import type { PolicySummary } from "@/lib/types/dashboard";
+import { clsx, type ClassValue } from "clsx"
+import { twMerge } from "tailwind-merge"
 
 export function shortAddress(value: string, start = 4, end = 4): string {
   if (!value) return "";
@@ -53,4 +55,8 @@ export function verdictTone(verdict?: string | null): "green" | "amber" | "red" 
 export function effectiveVerdict(verdict?: string | null): "allow" | "flag" | "pause" {
   if (verdict === "flag" || verdict === "pause") return verdict;
   return "allow";
+}
+
+export function cn(...inputs: ClassValue[]) {
+  return twMerge(clsx(inputs))
 }

@@ -11,8 +11,9 @@ import { PhantomWalletAdapter, SolflareWalletAdapter } from "@solana/wallet-adap
 import { BackpackWalletAdapter } from "@solana/wallet-adapter-backpack";
 import NextTopLoader from "nextjs-toploader";
 import { Toaster } from "sonner";
+import { RequireSession } from "@/components/auth/require-session";
 import { ApiClientError, isUnauthorizedError } from "@/lib/api/client";
-import { clearSiwsAndRedirectToSignin } from "@/lib/auth/siws-session";
+import { clearSiwsAndRedirectHome } from "@/lib/auth/siws-session";
 import { useSSE } from "@/lib/sse/useSSE";
 
 const RPC_ENDPOINT = process.env.NEXT_PUBLIC_SOLANA_RPC_URL ?? "https://api.devnet.solana.com";
@@ -46,9 +47,9 @@ export function AppProviders({ children }: { children: ReactNode }) {
         queryCache: new QueryCache({
           onError: (error) => {
             if (typeof window === "undefined") return;
-            if (window.location.pathname === "/signin") return;
+            if (window.location.pathname === "/") return;
             if (isUnauthorizedError(error)) {
-              clearSiwsAndRedirectToSignin();
+              clearSiwsAndRedirectHome();
             }
           },
         }),
@@ -101,7 +102,7 @@ export function AppProviders({ children }: { children: ReactNode }) {
                 },
               }}
             />
-            {children}
+            <RequireSession>{children}</RequireSession>
           </QueryClientProvider>
         </WalletModalProvider>
       </SafeWalletProvider>

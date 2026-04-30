@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { clearSiwsAndRedirectToSignin } from "@/lib/auth/siws-session";
+import { clearSiwsAndRedirectHome } from "@/lib/auth/siws-session";
 import { useSiwsAuthStore } from "@/lib/stores/siws-auth";
 
 describe("providers auth redirect helper", () => {
@@ -12,10 +12,10 @@ describe("providers auth redirect helper", () => {
     useSiwsAuthStore.getState().markSignedIn("Wallet11111111111111111111111111111111");
     const redirectMock = vi.fn();
 
-    clearSiwsAndRedirectToSignin(redirectMock);
+    clearSiwsAndRedirectHome(redirectMock);
 
     expect(useSiwsAuthStore.getState().siwsWallet).toBeNull();
     expect(useSiwsAuthStore.getState().siwsSignedInAt).toBeNull();
-    expect(redirectMock).toHaveBeenCalledWith("/signin");
+    expect(redirectMock).toHaveBeenCalledWith("/");
   });
 });

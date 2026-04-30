@@ -1,8 +1,20 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import { useWallet } from "@solana/wallet-adapter-react";
+import type { LucideIcon } from "lucide-react";
+import {
+  Activity,
+  Compass,
+  Home,
+  LayoutPanelLeft,
+  LogOut,
+  Plus,
+  TriangleAlert,
+  Users,
+} from "lucide-react";
 import { RadialBar, RadialBarChart, ResponsiveContainer } from "recharts";
 import { useEffect, type ReactNode } from "react";
 import {
@@ -17,53 +29,24 @@ import {
 } from "@/lib/utils";
 import type { IncidentSummary, PolicySummary, TransactionSummary } from "@/lib/types/dashboard";
 import { useLayoutStore } from "@/lib/stores/layout";
-import { WalletControls } from "./wallet-controls";
-
-/* ── SVG icon paths (matching design reference) ── */
-const navIconPaths = {
-  home: "M3 11.5L12 4l9 7.5M5 10v10a1 1 0 001 1h4v-6h4v6h4a1 1 0 001-1V10",
-  agents: "M16 11a4 4 0 10-8 0 4 4 0 008 0zM3 21v-1a5 5 0 015-5h8a5 5 0 015 5v1",
-  activity: "M3 12h4l3-8 4 16 3-8h4",
-  incidents: "M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z",
-  plus: "M12 5v14M5 12h14",
-  panelToggle: "M4 5h16v14H4zM9 5v14",
-  bell: "M15 17h5l-1.4-1.4A2 2 0 0118 14.2V11a6 6 0 00-4-5.7V5a2 2 0 10-4 0v.3C7.7 6.2 6 8.4 6 11v3.2c0 .5-.2 1.1-.6 1.4L4 17h5m6 0v1a3 3 0 11-6 0v-1",
-  chevronUpDown: "M7 9l5-5 5 5M7 15l5 5 5-5",
-} as const;
-
-function NavIcon({ d, size = 16 }: { d: string; size?: number }) {
-  return (
-    <svg
-      width={size}
-      height={size}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={1.7}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className="shrink-0"
-    >
-      <path d={d} />
-    </svg>
-  );
-}
+import { useSiwsAuthStore } from "@/lib/stores/siws-auth";
+import { ShellNavbarActions } from "./shell-navbar-actions";
 
 type NavLink = {
   href: string;
   label: string;
-  icon: string;
+  icon: LucideIcon;
   nested?: boolean;
 };
 
 const navGroups: NavLink[][] = [
-  [{ href: "/", label: "Home", icon: navIconPaths.home, nested: false }],
+  [{ href: "/", label: "Home", icon: Home, nested: false }],
   [
-    { href: "/agents", label: "Agents", icon: navIconPaths.agents },
-    { href: "/activity", label: "Activity", icon: navIconPaths.activity },
-    { href: "/incidents", label: "Incidents", icon: navIconPaths.incidents },
+    { href: "/agents", label: "Agents", icon: Users },
+    { href: "/activity", label: "Activity", icon: Activity },
+    { href: "/incidents", label: "Incidents", icon: TriangleAlert },
   ],
-  [{ href: "/agents/new", label: "New agent", icon: navIconPaths.plus, nested: false }],
+  [{ href: "/agents/new", label: "New agent", icon: Plus, nested: false }],
 ];
 
 export function AppShell({
@@ -95,27 +78,27 @@ export function AppShell({
     );
   }
 
-  let connected = false;
-  let publicKey: { toBase58(): string } | null = null;
-  try {
-    connected = Boolean(walletAdapter.connected);
-    publicKey = walletAdapter.publicKey ?? null;
-  } catch {
-    // Graceful fallback when WalletProvider is not mounted (e.g. tests).
-  }
-
-  const walletAddress = publicKey ? shortAddress(publicKey.toBase58(), 4, 4) : "Not connected";
   const currentPath = pathname ?? "";
-  const isLinkActive = (href: string, nested: boolean | undefined) =>
-    href === "/"
-      ? currentPath === "/"
-      : currentPath === href || (nested !== false && currentPath.startsWith(`${href}/`));
+  const isLinkActive = (href: string, nested: boolean | undefined) => {
+    if (href === "/") {
+      return currentPath === "/";
+    }
+    if (href === "/agents") {
+      return (
+        currentPath === "/agents" ||
+        (currentPath.startsWith("/agents/") && !currentPath.startsWith("/agents/new"))
+      );
+    }
+    return currentPath === href || (nested !== false && currentPath.startsWith(`${href}/`));
+  };
 
   const collapsed = sidebarCollapsed;
   const sidebarWidth = collapsed ? "w-[60px]" : "w-60";
 
   const renderNavItem = (link: NavLink) => {
     const active = isLinkActive(link.href, link.nested);
+    const Icon = link.icon;
+    const iconSize = collapsed ? 18 : 16;
     return (
       <Link
         key={link.href}
@@ -124,20 +107,28 @@ export function AppShell({
         aria-label={link.label}
         aria-current={active ? "page" : undefined}
         onClick={() => setSidebarOpen(false)}
-        className={`group relative flex items-center rounded-md text-[13px] transition-[background,color] duration-150 ${collapsed ? "h-9 w-9 mx-auto justify-center" : "gap-2.5 px-2.5 py-[7px]"
+        className={`group relative flex items-center rounded-md text-sm transition-[background,color] duration-150 ${collapsed ? "h-10 w-10 mx-auto justify-center" : "gap-3 px-3 py-2"
           } ${active
-            ? "bg-primary/12 text-primary shadow-[inset_0_0_0_1px_hsl(var(--primary)/0.32)]"
-            : "text-muted-foreground hover:bg-secondary hover:text-foreground"
+            ? "bg-white/[0.1] text-zinc-50 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.22)]"
+            : "text-zinc-300 hover:bg-white/[0.06] hover:text-zinc-100"
           }`}
       >
-        <NavIcon d={link.icon} size={collapsed ? 18 : 16} />
+        <Icon size={iconSize} className="shrink-0" strokeWidth={1.7} />
         {!collapsed ? <span className="truncate">{link.label}</span> : null}
       </Link>
     );
   };
 
+  const mainCanvasClass = "flex min-h-0 flex-1 flex-col bg-[#111114] text-foreground";
+  const onSignOut = () => {
+    useSiwsAuthStore.getState().clearSignedIn();
+    void walletAdapter.disconnect().catch(() => {
+      /* wallet may already be disconnected */
+    });
+  };
+
   return (
-    <div className="flex min-h-screen w-full overflow-x-hidden bg-background text-foreground">
+    <div className="flex min-h-screen w-full overflow-x-hidden bg-black text-foreground">
       {/* Mobile backdrop */}
       {sidebarOpen ? (
         <button
@@ -148,36 +139,32 @@ export function AppShell({
         />
       ) : null}
 
-      {/* ── Sidebar ── */}
+      {/* ── Sidebar (rails-style: deep black, separated from main canvas) ── */}
       <aside
-        className={`fixed left-0 top-0 z-40 flex h-full ${sidebarWidth} flex-col border-r border-border bg-card shadow-2xl transition-[width,transform] duration-300 ease-out md:sticky md:top-0 md:z-0 md:h-screen md:shrink-0 md:translate-x-0 md:shadow-none ${sidebarOpen ? "translate-x-0" : "-translate-x-full"
+        className={`fixed left-0 top-0 z-40 flex h-full ${sidebarWidth} flex-col border-r border-white/[0.06] bg-black shadow-2xl transition-[width,transform] duration-300 ease-out md:sticky md:top-0 md:z-0 md:h-screen md:shrink-0 md:translate-x-0 md:shadow-none ${sidebarOpen ? "translate-x-0" : "-translate-x-full"
           }`}
       >
-        {/* Workspace pill / brand selector */}
-        <div className={`px-2.5 pt-3 pb-3 ${collapsed ? "" : ""}`}>
+        {/* Brand */}
+        <div className="px-2.5 pb-3 pt-[1.875rem] md:pt-[2.125rem]">
           <Link
             href="/"
             onClick={() => setSidebarOpen(false)}
-            className={`relative flex items-center rounded-lg border border-border bg-secondary/60 transition-colors hover:bg-secondary ${collapsed ? "h-10 w-10 mx-auto justify-center" : "gap-2 px-2 py-2"
-              }`}
+            className={`relative flex items-center transition-colors hover:opacity-90 ${collapsed ? "h-10 w-10 mx-auto justify-center" : "gap-3 px-1.5 py-1.5"}`}
           >
-            <span className="relative h-6 w-6 shrink-0 rounded-md bg-gradient-to-br from-primary to-teal-500 shadow-[0_0_14px_hsl(var(--primary)/0.35)] after:absolute after:inset-[5px] after:rounded-[3px] after:border-[1.5px] after:border-primary-foreground/90 after:content-['']" />
+            <Image
+              src="/logo.png"
+              alt="Guardrails logo"
+              width={28}
+              height={28}
+              className={collapsed ? "h-7 w-7" : "h-7 w-7"}
+              priority
+            />
             {!collapsed ? (
-              <>
-                {/* Free / devnet tag floating top-left */}
-                <span className="absolute -left-1 -top-2 rounded-sm bg-amber-500/20 px-1.5 py-px text-[9px] font-semibold uppercase tracking-[0.1em] text-amber-500 shadow-[0_0_0_1px_hsl(var(--amber)/0.35)]">
-                  Devnet
-                </span>
-                <div className="min-w-0 flex-1">
-                  <div className="truncate text-[13px] font-semibold leading-tight tracking-[-0.01em]">
-                    Guardrails
-                  </div>
-                  <div className="truncate font-mono text-[10px] leading-tight text-muted-foreground">
-                    {connected ? walletAddress : "solana · devnet"}
-                  </div>
+              <div className="min-w-0 flex-1">
+                <div className="font-brand truncate text-[17px] leading-tight tracking-[0.04em] text-zinc-100">
+                  Guardrails
                 </div>
-                <NavIcon d={navIconPaths.chevronUpDown} size={14} />
-              </>
+              </div>
             ) : null}
           </Link>
         </div>
@@ -186,82 +173,95 @@ export function AppShell({
         <nav className="flex-1 overflow-y-auto px-2.5">
           {navGroups.map((group, idx) => (
             <div key={idx}>
-              {idx > 0 ? <div className="my-2 border-t border-border/70" /> : null}
+              {idx > 0 ? <div className="my-2 border-t border-white/[0.06]" /> : null}
               <div className="flex flex-col gap-0.5">{group.map(renderNavItem)}</div>
             </div>
           ))}
         </nav>
 
         {/* Footer system-status badge */}
-        <div className="border-t border-border px-3 py-3">
-          {collapsed ? (
-            <div className="flex justify-center">
-              <span className="h-2 w-2 rounded-full bg-primary shadow-[0_0_10px_hsl(var(--primary)/0.7)]" />
-            </div>
-          ) : (
-            <div className="flex items-center gap-2">
-              <span className="h-2 w-2 shrink-0 rounded-full bg-primary shadow-[0_0_10px_hsl(var(--primary)/0.7)]" />
-              <div className="min-w-0">
-                <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-primary">
-                  Online
-                </div>
-                <div className="truncate text-[10px] text-muted-foreground">
-                  System Status &middot; Build 2026.04
-                </div>
-              </div>
-            </div>
-          )}
+        <div className="border-t border-white/[0.06] px-3 py-3">
+          <div className={`${collapsed ? "mb-2 flex flex-col items-center gap-1.5" : "mb-2.5 flex flex-col gap-1.5"}`}>
+            <button
+              type="button"
+              title={collapsed ? "Take a tour" : undefined}
+              aria-label="Take a tour"
+              onClick={() => {
+                setSidebarOpen(false);
+                router.push("/");
+              }}
+              className={`flex items-center rounded-md text-zinc-300 transition-colors hover:bg-white/[0.06] hover:text-zinc-100 ${collapsed ? "h-9 w-9 justify-center" : "gap-2.5 px-2.5 py-2 text-sm"
+                }`}
+            >
+              <Compass size={16} className="shrink-0" strokeWidth={1.8} />
+              {!collapsed ? <span>Take a tour</span> : null}
+            </button>
+            <button
+              type="button"
+              title={collapsed ? "Sign out" : undefined}
+              aria-label="Sign out"
+              onClick={onSignOut}
+              className={`flex items-center rounded-md text-zinc-300 transition-colors hover:bg-white/[0.06] hover:text-zinc-100 ${collapsed ? "h-9 w-9 justify-center" : "gap-2.5 px-2.5 py-2 text-sm"
+                }`}
+            >
+              <LogOut size={16} className="shrink-0" strokeWidth={1.8} />
+              {!collapsed ? <span>Sign out</span> : null}
+            </button>
+          </div>
+          <div className="flex justify-center">
+            <span className="h-2 w-2 rounded-full bg-primary shadow-[0_0_10px_hsl(var(--primary)/0.7)]" />
+          </div>
         </div>
       </aside>
 
-      {/* ── Main content ── */}
-      <main className="min-w-0 flex-1">
-        <header className="sticky top-0 z-10 flex h-14 items-center gap-3 border-b border-border bg-background/90 px-4 backdrop-blur-md md:px-6">
-          {/* Sidebar toggle (desktop = collapse, mobile = open) */}
-          <button
-            type="button"
-            aria-label="Toggle sidebar"
-            className="hidden h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground md:inline-flex"
-            onClick={toggleSidebarCollapsed}
-          >
-            <NavIcon d={navIconPaths.panelToggle} size={18} />
-          </button>
-          <button
-            type="button"
-            aria-label="Open menu"
-            className="inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground md:hidden"
-            onClick={toggleSidebar}
-          >
-            <NavIcon d={navIconPaths.panelToggle} size={18} />
-          </button>
-
-          <div className="text-[13px] text-foreground">
-            <span className="text-muted-foreground">Dashboard</span>
-            <span className="px-2 text-muted-foreground/60">/</span>
-            <span className="text-foreground">{title}</span>
-          </div>
-
-          <div className="ml-auto flex items-center gap-2">
-            <WalletControls />
+      {/* ── Main: black top inset (sidebar chroma), then canvas for header + body ── */}
+      <main className="flex min-w-0 flex-1 flex-col bg-black">
+        <div className="h-4 w-full shrink-0 bg-black md:h-5" aria-hidden />
+        <div className={mainCanvasClass}>
+          <header className="sticky top-0 z-10 flex items-center gap-3 bg-[#111114] px-5 pb-4 pt-3.5 md:gap-4 md:px-7 md:pb-5 md:pt-4">
+            {/* Sidebar toggle (desktop = collapse, mobile = open) */}
             <button
               type="button"
-              aria-label="Notifications"
-              className="hidden h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground md:inline-flex"
+              aria-label="Toggle sidebar"
+              className="-ml-2 hidden h-9 w-9 shrink-0 items-center justify-center rounded-md text-zinc-400 transition-colors hover:bg-white/[0.06] hover:text-zinc-100 md:inline-flex"
+              onClick={toggleSidebarCollapsed}
             >
-              <NavIcon d={navIconPaths.bell} size={16} />
+              <LayoutPanelLeft size={18} className="shrink-0" strokeWidth={1.7} />
             </button>
-          </div>
-        </header>
+            <button
+              type="button"
+              aria-label="Open menu"
+              className="-ml-2 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-zinc-400 transition-colors hover:bg-white/[0.06] hover:text-zinc-100 md:hidden"
+              onClick={toggleSidebar}
+            >
+              <LayoutPanelLeft size={18} className="shrink-0" strokeWidth={1.7} />
+            </button>
 
-        <div className="px-5 py-7 md:px-8 md:py-8">
-          <header className="mb-6 flex flex-wrap items-end justify-between gap-4">
-            <div className="min-w-0">
-              <h1 className="text-[22px] font-semibold tracking-[-0.02em]">{title}</h1>
-              {subtitle ? <p className="mt-1 text-[13px] text-muted-foreground">{subtitle}</p> : null}
+            <div className="min-w-0 flex-1">
+              {/* <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-zinc-500">Agent Guardrails</p> */}
+              <h1 className=" truncate text-[1rem] font-semibold leading-tight tracking-[-0.02em] text-zinc-50 md:text-[1.5rem]">
+                {title}
+              </h1>
             </div>
-            <div className="flex items-center gap-2">{actions}</div>
+
+            <div className="flex shrink-0 items-center md:ml-auto">
+              <ShellNavbarActions />
+            </div>
           </header>
-          <div className="animate-[fade-in-up_220ms_ease-out]">{children}</div>
+
+          <div className="flex-1 px-5 pb-8 md:px-7 md:pb-10">
+            {subtitle || actions ? (
+              <header className="mb-6 flex flex-wrap items-end justify-between gap-4">
+                {subtitle ? (
+                  <p className="max-w-2xl text-[13px] leading-relaxed text-zinc-400">{subtitle}</p>
+                ) : (
+                  <span />
+                )}
+                <div className="flex shrink-0 items-center gap-2">{actions}</div>
+              </header>
+            ) : null}
+            <div className="animate-[fade-in-up_220ms_ease-out]">{children}</div>
+          </div>
         </div>
       </main>
     </div>
