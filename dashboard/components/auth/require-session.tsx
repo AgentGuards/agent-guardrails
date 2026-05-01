@@ -8,9 +8,15 @@ import { useSiwsAuthStore } from "@/lib/stores/siws-auth";
 /** Routes that require wallet connect + SIWS; everything else (e.g. 404) stays reachable. */
 function isProtectedDashboardPath(path: string): boolean {
   return (
+    path.startsWith("/home") ||
     path.startsWith("/agents") ||
     path.startsWith("/activity") ||
-    path.startsWith("/incidents")
+    path.startsWith("/incidents") ||
+    path.startsWith("/transactions") ||
+    path.startsWith("/audit") ||
+    path.startsWith("/escalations") ||
+    path.startsWith("/playground") ||
+    path.startsWith("/settings")
   );
 }
 

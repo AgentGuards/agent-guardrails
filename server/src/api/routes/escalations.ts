@@ -74,7 +74,7 @@ escalationsRouter.get("/:id", async (req, res) => {
         id: req.params.id,
         policy: { owner: walletPubkey },
       },
-      include: { txn: true },
+      include: { txn: { include: { verdict: true } } },
     });
 
     if (!escalation) {

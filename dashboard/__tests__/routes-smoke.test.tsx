@@ -114,7 +114,7 @@ describe("phase 1 route smoke tests", () => {
   it("renders landing and agents routes", async () => {
     const Home = (await import("@/app/page")).default;
     render(createElement(Home));
-    expect(screen.getByText("Agent Guardrails")).toBeTruthy();
+    expect(screen.getByText("Guardrails")).toBeTruthy();
     cleanup();
 
     const AgentsPage = (await import("@/app/agents/page")).default;

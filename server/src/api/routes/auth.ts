@@ -101,7 +101,7 @@ authRouter.post("/siws/verify", async (req, res) => {
 
     // Atomically claim the session — updateMany with signedAt: null prevents
     // TOCTOU race where two concurrent requests claim the same nonce.
-    const claimed = await prisma.authSession.updateMany({
+    const [claimed, policiesCount] = await Promise.all([prisma.authSession.updateMany({
       where: {
         walletPubkey: pubkey,
         nonce,
@@ -109,7 +109,11 @@ authRouter.post("/siws/verify", async (req, res) => {
         expiresAt: { gt: new Date() },
       },
       data: { signedAt: new Date() },
-    });
+    }), prisma.policy.count({
+      where: {
+        owner: pubkey,
+      },
+    })]);
 
     if (claimed.count === 0) {
       res.status(401).json({ error: "Invalid or expired nonce" });
@@ -129,9 +133,49 @@ authRouter.post("/siws/verify", async (req, res) => {
       maxAge: 24 * 60 * 60 * 1000, // 24 hours
     });
 
-    res.json({ ok: true });
+    res.json({ ok: true, policiesCount });
   } catch (err) {
     console.error("[auth/verify] error:", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// ---------------------------------------------------------------------------
+// DELETE /auth/sessions — revoke SIWS sessions server-side + clear JWT cookie
+// (runs without auth middleware; verifies JWT from cookie explicitly).
+// ---------------------------------------------------------------------------
+
+authRouter.delete("/sessions", async (req, res) => {
+  try {
+    const token = req.cookies?.token as string | undefined;
+    if (!token) {
+      res.status(401).json({ error: "Not authenticated" });
+      return;
+    }
+
+    let walletPubkey: string;
+    try {
+      const payload = jwt.verify(token, env.JWT_SECRET) as { walletPubkey: string };
+      walletPubkey = payload.walletPubkey;
+    } catch {
+      res.status(401).json({ error: "Invalid or expired token" });
+      return;
+    }
+
+    await prisma.authSession.deleteMany({
+      where: { walletPubkey },
+    });
+
+    res.clearCookie("token", {
+      httpOnly: true,
+      secure: true,
+      sameSite: "none",
+      path: "/",
+    });
+
+    res.json({ ok: true });
+  } catch (err) {
+    console.error("[auth/sessions DELETE] error:", err);
     res.status(500).json({ error: "Internal server error" });
   }
 });

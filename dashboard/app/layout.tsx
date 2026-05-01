@@ -10,7 +10,7 @@ const inter = Inter({ subsets: ['latin'], variable: '--font-sans' });
 const michroma = Michroma({ subsets: ["latin"], weight: "400", variable: "--font-brand" });
 
 export const metadata: Metadata = {
-  title: "Agent Guardrails Dashboard",
+  title: "Guardrails Dashboard",
   icons: {
     icon: [
       { url: "/favicon.ico", sizes: "any" },

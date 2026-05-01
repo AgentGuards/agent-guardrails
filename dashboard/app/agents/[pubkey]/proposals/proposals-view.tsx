@@ -2,7 +2,8 @@
 
 import { useQueryClient } from "@tanstack/react-query";
 import { AppShell } from "@/components/dashboard-ui";
-import { QueryLoading, QueryError, QueryEmpty } from "@/components/query-states";
+import { QueryError, QueryEmpty } from "@/components/query-states";
+import { ProposalsViewSkeleton } from "@/components/skeletons";
 import { ProposalCard } from "@/components/proposal-card";
 import { usePolicyQuery } from "@/lib/api/use-policy-query";
 import { useEscalationsQuery } from "@/lib/api/use-escalations-query";
@@ -33,7 +34,7 @@ export function ProposalsView({ pubkey }: { pubkey: string }) {
       subtitle={`Squads multisig escalation proposals for ${shortAddress(pubkey)}`}
     >
       {escalationsQuery.isLoading ? (
-        <QueryLoading />
+        <ProposalsViewSkeleton />
       ) : escalationsQuery.isError ? (
         <QueryError error={escalationsQuery.error} title="Failed to load proposals" />
       ) : escalations.length === 0 ? (

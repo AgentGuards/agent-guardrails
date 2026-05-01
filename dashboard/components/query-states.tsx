@@ -60,10 +60,10 @@ export function QueryEmpty({
   action?: ReactNode;
 }) {
   return (
-    <div className="rounded-xl border border-zinc-800 bg-zinc-900/30 p-6 text-center backdrop-blur-sm">
-      <p className="text-sm font-medium text-zinc-200">{title}</p>
-      {description ? <p className="mt-2 text-sm text-zinc-500">{description}</p> : null}
-      {action ? <div className="mt-4 flex justify-center gap-2">{action}</div> : null}
+    <div className="rounded-xl border border-white/[0.08] bg-white/[0.03] px-6 py-16 text-center">
+      <p className="text-[15px] font-medium leading-relaxed text-white/75">{title}</p>
+      {description ? <p className="mt-1.5 text-[13px] leading-relaxed text-white/40">{description}</p> : null}
+      {action ? <div className="mt-5 flex justify-center gap-2">{action}</div> : null}
     </div>
   );
 }

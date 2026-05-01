@@ -2,6 +2,8 @@ import { PROGRAM_LABELS } from "@/lib/mock/policies";
 import type { PolicySummary } from "@/lib/types/dashboard";
 import { clsx, type ClassValue } from "clsx"
 import { twMerge } from "tailwind-merge"
+import { formatSol } from "@/lib/utils/format";
+import { formatRelativeTime, formatRelativeTooltip } from "@/lib/utils/time";
 
 export function shortAddress(value: string, start = 4, end = 4): string {
   if (!value) return "";
@@ -16,6 +18,8 @@ export function lamportsToSol(value: string | number | null | undefined): number
   return num / 1_000_000_000;
 }
 
+export { formatSol, formatRelativeTime, formatRelativeTooltip };
+
 export function programLabel(program: string): string {
   return PROGRAM_LABELS[program] ?? shortAddress(program, 6, 4);
 }
@@ -28,19 +32,8 @@ export function formatDateTime(value: string): string {
   return new Date(value).toLocaleString();
 }
 
-export function formatRelativeTime(value: string): string {
-  const diffMs = new Date(value).getTime() - Date.now();
-  const absMs = Math.abs(diffMs);
-  const absDays = Math.round(absMs / 86_400_000);
-  if (absDays >= 1) return diffMs >= 0 ? `in ${absDays}d` : `${absDays}d ago`;
-  const absHours = Math.round(absMs / 3_600_000);
-  if (absHours >= 1) return diffMs >= 0 ? `in ${absHours}h` : `${absHours}h ago`;
-  const absMins = Math.max(0, Math.round(absMs / 60_000));
-  return diffMs >= 0 ? `in ${absMins}m` : `${absMins}m ago`;
-}
-
 export function statusTone(policy: PolicySummary): "green" | "amber" | "red" {
-  if (!policy.isActive) return "red";
+  if (!policy.isActive) return "amber";
   if (new Date(policy.sessionExpiry).getTime() < Date.now()) return "amber";
   return "green";
 }

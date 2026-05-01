@@ -1,45 +1,15 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 import { useConnection, useWallet } from "@solana/wallet-adapter-react";
 import { useAnchorWallet } from "@solana/wallet-adapter-react";
 import { StatusChip } from "@/components/dashboard-ui";
-import { shortAddress, lamportsToSol, formatRelativeTime, programLabel } from "@/lib/utils";
+import { shortAddress, formatRelativeTime, formatRelativeTooltip, formatSol, programLabel } from "@/lib/utils";
 import { approveProposal, executeProposal, createEscalationProposal } from "@/lib/squads/create-proposal";
 import { getErrorMessage } from "@/lib/api/client";
 import type { EscalationSummary } from "@/lib/types/dashboard";
-
-function escalationTone(status: string): "green" | "amber" | "red" {
-  switch (status) {
-    case "executed":
-      return "green";
-    case "pending":
-    case "approved":
-    case "awaiting_proposal":
-      return "amber";
-    default:
-      return "red";
-  }
-}
-
-function escalationLabel(status: string): string {
-  switch (status) {
-    case "awaiting_proposal":
-      return "AWAITING PROPOSAL";
-    case "pending":
-      return "PENDING APPROVAL";
-    case "approved":
-      return "APPROVED";
-    case "executed":
-      return "EXECUTED";
-    case "rejected":
-      return "REJECTED";
-    case "cancelled":
-      return "CANCELLED";
-    default:
-      return status.toUpperCase();
-  }
-}
+import { escalationLabel, escalationTone } from "@/lib/utils/escalation-display";
 
 export function ProposalCard({
   escalation,
@@ -55,7 +25,6 @@ export function ProposalCard({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const amountSol = lamportsToSol(escalation.amountLamports);
   const approvals = escalation.approvals ?? [];
   const rejections = escalation.rejections ?? [];
 
@@ -120,7 +89,7 @@ export function ProposalCard({
       <div className="flex items-start justify-between gap-3">
         <div className="flex flex-col gap-1">
           <span className="text-sm font-medium text-zinc-100">
-            {amountSol.toFixed(4)} SOL to {programLabel(escalation.targetProgram)}
+            {formatSol(escalation.amountLamports)} to {programLabel(escalation.targetProgram)}
           </span>
           <span className="font-mono text-xs text-zinc-500">
             Multisig: {shortAddress(escalation.squadsMultisig)}
@@ -130,6 +99,13 @@ export function ProposalCard({
           {escalationLabel(escalation.status)}
         </StatusChip>
       </div>
+
+      <Link
+        href={`/escalations/${encodeURIComponent(escalation.id)}`}
+        className="inline-flex text-xs font-medium text-teal-400 hover:underline"
+      >
+        Proposal detail →
+      </Link>
 
       {/* Approval progress */}
       {approvals.length > 0 || rejections.length > 0 ? (
@@ -167,7 +143,7 @@ export function ProposalCard({
       ) : null}
 
       {/* Time */}
-      <span className="text-xs text-zinc-500">
+      <span className="text-xs text-zinc-500" title={formatRelativeTooltip(escalation.createdAt)}>
         Created {formatRelativeTime(escalation.createdAt)}
       </span>
 

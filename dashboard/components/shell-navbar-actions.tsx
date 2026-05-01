@@ -6,12 +6,14 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { useSiwsAuthStore } from "@/lib/stores/siws-auth";
+import { subscribeSSEEvents } from "@/lib/sse/useSSE";
 
 export function ShellNavbarActions() {
   const router = useRouter();
   const walletAdapter = useWallet();
   const [menuOpen, setMenuOpen] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
   const wrapRef = useRef<HTMLDivElement>(null);
   const copyResetRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -38,6 +40,14 @@ export function ShellNavbarActions() {
       document.removeEventListener("keydown", onKeyDown);
     };
   }, [menuOpen]);
+
+  useEffect(() => {
+    return subscribeSSEEvents(({ type }) => {
+      if (type === "agent_paused" || type === "escalation_created") {
+        setUnreadCount((count) => count + 1);
+      }
+    });
+  }, []);
 
   useEffect(() => {
     return () => {
@@ -69,13 +79,23 @@ export function ShellNavbarActions() {
   }, [router, walletAdapter]);
 
   return (
-    <div className="flex shrink-0 items-center gap-1 sm:gap-2">
+    <div className="flex shrink-0 items-center gap-2">
       <button
         type="button"
         aria-label="Notifications"
-        className="inline-flex h-9 w-9 items-center justify-center rounded-md text-zinc-400 transition-colors hover:bg-white/[0.06] hover:text-zinc-100"
+        onClick={() => {
+          setUnreadCount(0);
+          router.push("/incidents");
+        }}
+        className="relative inline-flex h-10 w-10 items-center justify-center rounded-md text-zinc-400 transition-colors duration-150 hover:bg-white/[0.06] hover:text-zinc-100"
       >
-        <Bell size={18} className="shrink-0" strokeWidth={1.7} />
+        <Bell size={20} className="shrink-0" strokeWidth={1.7} />
+        {unreadCount > 0 ? (
+          <span
+            className="absolute right-[6px] top-[6px] h-2.5 w-2.5 rounded-full bg-red-500"
+            aria-hidden
+          />
+        ) : null}
       </button>
 
       <div className="relative" ref={wrapRef}>
@@ -85,7 +105,7 @@ export function ShellNavbarActions() {
           aria-expanded={menuOpen}
           aria-haspopup="dialog"
           onClick={() => setMenuOpen((o) => !o)}
-          className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/[0.1] bg-white/[0.06] text-zinc-300 transition-colors hover:border-white/[0.16] hover:bg-white/[0.1] hover:text-zinc-100"
+          className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/[0.1] bg-white/[0.06] text-zinc-300 transition-colors duration-150 hover:border-white/[0.16] hover:bg-white/[0.1] hover:text-zinc-100"
         >
           <UserCircle size={20} className="shrink-0" strokeWidth={1.7} aria-hidden />
         </button>

@@ -5,6 +5,7 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 import type { Request, Response } from "express";
 import { env } from "../../config/env.js";
 import { processTransaction } from "../pipeline/process-transaction.js";
+import { recordWebhookIngress } from "../webhook-metrics.js";
 
 /**
  * Verify the Helius webhook request.
@@ -110,6 +111,7 @@ export async function webhookHandler(req: Request, res: Response): Promise<void>
 
   // Respond immediately — pipeline runs async
   res.status(200).json({ received: transactions.length });
+  recordWebhookIngress(transactions.length);
 
   // Process each transaction through the shared pipeline
   for (const txn of transactions) {

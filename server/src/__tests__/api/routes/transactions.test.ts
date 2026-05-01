@@ -10,11 +10,11 @@ import {
 
 const mockPrisma = {
   policy: { findUnique: vi.fn(), findMany: vi.fn() },
-  guardedTxn: { findMany: vi.fn(), count: vi.fn() },
+  guardedTxn: { findMany: vi.fn(), count: vi.fn(), findFirst: vi.fn() },
   incident: { findMany: vi.fn(), findFirst: vi.fn(), count: vi.fn() },
-  authSession: { create: vi.fn(), findFirst: vi.fn(), update: vi.fn() },
+  authSession: { create: vi.fn(), findFirst: vi.fn(), update: vi.fn(), deleteMany: vi.fn() },
 };
-vi.mock("../../db/client.js", () => ({ prisma: mockPrisma }));
+vi.mock("../../../db/client.js", () => ({ prisma: mockPrisma }));
 
 const { transactionsRouter } = await import("../../../api/routes/transactions.js");
 
@@ -237,5 +237,46 @@ describe("GET /api/transactions", () => {
     const res = await request(app).get("/api/transactions");
     expect(res.status).toBe(500);
     expect(res.body).toEqual({ error: "Internal server error" });
+  });
+});
+
+describe("GET /api/transactions/:sig", () => {
+  let app: express.Express;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    app = createTestApp(WALLET, transactionsRouter, "/api/transactions");
+  });
+
+  it("returns 404 when transaction missing", async () => {
+    mockPrisma.guardedTxn.findFirst.mockResolvedValue(null);
+
+    const res = await request(app).get("/api/transactions/missingSig111111111111111111111111111111111111111111111111");
+    expect(res.status).toBe(404);
+  });
+
+  it("returns transaction with neighbors when owned", async () => {
+    const policy = makePolicy({ owner: WALLET });
+    const txn = makeGuardedTxn({
+      policyPubkey: policy.pubkey,
+      txnSig: "SigAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+    });
+
+    mockPrisma.guardedTxn.findFirst
+      .mockResolvedValueOnce({
+        ...txn,
+        verdict: null,
+        escalation: null,
+      })
+      .mockResolvedValueOnce({ txnSig: "prevSig1111111111111111111111111111111111111111111111111111111111111" })
+      .mockResolvedValueOnce({ txnSig: "nextSig2222222222222222222222222222222222222222222222222222222222222" });
+    mockPrisma.incident.findFirst.mockResolvedValue(null);
+
+    const res = await request(app).get(`/api/transactions/${txn.txnSig}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.transaction.txnSig).toBe(txn.txnSig);
+    expect(res.body.prevTxnSig).toBeDefined();
+    expect(res.body.nextTxnSig).toBeDefined();
   });
 });

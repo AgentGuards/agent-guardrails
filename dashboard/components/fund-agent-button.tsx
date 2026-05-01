@@ -8,6 +8,7 @@ import {
   SystemProgram,
   Transaction,
 } from "@solana/web3.js";
+import { toast } from "sonner";
 import { getErrorMessage } from "@/lib/api/client";
 import type { PolicySummary } from "@/lib/types/dashboard";
 
@@ -44,14 +45,18 @@ export function FundAgentButton({ policy }: { policy: PolicySummary }) {
       const sig = await sendTransaction(tx, connection);
       await connection.confirmTransaction(sig, "confirmed");
       setBanner(`Funded ${parsedAmount} SOL to policy PDA.`);
+      toast.success(`Funded ${parsedAmount} SOL.`);
       setOpen(false);
     } catch (e) {
       const msg = getErrorMessage(e).toLowerCase();
       if (msg.includes("already been processed") || msg.includes("already processed")) {
         setBanner(`Funded ${parsedAmount} SOL to policy PDA.`);
+        toast.success(`Funding transaction already processed (${parsedAmount} SOL).`);
         setOpen(false);
       } else {
-        setError(getErrorMessage(e));
+        const message = getErrorMessage(e);
+        setError(message);
+        toast.error(message);
       }
     } finally {
       setBusy(false);

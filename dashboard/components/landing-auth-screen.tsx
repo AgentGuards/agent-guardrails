@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { useWalletModal } from "@solana/wallet-adapter-react-ui";
 import { ChevronLeft, PenLine, Wallet } from "lucide-react";
@@ -24,11 +25,18 @@ function uint8ArrayToBase64(bytes: Uint8Array): string {
 
 function BrandMark() {
   return (
-    <div className="flex items-center gap-2.5">
-      <span className="flex h-9 w-9 items-center justify-center rounded-lg border border-zinc-600 bg-zinc-900/80">
-        <span className="h-4 w-4 rounded border border-zinc-300" />
+    <div className="flex items-center gap-3">
+      <Image
+        src="/logo.png"
+        alt="Guardrails logo"
+        width={36}
+        height={36}
+        className="h-9 w-9 shrink-0"
+        priority
+      />
+      <span className="text-[0.8125rem] font-normal leading-snug tracking-[0.14em] text-zinc-100">
+        Guardrails
       </span>
-      <span className="text-sm font-semibold uppercase tracking-[0.14em] text-zinc-100">Agent Guardrails</span>
     </div>
   );
 }

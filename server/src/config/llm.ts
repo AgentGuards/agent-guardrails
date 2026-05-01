@@ -36,6 +36,21 @@ function resolveModel(tier: "fast" | "report"): string {
   return envOverride || DEFAULTS[tier];
 }
 
+/** Resolved models + fallback flags for dashboard settings (read-only). */
+export function getDashboardLLMInfo(): {
+  judgeModel: string;
+  reportModel: string;
+  anthropicConfigured: boolean;
+  fallbackActive: boolean;
+} {
+  return {
+    judgeModel: resolveModel("fast"),
+    reportModel: resolveModel("report"),
+    anthropicConfigured: Boolean(env.ANTHROPIC_API_KEY),
+    fallbackActive: !env.ANTHROPIC_API_KEY,
+  };
+}
+
 // ---------------------------------------------------------------------------
 // Anthropic provider
 // ---------------------------------------------------------------------------

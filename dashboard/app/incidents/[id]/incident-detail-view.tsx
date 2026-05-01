@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { AppShell, IncidentTimeline, Metric, StatusChip } from "@/components/dashboard-ui";
 import { ReportMarkdown } from "@/components/report-markdown";
-import { QueryError, QueryLoading } from "@/components/query-states";
+import { QueryError } from "@/components/query-states";
+import { IncidentDetailSkeleton } from "@/components/skeletons";
 import { useIncidentQuery } from "@/lib/api/use-incident-query";
 import { shortAddress } from "@/lib/utils";
 
@@ -13,7 +14,7 @@ export function IncidentDetailView({ id }: { id: string }) {
   if (incidentQuery.isLoading) {
     return (
       <AppShell title="Incident Detail" subtitle="Timeline and model reasoning for a specific pause.">
-        <QueryLoading message="Loading incident details…" />
+        <IncidentDetailSkeleton />
       </AppShell>
     );
   }

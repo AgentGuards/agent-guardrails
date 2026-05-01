@@ -69,4 +69,6 @@ export const env = {
   JWT_SECRET: required("JWT_SECRET"),
   CORS_ORIGIN: optional("CORS_ORIGIN", "http://localhost:3000"),
   POLL_INTERVAL_MS: optionalNumber("POLL_INTERVAL_MS", 30_000),
+  /** Optional public origin for webhook URL hints (e.g. https://api.example.com). Defaults to http://localhost:PORT */
+  PUBLIC_WEBHOOK_BASE_URL: optionalKey("PUBLIC_WEBHOOK_BASE_URL"),
 } as const;

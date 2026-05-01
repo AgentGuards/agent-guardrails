@@ -38,7 +38,7 @@ export function KillSwitchButton({ policy }: { policy: PolicySummary }) {
     queryClient.setQueryData(queryKeys.policy(policy.pubkey), (prev: PolicySummary | undefined) =>
       prev ? { ...prev, isActive, updatedAt: now } : prev,
     );
-    queryClient.setQueryData(queryKeys.policies(), (old: PolicySummary[] | undefined) => {
+    queryClient.setQueriesData<PolicySummary[]>({ queryKey: ["policies"] }, (old: PolicySummary[] | undefined) => {
       if (!old) return old;
       return old.map((row) =>
         row.pubkey === policy.pubkey ? { ...row, isActive, updatedAt: now } : row,

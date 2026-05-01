@@ -28,7 +28,7 @@ function isIdempotentCreateError(error: unknown) {
   );
 }
 
-export function CreatePolicyWizard() {
+export function CreatePolicyWizard({ onCreated }: { onCreated?: () => void }) {
   const router = useRouter();
   const { publicKey } = useWallet();
   const provider = useAnchorProvider();
@@ -101,14 +101,20 @@ export function CreatePolicyWizard() {
 
         setAgentKeypair(null);
         resetWizard();
-        router.push("/agents");
+        toast.success("Policy created on-chain.");
+        if (onCreated) {
+          onCreated();
+          router.refresh();
+        } else {
+          router.push("/agents");
+        }
       } catch (e) {
         publishError(getErrorMessage(e));
       } finally {
         setSubmitting(false);
       }
     },
-    [programId, provider, publicKey, publishError, resetWizard, router],
+    [onCreated, programId, provider, publicKey, publishError, resetWizard, router],
   );
 
   const onCreateClick = () => {

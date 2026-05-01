@@ -25,6 +25,7 @@
     "@solana/web3.js": "^1.95.0",
     "@sqds/multisig": "^2.1.4",
     "@tanstack/react-query": "^5.50.0",
+    "@tanstack/react-query-devtools": "^5.100.6",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "dotenv": "^17.4.2",

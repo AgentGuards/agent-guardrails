@@ -1,22 +1,10 @@
-import { AppShell } from "@/components/dashboard-ui";
-import { AgentsOverview } from "@/app/agents/agents-overview";
-import Link from "next/link";
+import { AgentsPageClient } from "@/app/agents/agents-page-client";
 
-export default function AgentsPage() {
-  return (
-    <AppShell
-      title="Agents"
-      subtitle="Policies owned by your wallet."
-      actions={(
-        <Link
-          href="/agents/new"
-          className="button button-primary px-3.5 py-2"
-        >
-          New Agent
-        </Link>
-      )}
-    >
-      <AgentsOverview />
-    </AppShell>
-  );
+export default function AgentsPage({
+  searchParams,
+}: {
+  searchParams?: { new?: string };
+}) {
+  const startWithNewAgentOpen = searchParams?.new === "1";
+  return <AgentsPageClient startWithNewAgentOpen={startWithNewAgentOpen} />;
 }
