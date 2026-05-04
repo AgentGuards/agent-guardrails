@@ -13,10 +13,10 @@ import type {
 export const MAX_FEED_ITEMS = 200;
 
 export function updateIfExists<T>(queryClient: QueryClient, key: QueryKey, updater: (old: T) => T): void {
-  const existing = queryClient.getQueryData<T>(key);
-  if (existing !== undefined) {
-    queryClient.setQueryData<T>(key, updater(existing));
-  }
+  queryClient.setQueriesData<T>({ queryKey: key }, (old) => {
+    if (old === undefined) return old;
+    return updater(old);
+  });
 }
 
 function capItems<T>(items: T[], max: number): T[] {
@@ -272,12 +272,12 @@ export function applyAgentPausedEvent(queryClient: QueryClient, raw: unknown): v
   const incident = sseAgentPausedToIncidentSummary(raw);
   const policyPubkey = incident.policyPubkey;
 
-  setIncidentListQueriesData(queryClient, queryKeys.incidents(), (old) => prependIncident(old, incident));
+  setIncidentListQueriesData(queryClient, ["incidents"], (old) => prependIncident(old, incident));
   setIncidentListQueriesData(queryClient, queryKeys.incidentsByPolicy(policyPubkey), (old) =>
     prependIncident(old, incident),
   );
 
-  updateIfExists<PolicySummary[]>(queryClient, queryKeys.policies(), (old) =>
+  updateIfExists<PolicySummary[]>(queryClient, ["policies"], (old) =>
     old.map((p) => (p.pubkey === policyPubkey ? { ...p, isActive: false } : p)),
   );
 
@@ -304,7 +304,7 @@ export function applyReportReadyEvent(queryClient: QueryClient, raw: unknown): v
     items: old.items.map((inc) => (inc.id === incidentId ? { ...inc, fullReport } : inc)),
   });
 
-  setIncidentListQueriesData(queryClient, queryKeys.incidents(), patchList);
+  setIncidentListQueriesData(queryClient, ["incidents"], patchList);
   if (policyPubkey) {
     setIncidentListQueriesData(queryClient, queryKeys.incidentsByPolicy(policyPubkey), patchList);
   }
@@ -340,5 +340,11 @@ export function applyAgentRotatedEvent(
   if (payload.oldPolicyPubkey) {
     queryClient.removeQueries({ queryKey: queryKeys.policy(payload.oldPolicyPubkey) });
   }
-  queryClient.invalidateQueries({ queryKey: queryKeys.policies() });
+  queryClient.invalidateQueries({ queryKey: ["policies"] });
+}
+
+/** Refetch fleet aggregates + spend trackers after SSE mutations. */
+export function invalidateFleetQueries(queryClient: QueryClient): void {
+  void queryClient.invalidateQueries({ queryKey: ["fleet"] });
+  void queryClient.invalidateQueries({ queryKey: ["spend-trackers"] });
 }

@@ -354,6 +354,110 @@
       ]
     },
     {
+      "name": "multisig_execute",
+      "docs": [
+        "Executes a multisig-approved transaction through the policy layer.",
+        "Called by the policy owner after a Squads proposal has been approved.",
+        "Skips the escalation threshold check but enforces all other policy limits."
+      ],
+      "discriminator": [
+        151,
+        179,
+        145,
+        71,
+        190,
+        96,
+        47,
+        69
+      ],
+      "accounts": [
+        {
+          "name": "owner",
+          "writable": true,
+          "signer": true,
+          "relations": [
+            "policy"
+          ]
+        },
+        {
+          "name": "policy",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  112,
+                  111,
+                  108,
+                  105,
+                  99,
+                  121
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "policy.owner",
+                "account": "PermissionPolicy"
+              },
+              {
+                "kind": "account",
+                "path": "policy.agent",
+                "account": "PermissionPolicy"
+              }
+            ]
+          },
+          "relations": [
+            "spend_tracker"
+          ]
+        },
+        {
+          "name": "spend_tracker",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  116,
+                  114,
+                  97,
+                  99,
+                  107,
+                  101,
+                  114
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "policy"
+              }
+            ]
+          }
+        },
+        {
+          "name": "squads_proposal"
+        },
+        {
+          "name": "target_program"
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "args",
+          "type": {
+            "defined": {
+              "name": "MultisigExecuteArgs"
+            }
+          }
+        }
+      ]
+    },
+    {
       "name": "pause_agent",
       "docs": [
         "Pauses an agent. Callable by the policy owner or any authorized monitor.",
@@ -1075,6 +1179,19 @@
       ]
     },
     {
+      "name": "MultisigTxnExecuted",
+      "discriminator": [
+        129,
+        235,
+        64,
+        97,
+        94,
+        97,
+        28,
+        13
+      ]
+    },
+    {
       "name": "PolicyClosed",
       "discriminator": [
         19,
@@ -1198,6 +1315,26 @@
       "code": 6021,
       "name": "SameAgentKey",
       "msg": "New agent key must be different from current agent key"
+    },
+    {
+      "code": 6022,
+      "name": "InvalidSquadsProposal",
+      "msg": "Squads proposal account is invalid or not owned by Squads program"
+    },
+    {
+      "code": 6023,
+      "name": "MultisigMismatch",
+      "msg": "Squads proposal multisig does not match policy's squads_multisig"
+    },
+    {
+      "code": 6024,
+      "name": "ProposalNotApproved",
+      "msg": "Squads proposal has not been approved"
+    },
+    {
+      "code": 6025,
+      "name": "NoMultisigConfigured",
+      "msg": "Policy has no squads_multisig configured"
     }
   ],
   "types": [
@@ -1627,6 +1764,73 @@
             "type": {
               "vec": "pubkey"
             }
+          }
+        ]
+      }
+    },
+    {
+      "name": "MultisigExecuteArgs",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "instruction_data",
+            "docs": [
+              "Raw instruction data to pass to the target program."
+            ],
+            "type": "bytes"
+          },
+          {
+            "name": "amount_hint",
+            "docs": [
+              "Owner-declared spending amount in lamports."
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "input_account_index",
+            "docs": [
+              "Optional index into remaining_accounts for balance-diff enforcement."
+            ],
+            "type": {
+              "option": "u8"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "MultisigTxnExecuted",
+      "docs": [
+        "Emitted after a successful multisig_execute transfer.",
+        "The server uses this to resolve the escalation proposal and update the dashboard."
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "policy",
+            "type": "pubkey"
+          },
+          {
+            "name": "owner",
+            "type": "pubkey"
+          },
+          {
+            "name": "target_program",
+            "type": "pubkey"
+          },
+          {
+            "name": "amount",
+            "type": "u64"
+          },
+          {
+            "name": "squads_proposal",
+            "type": "pubkey"
+          },
+          {
+            "name": "timestamp",
+            "type": "i64"
           }
         ]
       }

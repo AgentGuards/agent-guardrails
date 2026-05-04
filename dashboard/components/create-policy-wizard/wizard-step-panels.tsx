@@ -92,9 +92,9 @@ function ProgramsStep({ fieldErrors }: { fieldErrors: Record<string, string> }) 
         Choose preset programs or paste custom program IDs. Up to 10 allow-listed programs.
       </p>
       {fieldErrors.allowedPrograms ? (
-        <p className="text-sm text-red-400">{fieldErrors.allowedPrograms}</p>
+        <p className="mb-0.5 mt-1.5 text-xs text-red-400">{fieldErrors.allowedPrograms}</p>
       ) : null}
-      {pasteError ? <p className="text-sm text-red-400">{pasteError}</p> : null}
+      {pasteError ? <p className="mb-0.5 mt-1.5 text-xs text-red-400">{pasteError}</p> : null}
 
       <div className="flex flex-wrap gap-2">
         {Object.entries(PROGRAM_LABELS).map(([pubkey, label]) => {
@@ -199,7 +199,7 @@ function LimitsStep({ fieldErrors }: { fieldErrors: Record<string, string> }) {
             onBlur={maxTxInput.commitValue}
             onChange={(e) => maxTxInput.setInputValue(e.target.value)}
           />
-          {fieldErrors.maxTxSol ? <span className="text-red-400">{fieldErrors.maxTxSol}</span> : null}
+          {fieldErrors.maxTxSol ? <p className="mb-0.5 mt-1.5 text-xs text-red-400">{fieldErrors.maxTxSol}</p> : null}
         </label>
         <label className="flex flex-col gap-1 text-sm text-zinc-400">
           Daily budget (SOL)
@@ -212,7 +212,9 @@ function LimitsStep({ fieldErrors }: { fieldErrors: Record<string, string> }) {
             onBlur={dailyBudgetInput.commitValue}
             onChange={(e) => dailyBudgetInput.setInputValue(e.target.value)}
           />
-          {fieldErrors.dailyBudgetSol ? <span className="text-red-400">{fieldErrors.dailyBudgetSol}</span> : null}
+          {fieldErrors.dailyBudgetSol ? (
+            <p className="mb-0.5 mt-1.5 text-xs text-red-400">{fieldErrors.dailyBudgetSol}</p>
+          ) : null}
         </label>
       </div>
       <div className="rounded-md border border-emerald-900/50 bg-emerald-950/30 px-3 py-2 text-xs text-emerald-200">
@@ -255,7 +257,7 @@ function SessionStep({ fieldErrors }: { fieldErrors: Record<string, string> }) {
           onBlur={sessionDaysInput.commitValue}
           onChange={(e) => sessionDaysInput.setInputValue(e.target.value)}
         />
-        {fieldErrors.sessionDays ? <span className="text-red-400">{fieldErrors.sessionDays}</span> : null}
+        {fieldErrors.sessionDays ? <p className="mb-0.5 mt-1.5 text-xs text-red-400">{fieldErrors.sessionDays}</p> : null}
       </label>
       <p className="text-sm text-zinc-500">
         Expires on {dateStr} (relative to now, ~{sessionDays} days).
@@ -330,7 +332,7 @@ function EscalationStep({ fieldErrors }: { fieldErrors: Record<string, string> }
           </div>
 
           {multisigMode === "create" ? (
-            <>
+            <div className="space-y-5">
               {/* Member list */}
               <div className="flex flex-col gap-2">
                 <span className="text-sm text-zinc-400">
@@ -376,7 +378,7 @@ function EscalationStep({ fieldErrors }: { fieldErrors: Record<string, string> }
                   </button>
                 </div>
                 {fieldErrors.multisigMembers ? (
-                  <span className="text-sm text-red-400">{fieldErrors.multisigMembers}</span>
+                  <p className="mb-0.5 mt-1.5 text-xs text-red-400">{fieldErrors.multisigMembers}</p>
                 ) : null}
               </div>
 
@@ -398,10 +400,10 @@ function EscalationStep({ fieldErrors }: { fieldErrors: Record<string, string> }
                   ))}
                 </select>
                 {fieldErrors.multisigThreshold ? (
-                  <span className="text-red-400">{fieldErrors.multisigThreshold}</span>
+                  <p className="mb-0.5 mt-1.5 text-xs text-red-400">{fieldErrors.multisigThreshold}</p>
                 ) : null}
               </label>
-            </>
+            </div>
           ) : (
             <label className="flex flex-col gap-1 text-sm text-zinc-400">
               Squads multisig address
@@ -412,7 +414,7 @@ function EscalationStep({ fieldErrors }: { fieldErrors: Record<string, string> }
                 onChange={(e) => setSquadsMultisig(e.target.value)}
               />
               {fieldErrors.squadsMultisig ? (
-                <span className="text-red-400">{fieldErrors.squadsMultisig}</span>
+                <p className="mb-0.5 mt-1.5 text-xs text-red-400">{fieldErrors.squadsMultisig}</p>
               ) : null}
             </label>
           )}
@@ -430,7 +432,7 @@ function EscalationStep({ fieldErrors }: { fieldErrors: Record<string, string> }
               onChange={(e) => escalationThresholdInput.setInputValue(e.target.value)}
             />
             {fieldErrors.escalationThresholdSol ? (
-              <span className="text-red-400">{fieldErrors.escalationThresholdSol}</span>
+              <p className="mb-0.5 mt-1.5 text-xs text-red-400">{fieldErrors.escalationThresholdSol}</p>
             ) : null}
           </label>
         </>

@@ -1,34 +1,72 @@
 "use client";
 
 import Link from "next/link";
-import { AppShell, IncidentTable, Metric, SpendGauge, TransactionRow } from "@/components/dashboard-ui";
+import { ChevronLeft, Play } from "lucide-react";
+import { useWallet } from "@solana/wallet-adapter-react";
+import {
+  AnomalyRiskLabel,
+  anomalyBarClass,
+  AppShell,
+  IncidentTable,
+  Metric,
+  SpendGauge,
+  TransactionRow,
+} from "@/components/dashboard-ui";
 import { ClosePolicyButton } from "@/components/close-policy-button";
 import { FundAgentButton } from "@/components/fund-agent-button";
 import { KillSwitchButton } from "@/components/kill-switch-button";
 import { RotateAgentKeyButton } from "@/components/rotate-agent-key-button";
-import { QueryEmpty, QueryError, QueryLoading } from "@/components/query-states";
+import { SimulatePanel } from "@/components/simulate-panel";
+import { QueryEmpty, QueryError } from "@/components/query-states";
+import { AgentDetailSkeleton, IncidentsViewSkeleton } from "@/components/skeletons";
 import { useInfiniteTransactionsQuery } from "@/lib/api/use-infinite-transactions-query";
 import { useIncidentsQuery } from "@/lib/api/use-incidents-query";
 import { useEscalationsQuery } from "@/lib/api/use-escalations-query";
 import { usePolicyQuery } from "@/lib/api/use-policy-query";
+import { useAllSpendTrackersQuery } from "@/lib/api/use-spend-trackers-query";
+import { useSimulationStore } from "@/lib/stores/simulation";
+import { formatSol } from "@/lib/utils";
+
+function BackToAgentsLink() {
+  return (
+    <Link
+      href="/agents"
+      className="inline-flex items-center gap-1 rounded-md px-2 py-1.5 text-sm font-medium text-zinc-400 transition-colors hover:bg-white/[0.06] hover:text-zinc-100"
+    >
+      <ChevronLeft className="h-4 w-4 shrink-0" aria-hidden />
+      Back to agents
+    </Link>
+  );
+}
 
 export function AgentDetailView({ pubkey }: { pubkey: string }) {
+  const { publicKey } = useWallet();
+  const simulationStore = useSimulationStore();
   const policyQuery = usePolicyQuery(pubkey);
   const transactionsQuery = useInfiniteTransactionsQuery(pubkey, 10);
   const incidentsQuery = useIncidentsQuery(pubkey, 10);
   const escalationsQuery = useEscalationsQuery(pubkey);
+  const spendTrackersQuery = useAllSpendTrackersQuery();
 
   if (policyQuery.isLoading) {
     return (
-      <AppShell title="Agent Detail" subtitle="Live status, spend view, and recent guarded activity.">
-        <QueryLoading message="Loading agent details…" />
+      <AppShell
+        title="Agent Detail"
+        subtitle="Live status, spend view, and recent guarded activity."
+        actions={<BackToAgentsLink />}
+      >
+        <AgentDetailSkeleton />
       </AppShell>
     );
   }
 
   if (policyQuery.isError || !policyQuery.data) {
     return (
-      <AppShell title="Agent Detail" subtitle="Live status, spend view, and recent guarded activity.">
+      <AppShell
+        title="Agent Detail"
+        subtitle="Live status, spend view, and recent guarded activity."
+        actions={<BackToAgentsLink />}
+      >
         <QueryError
           error={policyQuery.error ?? new Error("Unknown error")}
           title="Unable to load agent"
@@ -39,6 +77,7 @@ export function AgentDetailView({ pubkey }: { pubkey: string }) {
   }
 
   const policy = policyQuery.data;
+  const spendTracker = (spendTrackersQuery.data ?? []).find((row) => row.policyPubkey === policy.pubkey);
   const transactions = transactionsQuery.data?.items ?? [];
   const incidents = incidentsQuery.data?.items ?? [];
   const shortenedPolicyPubkey =
@@ -48,11 +87,27 @@ export function AgentDetailView({ pubkey }: { pubkey: string }) {
     <AppShell
       title={policy.label ?? "Agent Detail"}
       subtitle="Live status, spend view, and recent guarded activity."
+      actions={<BackToAgentsLink />}
     >
       <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
         <Metric label="Policy" value={shortenedPolicyPubkey} />
         <Metric label="Status" value={policy.isActive ? "Active" : "Paused"} />
         <Metric label="Session expiry" value={new Date(policy.sessionExpiry).toLocaleString()} />
+      </div>
+      <div className="rounded-lg border border-zinc-800 bg-zinc-900/40 p-4">
+        <div className="mb-0.5 flex items-center justify-between">
+          <span className="text-xs uppercase tracking-wider text-zinc-500">Anomaly</span>
+          <div className="flex items-center gap-1.5">
+            <span className="text-xs text-zinc-300">{policy.anomalyScore}/100</span>
+            <AnomalyRiskLabel score={policy.anomalyScore} />
+          </div>
+        </div>
+        <div className="h-1.5 overflow-hidden rounded-full bg-zinc-800">
+          <div
+            className={`h-full rounded-full transition-all ${anomalyBarClass(policy.anomalyScore)}`}
+            style={{ width: `${Math.min(policy.anomalyScore, 100)}%` }}
+          />
+        </div>
       </div>
 
       <div className="flex flex-wrap gap-2">
@@ -60,6 +115,18 @@ export function AgentDetailView({ pubkey }: { pubkey: string }) {
         <RotateAgentKeyButton policy={policy} />
         <FundAgentButton policy={policy} />
         <ClosePolicyButton policy={policy} />
+        {publicKey && publicKey.toBase58() === policy.owner && (
+          <div className="mt-4">
+            <button
+              type="button"
+              className="inline-flex items-center gap-2 rounded-md border border-blue-800 bg-blue-950/40 px-4 py-2 text-sm font-medium text-blue-200 hover:bg-blue-950/70"
+              onClick={() => simulationStore.setPanelOpen(true)}
+            >
+              <Play className="h-4 w-4" />
+              Simulate
+            </button>
+          </div>
+        )}
       </div>
 
       {policy.squadsMultisig ? (() => {
@@ -87,18 +154,46 @@ export function AgentDetailView({ pubkey }: { pubkey: string }) {
         );
       })() : null}
 
-      <div className="panel-glow mt-4 p-6">
+      <div className="panel-glow mt-4 p-5">
         <div className="inline-flex items-center gap-2 rounded-lg bg-gradient-to-r from-blue-600 to-cyan-500 bg-clip-text text-sm font-bold uppercase tracking-widest text-transparent">Daily spend</div>
-        <SpendGauge
-          spentLamports={String(policy.dailySpentLamports ?? "0")}
-          budgetLamports={String(policy.dailyBudgetLamports)}
-        />
+        <div className="mt-4 flex items-center gap-8">
+          <div className="flex-shrink-0">
+            <SpendGauge
+              spentLamports={String(spendTracker?.lamportsSpent24h ?? policy.dailySpentLamports ?? "0")}
+              budgetLamports={String(policy.dailyBudgetLamports)}
+              size={120}
+            />
+          </div>
+          <div className="flex flex-col gap-3 text-sm">
+            <div>
+              <p className="mb-0.5 text-xs uppercase tracking-wider text-zinc-500">24h Transactions</p>
+              <p className="font-medium text-zinc-200">{spendTracker?.txnCount24h ?? 0}</p>
+            </div>
+            <div>
+              <p className="mb-0.5 text-xs uppercase tracking-wider text-zinc-500">1h Spend</p>
+              <p className="font-medium text-zinc-200">{formatSol(spendTracker?.lamportsSpent1h ?? "0")}</p>
+            </div>
+            <div>
+              <p className="mb-0.5 text-xs uppercase tracking-wider text-zinc-500">Budget remaining</p>
+              <p className="font-medium text-zinc-200">
+                {formatSol(
+                  BigInt(policy.dailyBudgetLamports ?? "0") -
+                  BigInt(spendTracker?.lamportsSpent24h ?? policy.dailySpentLamports ?? "0"),
+                )}
+              </p>
+            </div>
+          </div>
+        </div>
       </div>
 
       <div className="panel-glow mt-4 p-6">
         <div className="inline-flex items-center gap-2 rounded-lg bg-gradient-to-r from-blue-600 to-cyan-500 bg-clip-text text-sm font-bold uppercase tracking-widest text-transparent">Recent transactions</div>
         {transactionsQuery.isLoading ? (
-          <QueryLoading message="Loading transactions…" />
+          <div className="grid gap-3">
+            {Array.from({ length: 3 }).map((_, idx) => (
+              <div key={idx} className="h-28 rounded-xl border border-border/70 bg-card/60 animate-pulse" />
+            ))}
+          </div>
         ) : transactionsQuery.isError ? (
           <QueryError
             error={transactionsQuery.error}
@@ -141,13 +236,15 @@ export function AgentDetailView({ pubkey }: { pubkey: string }) {
       <div className="panel-glow mt-4 p-5">
         <div className="inline-flex items-center gap-2 rounded-lg bg-gradient-to-r from-blue-600 to-cyan-500 bg-clip-text text-sm font-bold uppercase tracking-widest text-transparent">Related incidents</div>
         {incidentsQuery.isLoading ? (
-          <QueryLoading message="Loading incidents…" />
+          <IncidentsViewSkeleton />
         ) : incidentsQuery.isError ? (
           <QueryError error={incidentsQuery.error} onRetry={() => void incidentsQuery.refetch()} />
         ) : (
           <IncidentTable incidents={incidents} />
         )}
       </div>
+
+      {simulationStore.panelOpen && <SimulatePanel policy={policy} />}
     </AppShell>
   );
 }

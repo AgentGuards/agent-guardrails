@@ -61,4 +61,17 @@ pub enum GuardrailsError {
 
     #[msg("New agent key must be different from current agent key")]
     SameAgentKey,
+
+    // --- Multisig execute errors ---
+    #[msg("Squads proposal account is invalid or not owned by Squads program")]
+    InvalidSquadsProposal,
+
+    #[msg("Squads proposal multisig does not match policy's squads_multisig")]
+    MultisigMismatch,
+
+    #[msg("Squads proposal has not been approved")]
+    ProposalNotApproved,
+
+    #[msg("Policy has no squads_multisig configured")]
+    NoMultisigConfigured,
 }

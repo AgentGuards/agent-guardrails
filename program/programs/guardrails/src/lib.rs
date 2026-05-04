@@ -18,6 +18,7 @@ pub use instructions::close_policy::*;
 pub use instructions::escalate_to_squads::*;
 pub use instructions::guarded_execute::*;
 pub use instructions::initialize_policy::*;
+pub use instructions::multisig_execute::*;
 pub use instructions::pause_agent::*;
 pub use instructions::resume_agent::*;
 pub use instructions::rotate_agent_key::*;
@@ -53,6 +54,13 @@ pub mod guardrails {
     /// full 12-step flow.
     pub fn guarded_execute(ctx: Context<GuardedExecute>, args: GuardedExecuteArgs) -> Result<()> {
         instructions::guarded_execute::handler(ctx, args)
+    }
+
+    /// Executes a multisig-approved transaction through the policy layer.
+    /// Called by the policy owner after a Squads proposal has been approved.
+    /// Skips the escalation threshold check but enforces all other policy limits.
+    pub fn multisig_execute(ctx: Context<MultisigExecute>, args: MultisigExecuteArgs) -> Result<()> {
+        instructions::multisig_execute::handler(ctx, args)
     }
 
     /// Pauses an agent. Callable by the policy owner or any authorized monitor.

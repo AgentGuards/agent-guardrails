@@ -1,10 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter } from "nextjs-toploader/app";
 import { useQueryClient } from "@tanstack/react-query";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { Keypair, PublicKey } from "@solana/web3.js";
+import { toast } from "sonner";
 import { getErrorMessage } from "@/lib/api/client";
 import { queryKeys } from "@/lib/api/query-keys";
 import { GuardrailsClient } from "@/lib/sdk/client";
@@ -58,20 +59,24 @@ export function RotateAgentKeyButton({ policy }: { policy: PolicySummary }) {
         newKeypair.publicKey,
       );
       queryClient.removeQueries({ queryKey: queryKeys.policy(policy.pubkey) });
-      queryClient.invalidateQueries({ queryKey: queryKeys.policies() });
+      queryClient.invalidateQueries({ queryKey: ["policies"] });
+      toast.success("Agent key rotated successfully.");
       router.push(`/agents/${newPolicyPda.toBase58()}`);
     } catch (e) {
       // "Already processed" means the first click succeeded — treat as success
       const msg = getErrorMessage(e).toLowerCase();
       if (msg.includes("already been processed") || msg.includes("already processed")) {
         queryClient.removeQueries({ queryKey: queryKeys.policy(policy.pubkey) });
-        queryClient.invalidateQueries({ queryKey: queryKeys.policies() });
+        queryClient.invalidateQueries({ queryKey: ["policies"] });
+        toast.success("Agent key rotation already processed.");
         // Derive the new PDA to redirect
         const client = new GuardrailsClient(provider, programId);
         const [newPda] = client.findPolicyPda(new PublicKey(policy.owner), newKeypair.publicKey);
         router.push(`/agents/${newPda.toBase58()}`);
       } else {
-        setError(getErrorMessage(e));
+        const message = getErrorMessage(e);
+        setError(message);
+        toast.error(message);
       }
     } finally {
       setBusy(false);
@@ -125,7 +130,12 @@ export function RotateAgentKeyButton({ policy }: { policy: PolicySummary }) {
                 <button
                   type="button"
                   className="button button-secondary px-3 py-1.5 text-sm font-medium"
-                  onClick={() => navigator.clipboard.writeText(secretKeyBase64(newKeypair))}
+                  onClick={() => {
+                    void navigator.clipboard
+                      .writeText(secretKeyBase64(newKeypair))
+                      .then(() => toast.success("New agent secret copied."))
+                      .catch(() => toast.error("Could not copy secret."));
+                  }}
                 >
                   Copy secret
                 </button>

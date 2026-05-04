@@ -128,6 +128,18 @@ pub struct PolicyClosed {
     pub timestamp: i64,
 }
 
+/// Emitted after a successful multisig_execute transfer.
+/// The server uses this to resolve the escalation proposal and update the dashboard.
+#[event]
+pub struct MultisigTxnExecuted {
+    pub policy: Pubkey,
+    pub owner: Pubkey,
+    pub target_program: Pubkey,
+    pub amount: u64,
+    pub squads_proposal: Pubkey,
+    pub timestamp: i64,
+}
+
 /// Emitted before the CPI in `guarded_execute` (step 9 of the 12-step flow).
 /// Gives the server pipeline visibility into every CPI attempt that passed
 /// pre-validation, regardless of whether the CPI itself succeeds or fails.

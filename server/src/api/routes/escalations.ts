@@ -11,6 +11,109 @@ import type { AuthenticatedRequest } from "../middleware/auth.js";
 
 export const escalationsRouter: express.Router = express.Router();
 
+// Report an escalation from the client.
+// Called when the client catches EscalatedToMultisig (Anchor error 6007).
+// Helius does not parse failed transactions, so the webhook/poller pipeline
+// can never see these — the client must report them directly.
+escalationsRouter.post("/report", async (req, res) => {
+  try {
+    const { walletPubkey } = req as AuthenticatedRequest;
+    const { policyPubkey, txnSig, amountLamports, targetProgram, destination, instruction } = req.body;
+
+    if (!policyPubkey || !txnSig || amountLamports == null || !targetProgram) {
+      res.status(400).json({ error: "policyPubkey, txnSig, amountLamports, and targetProgram are required" });
+      return;
+    }
+
+    // Verify policy exists and is owned by the caller
+    const policy = await prisma.policy.findUnique({ where: { pubkey: policyPubkey } });
+    if (!policy || policy.owner !== walletPubkey) {
+      res.status(404).json({ error: "Policy not found" });
+      return;
+    }
+
+    if (!policy.squadsMultisig) {
+      res.status(400).json({ error: "Policy has no multisig configured" });
+      return;
+    }
+
+    // Deduplicate — skip if this txn was already recorded
+    const existing = await prisma.guardedTxn.findUnique({ where: { txnSig } });
+    if (existing) {
+      res.json({ ok: true, duplicate: true });
+      return;
+    }
+
+    // Create the guarded_txn row with status "escalated"
+    const row = await prisma.guardedTxn.create({
+      data: {
+        policyPubkey,
+        txnSig,
+        slot: BigInt(0),
+        blockTime: new Date(),
+        targetProgram,
+        amountLamports: BigInt(amountLamports),
+        destination: destination ?? null,
+        status: "escalated",
+        rejectReason: "EscalatedToMultisig",
+        rawEvent: instruction ? { _reconstructed: true, instruction } : undefined,
+      },
+    });
+
+    // Emit new_transaction SSE event
+    sseEmitter.emitEvent("new_transaction", {
+      id: row.id,
+      policyPubkey: row.policyPubkey,
+      txnSig: row.txnSig,
+      slot: "0",
+      blockTime: row.blockTime,
+      targetProgram: row.targetProgram,
+      amountLamports: row.amountLamports?.toString() ?? null,
+      status: row.status,
+      rejectReason: row.rejectReason,
+      rawEvent: null,
+      createdAt: row.createdAt,
+    });
+
+    // Create the escalation proposal
+    const proposal = await prisma.escalationProposal.create({
+      data: {
+        policyPubkey,
+        txnId: row.id,
+        squadsMultisig: policy.squadsMultisig,
+        targetProgram,
+        amountLamports: BigInt(amountLamports),
+        status: "awaiting_proposal",
+      },
+    });
+
+    sseEmitter.emitEvent("escalation_created", {
+      id: proposal.id,
+      policyPubkey: proposal.policyPubkey,
+      txnId: proposal.txnId,
+      squadsMultisig: proposal.squadsMultisig,
+      targetProgram: proposal.targetProgram,
+      amountLamports: proposal.amountLamports.toString(),
+      status: proposal.status,
+      createdAt: proposal.createdAt,
+    });
+
+    console.log(
+      `[api/escalations/report] created escalation for txn ${txnSig.slice(0, 16)}… ` +
+      `amount=${amountLamports} policy=${policyPubkey.slice(0, 8)}…`,
+    );
+
+    res.json({
+      ok: true,
+      escalationId: proposal.id,
+      txnId: row.id,
+    });
+  } catch (err) {
+    console.error("[api/escalations/report] error:", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
 // List escalation proposals
 escalationsRouter.get("/", async (req, res) => {
   try {
@@ -74,7 +177,7 @@ escalationsRouter.get("/:id", async (req, res) => {
         id: req.params.id,
         policy: { owner: walletPubkey },
       },
-      include: { txn: true },
+      include: { txn: { include: { verdict: true } } },
     });
 
     if (!escalation) {

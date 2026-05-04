@@ -14,8 +14,16 @@ vi.mock("next/navigation", () => ({
   usePathname: () => "/agents",
 }));
 
-vi.mock("@/components/wallet-controls", () => ({
-  WalletControls: () => createElement("div", undefined, "Wallet controls"),
+vi.mock("@solana/wallet-adapter-react", () => ({
+  useWallet: () => ({
+    connected: true,
+    publicKey: { toBase58: () => "WalletPub1111111111111111111111111111111" },
+    disconnect: vi.fn(),
+  }),
+}));
+
+vi.mock("@/components/shell-navbar-actions", () => ({
+  ShellNavbarActions: () => createElement("div", undefined, "Navbar actions"),
 }));
 
 describe("dashboard-ui", () => {
@@ -31,7 +39,7 @@ describe("dashboard-ui", () => {
     expect(screen.getByText("Guardrails")).toBeInTheDocument();
     expect(screen.getAllByText("Guardrails overview").length).toBeGreaterThan(0);
     expect(screen.getByText("Body content")).toBeInTheDocument();
-    expect(screen.getByText("Wallet controls")).toBeInTheDocument();
+    expect(screen.getByText("Navbar actions")).toBeInTheDocument();
   });
 
   it("renders policy card details", () => {

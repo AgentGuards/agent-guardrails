@@ -1,8 +1,11 @@
 "use client";
 
 import { AppShell, IncidentTable } from "@/components/dashboard-ui";
-import { QueryEmpty, QueryError, QueryLoading } from "@/components/query-states";
+import { EmptyState } from "@/components/EmptyState";
+import { QueryError } from "@/components/query-states";
+import { IncidentsViewSkeleton } from "@/components/skeletons";
 import { useIncidentsQuery } from "@/lib/api/use-incidents-query";
+import { ShieldCheck } from "lucide-react";
 
 export function IncidentsView() {
   const incidentsQuery = useIncidentsQuery(undefined, 50);
@@ -10,7 +13,7 @@ export function IncidentsView() {
   if (incidentsQuery.isLoading) {
     return (
       <AppShell title="Incidents" subtitle="Historical pauses and generated postmortems.">
-        <QueryLoading message="Loading incidents…" listSkeleton />
+        <IncidentsViewSkeleton />
       </AppShell>
     );
   }
@@ -30,10 +33,13 @@ export function IncidentsView() {
       {incidents.length ? (
         <IncidentTable incidents={incidents} />
       ) : (
-        <QueryEmpty
-          title="No incidents yet."
-          description="When an agent is paused by the monitor or owner, it will show up here."
-        />
+        <div className="rounded-xl border border-zinc-800/80 bg-zinc-900/40">
+          <EmptyState
+            icon={ShieldCheck}
+            title="No incidents"
+            description="Your fleet is clean — no pauses recorded."
+          />
+        </div>
       )}
     </AppShell>
   );

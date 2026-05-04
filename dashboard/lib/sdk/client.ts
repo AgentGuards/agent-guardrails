@@ -205,7 +205,36 @@ export class GuardrailsClient {
       })
       .remainingAccounts(remainingAccounts)
       .signers([agent])
-      .rpc();
+      .rpc({ skipPreflight: true, maxRetries: 0 });
+  }
+
+  /**
+   * Executes a multisig-approved transaction through the policy layer.
+   * The provider wallet must be the policy owner.
+   * Verifies the Squads proposal is approved, then transfers from the policy PDA.
+   * Skips escalation threshold but enforces all other policy limits.
+   */
+  async multisigExecute(
+    policyPda: PublicKey,
+    trackerPda: PublicKey,
+    squadsProposal: PublicKey,
+    targetProgram: PublicKey,
+    args: GuardedExecuteArgs,
+    remainingAccounts: AccountMeta[],
+  ): Promise<string> {
+    const owner = this.walletPublicKey();
+    return await (this.program.methods as any)
+      .multisigExecute(args)
+      .accounts({
+        owner,
+        policy: policyPda,
+        spendTracker: trackerPda,
+        squadsProposal,
+        targetProgram,
+        systemProgram: SystemProgram.programId,
+      })
+      .remainingAccounts(remainingAccounts)
+      .rpc({ skipPreflight: true, maxRetries: 0 });
   }
 
   /**

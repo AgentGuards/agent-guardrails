@@ -64,3 +64,96 @@ export interface EscalationDetail extends EscalationSummary {
     amountLamports: string;
   } | null;
 }
+
+/** GET /api/fleet/summary */
+export interface FleetSummary {
+  activeAgents: number;
+  pausedAgents: number;
+  incidentsLast24h: number;
+  incidentsPrev24h: number;
+  totalLamportsSpent24h: string;
+  /** Historical spend snapshots not persisted — reserved for future use */
+  totalLamportsSpentPrev24h: string | null;
+}
+
+/** GET /api/spend-trackers — row shape after JSON serialization */
+export interface SpendTrackerRow {
+  policyPubkey: string;
+  windowStart: string;
+  txnCount24h: number;
+  lamportsSpent24h: string;
+  lastTxnTs: string;
+  lastTxnProgram: string;
+  uniqueDestinations24h: number;
+  maxSingleTxnLamports: string;
+  failedTxnCount24h: number;
+  uniquePrograms24h: number;
+  lamportsSpent1h: string;
+  windowStart1h: string;
+  consecutiveHighAmountCount: number;
+  updatedAt: string;
+  policy: {
+    label: string | null;
+    isActive: boolean;
+    anomalyScore: number;
+    dailyBudgetLamports: string;
+  };
+}
+
+/** Guarded txn + nested escalation from GET /api/transactions/:sig */
+export interface TransactionDetail extends TransactionSummary {
+  escalation: EscalationSummary | null;
+}
+
+export interface TransactionDetailResponse {
+  transaction: TransactionDetail;
+  incident: IncidentSummary | null;
+  prevTxnSig: string | null;
+  nextTxnSig: string | null;
+}
+
+export interface WebhookStatus {
+  webhookUrl: string;
+  lastWebhookReceivedAt: string | null;
+  eventsReceivedLastHour: number;
+}
+
+export interface OperatorSession {
+  walletPubkey: string;
+  expiresAt: string | null;
+}
+
+export interface LLMSettingsInfo {
+  judgeModel: string;
+  reportModel: string;
+  anthropicConfigured: boolean;
+  fallbackActive: boolean;
+}
+
+export type AuditActionType =
+  | "pause"
+  | "resume"
+  | "rotate_key"
+  | "close_policy"
+  | "escalation_created"
+  | "escalation_updated";
+
+export interface AuditRow {
+  id: string;
+  timestamp: string;
+  actionType: AuditActionType;
+  policyPubkey: string;
+  policyLabel: string | null;
+  actor: string;
+  details: string;
+  relatedIncidentId: string | null;
+  relatedTxnSig: string | null;
+  relatedProposalId: string | null;
+}
+
+export interface AuditLogFilters {
+  type?: string;
+  policyPubkey?: string;
+  from?: string;
+  to?: string;
+}

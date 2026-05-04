@@ -1,7 +1,10 @@
 "use client";
 
 import { useWallet } from "@solana/wallet-adapter-react";
-import { useRouter } from "next/navigation";
+import { useRouter } from "nextjs-toploader/app";
+import { useSearchParams } from "next/navigation";
+import { useQueryClient } from "@tanstack/react-query";
+import { Wallet } from "lucide-react";
 import { useCallback, useState } from "react";
 import {
   ApiClientError,
@@ -17,6 +20,13 @@ function uint8ArrayToBase64(bytes: Uint8Array): string {
     binary += String.fromCharCode(bytes[i]!);
   }
   return btoa(binary);
+}
+
+function resolveRedirectTarget(from: string | null): string {
+  if (from && from.startsWith("/") && !from.startsWith("//")) {
+    return from;
+  }
+  return "/agents";
 }
 
 export function SiwsSignIn() {
@@ -54,32 +64,27 @@ export function SiwsSignIn() {
     }
   }, [markSignedIn, publicKey, router, signMessage]);
 
+  if (!connected) {
+    return null;
+  }
+
   return (
-    <div className="flex flex-col gap-4">
-      <p className="text-sm text-zinc-400">
-        Connect a wallet, then sign the one-time message from the Guardrails API to create a session.
-      </p>
-
-      <p className="rounded-md border border-blue-900/40 bg-blue-950/20 px-3 py-2 text-sm text-blue-200">
-        Use the global wallet button in the top bar to connect your wallet before signing in.
-      </p>
-
-      {connected && !signMessage ? (
-        <p className="text-sm text-amber-400">This wallet does not support message signing.</p>
-      ) : null}
-
-      {connected && signMessage ? (
+    <div className="flex flex-col items-center gap-3">
+      {signMessage ? (
         <button
           type="button"
-          className="button button-primary w-fit disabled:cursor-not-allowed disabled:opacity-50"
+          className="inline-flex items-center gap-2 rounded-lg bg-foreground px-5 py-2.5 text-sm font-medium text-background shadow-sm transition-colors hover:bg-foreground/90 disabled:cursor-not-allowed disabled:opacity-60"
           disabled={busy || connecting}
           onClick={() => void onSignIn()}
         >
-          {busy || connecting ? "Working…" : "Sign in with Solana"}
+          <Wallet size={14} strokeWidth={1.8} aria-hidden />
+          {busy || connecting ? "Signing…" : "Sign in with Solana"}
         </button>
-      ) : null}
+      ) : (
+        <p className="text-sm text-amber-500">This wallet does not support message signing.</p>
+      )}
 
-      {error ? <p className="text-sm text-red-400">{error}</p> : null}
+      {error ? <p className="text-xs text-crimson-500">{error}</p> : null}
     </div>
   );
 }

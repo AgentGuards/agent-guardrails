@@ -4,13 +4,17 @@ import React, { type ComponentType, useMemo, useState, type ReactNode } from "re
 import { AnchorProvider } from "@coral-xyz/anchor";
 import { Connection, PublicKey } from "@solana/web3.js";
 import { QueryCache, QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import { ConnectionProvider, WalletProvider, useWallet } from "@solana/wallet-adapter-react";
 import { WalletModalProvider } from "@solana/wallet-adapter-react-ui";
 import type { Adapter } from "@solana/wallet-adapter-base";
 import { PhantomWalletAdapter, SolflareWalletAdapter } from "@solana/wallet-adapter-wallets";
 import { BackpackWalletAdapter } from "@solana/wallet-adapter-backpack";
+import NextTopLoader from "nextjs-toploader";
+import { Toaster } from "sonner";
+import { RequireSession } from "@/components/auth/require-session";
 import { ApiClientError, isUnauthorizedError } from "@/lib/api/client";
-import { clearSiwsAndRedirectToSignin } from "@/lib/auth/siws-session";
+import { clearSiwsAndRedirectHome } from "@/lib/auth/siws-session";
 import { useSSE } from "@/lib/sse/useSSE";
 
 const RPC_ENDPOINT = process.env.NEXT_PUBLIC_SOLANA_RPC_URL ?? "https://api.devnet.solana.com";
@@ -44,9 +48,9 @@ export function AppProviders({ children }: { children: ReactNode }) {
         queryCache: new QueryCache({
           onError: (error) => {
             if (typeof window === "undefined") return;
-            if (window.location.pathname === "/signin") return;
+            if (window.location.pathname === "/") return;
             if (isUnauthorizedError(error)) {
-              clearSiwsAndRedirectToSignin();
+              clearSiwsAndRedirectHome();
             }
           },
         }),
@@ -76,7 +80,33 @@ export function AppProviders({ children }: { children: ReactNode }) {
         <WalletModalProvider>
           <QueryClientProvider client={queryClient}>
             <RealtimeBridge />
-            {children}
+            <NextTopLoader
+              color="#00FFD1"
+              initialPosition={0.12}
+              crawlSpeed={200}
+              height={3}
+              crawl
+              showSpinner={false}
+              easing="ease"
+              speed={200}
+              shadow="0 0 10px #00FFD1,0 0 5px #00FFD1"
+            />
+            <Toaster
+              theme="dark"
+              richColors
+              position="top-right"
+              toastOptions={{
+                style: {
+                  background: "hsl(var(--card))",
+                  border: "1px solid hsl(var(--border))",
+                  color: "hsl(var(--foreground))",
+                },
+              }}
+            />
+            <RequireSession>{children}</RequireSession>
+            {process.env.NODE_ENV === "development" ? (
+              <ReactQueryDevtools initialIsOpen={false} buttonPosition="bottom-right" />
+            ) : null}
           </QueryClientProvider>
         </WalletModalProvider>
       </SafeWalletProvider>

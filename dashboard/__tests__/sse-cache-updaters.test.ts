@@ -194,7 +194,8 @@ describe("applyVerdictEvent", () => {
 });
 
 describe("applyAgentPausedEvent", () => {
-  const incidentsListKey = [...queryKeys.incidents(), 50] as const;
+  const viewer = "demo-viewer";
+  const incidentsListKey = [...queryKeys.incidents(viewer), 50] as const;
   const incidentsPolicyKey = [...queryKeys.incidentsByPolicy("P1"), 50] as const;
 
   it("prepends incident and marks policy inactive in caches", () => {
@@ -217,7 +218,7 @@ describe("applyAgentPausedEvent", () => {
       createdAt: "2026-01-01T00:00:00.000Z",
       updatedAt: "2026-01-01T00:00:00.000Z",
     };
-    qc.setQueryData(queryKeys.policies(), [policy]);
+    qc.setQueryData(queryKeys.policies(viewer), [policy]);
     qc.setQueryData(queryKeys.policy("P1"), policy);
 
     const detail: IncidentDetail = {
@@ -251,7 +252,7 @@ describe("applyAgentPausedEvent", () => {
       createdAt: "2026-04-02T00:00:01.000Z",
     });
 
-    const policies = qc.getQueryData<PolicySummary[]>(queryKeys.policies());
+    const policies = qc.getQueryData<PolicySummary[]>(queryKeys.policies(viewer));
     expect(policies?.[0]?.isActive).toBe(false);
     const one = qc.getQueryData<PolicySummary>(queryKeys.policy("P1"));
     expect(one?.isActive).toBe(false);
@@ -261,7 +262,8 @@ describe("applyAgentPausedEvent", () => {
 });
 
 describe("applyReportReadyEvent", () => {
-  const incidentsListKey = [...queryKeys.incidents(), 50] as const;
+  const viewer = "demo-viewer";
+  const incidentsListKey = [...queryKeys.incidents(viewer), 50] as const;
 
   it("patches fullReport on list and detail caches", () => {
     const qc = new QueryClient();

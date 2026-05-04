@@ -4,9 +4,11 @@ import { useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { PublicKey } from "@solana/web3.js";
+import { toast } from "sonner";
 import { getErrorMessage } from "@/lib/api/client";
 import { queryKeys } from "@/lib/api/query-keys";
 import { usePolicyQuery } from "@/lib/api/use-policy-query";
+import { EditPolicyFormSkeleton } from "@/components/skeletons";
 import { buildUpdatePolicyFullReplace } from "@/lib/create-policy/build-update-args";
 import { permissionPolicyToSummary } from "@/lib/create-policy/map-permission-policy";
 import { policySummaryToDraft } from "@/lib/create-policy/policy-to-draft";
@@ -56,15 +58,7 @@ export function EditPolicyForm({ policyPubkey }: { policyPubkey: string }) {
   const [pasteError, setPasteError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
-  const [saveBanner, setSaveBanner] = useState<string | null>(null);
-  const [toastError, setToastError] = useState<{ id: number; message: string } | null>(null);
   const initializedDraftForPubkeyRef = useRef<string | null>(null);
-
-  useEffect(() => {
-    if (!toastError) return;
-    const timeout = window.setTimeout(() => setToastError(null), 5000);
-    return () => window.clearTimeout(timeout);
-  }, [toastError]);
 
   useEffect(() => {
     if (policyQuery.data && initializedDraftForPubkeyRef.current !== policyPubkey) {
@@ -78,11 +72,7 @@ export function EditPolicyForm({ policyPubkey }: { policyPubkey: string }) {
   const walletReady = Boolean(publicKey && provider && programId);
 
   if (policyQuery.isLoading) {
-    return (
-      <div className="rounded-md border border-zinc-800 bg-zinc-900/40 px-3 py-2 text-sm text-zinc-400">
-        Loading policy…
-      </div>
-    );
+    return <EditPolicyFormSkeleton />;
   }
 
   if (policyQuery.isError || !policy) {
@@ -95,17 +85,12 @@ export function EditPolicyForm({ policyPubkey }: { policyPubkey: string }) {
   }
 
   if (!draft) {
-    return (
-      <div className="rounded-md border border-zinc-800 bg-zinc-900/40 px-3 py-2 text-sm text-zinc-400">
-        Preparing form…
-      </div>
-    );
+    return <EditPolicyFormSkeleton />;
   }
 
   const updateDraft = (partial: Partial<CreatePolicyDraftInput>) => {
     setDraft((d) => (d ? { ...d, ...partial } : d));
     setFieldErrors({});
-    setSaveBanner(null);
   };
 
   const addProgram = (pubkey: string) => {
@@ -121,7 +106,6 @@ export function EditPolicyForm({ policyPubkey }: { policyPubkey: string }) {
 
   const onSave = async () => {
     setSaveError(null);
-    setSaveBanner(null);
     const { ok, errors } = validateFullDraft(draft);
     if (!ok) {
       setFieldErrors(errors);
@@ -145,7 +129,7 @@ export function EditPolicyForm({ policyPubkey }: { policyPubkey: string }) {
       });
 
       queryClient.setQueryData(queryKeys.policy(policyPubkey), summary);
-      queryClient.setQueryData(queryKeys.policies(), (old: PolicySummary[] | undefined) => {
+      queryClient.setQueriesData<PolicySummary[]>({ queryKey: ["policies"] }, (old: PolicySummary[] | undefined) => {
         if (!old?.length) return [summary];
         let found = false;
         const next = old.map((row) => {
@@ -157,11 +141,11 @@ export function EditPolicyForm({ policyPubkey }: { policyPubkey: string }) {
       });
 
       setDraft(policySummaryToDraft(summary));
-      setSaveBanner("Policy updated on-chain. Cache refreshed.");
+      toast.success("Policy updated on-chain. Cache refreshed.");
     } catch (e) {
       const message = getErrorMessage(e);
       setSaveError(message);
-      setToastError({ id: Date.now(), message });
+      toast.error(message);
     } finally {
       setSaving(false);
     }
@@ -169,20 +153,6 @@ export function EditPolicyForm({ policyPubkey }: { policyPubkey: string }) {
 
   return (
     <div className="mx-auto flex w-full max-w-5xl flex-col gap-6">
-      {toastError ? (
-        <div
-          role="status"
-          aria-live="polite"
-          className="fixed right-4 top-4 z-50 max-w-sm rounded-md border border-red-900/60 bg-red-950/95 px-4 py-3 text-sm text-red-200 shadow-lg"
-        >
-          {toastError.message}
-        </div>
-      ) : null}
-      {saveBanner ? (
-        <div className="rounded-md border border-blue-900/50 bg-blue-950/30 px-3 py-2 text-sm text-blue-200">
-          {saveBanner}
-        </div>
-      ) : null}
       {saveError ? (
         <div className="rounded-md border border-red-900/50 bg-red-950/30 px-3 py-2 text-sm text-red-300">
           {saveError}

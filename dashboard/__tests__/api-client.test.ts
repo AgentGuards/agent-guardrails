@@ -3,23 +3,34 @@ import {
   ApiClientError,
   apiMode,
   buildApiRequestInit,
+  fetchFleetSummary,
   fetchIncident,
   fetchIncidents,
   fetchPolicies,
   fetchPolicy,
+  fetchSpendTrackers,
   fetchTransactions,
   getErrorMessage,
   isUnauthorizedError,
 } from "@/lib/api/client";
-import { INCIDENTS, POLICIES } from "@/lib/mock";
+import { MOCK_DEMO_OWNER_WALLET, INCIDENTS, POLICIES } from "@/lib/mock";
 
 describe("api client mock data", () => {
   it("runs in mock mode during tests", () => {
     expect(apiMode).toBe("mock");
   });
 
+  it("scopes mock fleet data to the viewer wallet pubkey", async () => {
+    const stranger = "Stranger11111111111111111111111111111111";
+    expect(await fetchPolicies(stranger)).toHaveLength(0);
+    await expect(fetchPolicy(POLICIES[0].pubkey, stranger)).rejects.toThrow("Policy not found");
+    const summary = await fetchFleetSummary(stranger);
+    expect(summary.activeAgents).toBe(0);
+    expect((await fetchIncidents(undefined, undefined, 50, stranger)).items).toHaveLength(0);
+  });
+
   it("returns policies sorted by most recently updated", async () => {
-    const policies = await fetchPolicies();
+    const policies = await fetchPolicies(MOCK_DEMO_OWNER_WALLET);
     expect(policies).toHaveLength(POLICIES.length);
 
     for (let index = 1; index < policies.length; index += 1) {
@@ -52,12 +63,12 @@ describe("api client mock data", () => {
     const txns = await fetchTransactions(undefined, undefined, 0);
     expect(txns.items.length).toBeGreaterThan(0);
 
-    const incidents = await fetchIncidents(undefined, undefined, -10);
+    const incidents = await fetchIncidents(undefined, undefined, -10, MOCK_DEMO_OWNER_WALLET);
     expect(incidents.items.length).toBeGreaterThan(0);
   });
 
   it("returns incident detail and rejects unknown incident ids", async () => {
-    const incident = await fetchIncident(INCIDENTS[0].id);
+    const incident = await fetchIncident(INCIDENTS[0].id, MOCK_DEMO_OWNER_WALLET);
     expect(incident.id).toBe(INCIDENTS[0].id);
     expect(incident.policy.pubkey).toBe(INCIDENTS[0].policyPubkey);
     expect(Array.isArray(incident.judgeVerdict?.signals ?? [])).toBe(true);
@@ -65,11 +76,27 @@ describe("api client mock data", () => {
     await expect(fetchIncident("does-not-exist")).rejects.toThrow("Incident not found");
   });
 
+  it("returns fleet summary and spend trackers in mock mode", async () => {
+    const summary = await fetchFleetSummary(MOCK_DEMO_OWNER_WALLET);
+    expect(summary.totalLamportsSpent24h).toMatch(/^\d+$/);
+    expect(summary.incidentsLast24h).toBeGreaterThanOrEqual(0);
+
+    const trackers = await fetchSpendTrackers(MOCK_DEMO_OWNER_WALLET);
+    expect(trackers.length).toBe(POLICIES.length);
+    expect(trackers[0]).toMatchObject({
+      policyPubkey: expect.any(String),
+      lamportsSpent24h: expect.any(String),
+      policy: {
+        dailyBudgetLamports: expect.any(String),
+      },
+    });
+  });
+
   it("supports incident pagination", async () => {
-    const firstPage = await fetchIncidents(undefined, undefined, 1);
+    const firstPage = await fetchIncidents(undefined, undefined, 1, MOCK_DEMO_OWNER_WALLET);
     expect(firstPage.items).toHaveLength(1);
     if (firstPage.nextCursor) {
-      const secondPage = await fetchIncidents(undefined, firstPage.nextCursor, 1);
+      const secondPage = await fetchIncidents(undefined, firstPage.nextCursor, 1, MOCK_DEMO_OWNER_WALLET);
       expect(secondPage.items[0]?.id).not.toEqual(firstPage.items[0].id);
     }
   });

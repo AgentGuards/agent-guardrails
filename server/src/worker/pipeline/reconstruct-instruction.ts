@@ -40,6 +40,11 @@ export function reconstructInstruction(row: GuardedTxn): ReconstructedInstructio
   const rawEvent = row.rawEvent as Record<string, unknown> | null;
   if (!rawEvent) return null;
 
+  // Handle pre-built instruction from /api/escalations/report
+  if (rawEvent._reconstructed && rawEvent.instruction) {
+    return rawEvent.instruction as ReconstructedInstruction;
+  }
+
   const programId = env.GUARDRAILS_PROGRAM_ID;
 
   // Find the guardrails instruction in the transaction

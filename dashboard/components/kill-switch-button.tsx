@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { PublicKey } from "@solana/web3.js";
+import { toast } from "sonner";
 import { getErrorMessage } from "@/lib/api/client";
 import { queryKeys } from "@/lib/api/query-keys";
 import { GuardrailsClient } from "@/lib/sdk/client";
@@ -22,14 +23,6 @@ export function KillSwitchButton({ policy }: { policy: PolicySummary }) {
   const [reason, setReason] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [banner, setBanner] = useState<string | null>(null);
-  const [toastError, setToastError] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!toastError) return;
-    const timeout = window.setTimeout(() => setToastError(null), 5000);
-    return () => window.clearTimeout(timeout);
-  }, [toastError]);
 
   const isOwner = Boolean(publicKey && publicKey.toBase58() === policy.owner);
   const walletReady = Boolean(provider && programId);
@@ -45,7 +38,7 @@ export function KillSwitchButton({ policy }: { policy: PolicySummary }) {
     queryClient.setQueryData(queryKeys.policy(policy.pubkey), (prev: PolicySummary | undefined) =>
       prev ? { ...prev, isActive, updatedAt: now } : prev,
     );
-    queryClient.setQueryData(queryKeys.policies(), (old: PolicySummary[] | undefined) => {
+    queryClient.setQueriesData<PolicySummary[]>({ queryKey: ["policies"] }, (old: PolicySummary[] | undefined) => {
       if (!old) return old;
       return old.map((row) =>
         row.pubkey === policy.pubkey ? { ...row, isActive, updatedAt: now } : row,
@@ -68,24 +61,23 @@ export function KillSwitchButton({ policy }: { policy: PolicySummary }) {
     if (!reasonOk || !provider || !programId || busy) return;
     setBusy(true);
     setError(null);
-    setBanner(null);
     try {
       const client = new GuardrailsClient(provider, programId);
       await client.pauseAgent(new PublicKey(policy.pubkey), trimmedReason);
       updateCache(false);
-      setBanner("Agent paused on-chain.");
+      toast.success("Agent paused on-chain.");
       setOpen(false);
       setReason("");
     } catch (e) {
       if (isAlreadyInState(e, true)) {
         updateCache(false);
-        setBanner("Agent is paused on-chain.");
+        toast.success("Agent is paused on-chain.");
         setOpen(false);
         setReason("");
       } else {
         const message = getErrorMessage(e);
         setError(message);
-        setToastError(message);
+        toast.error(message);
       }
     } finally {
       setBusy(false);
@@ -96,20 +88,19 @@ export function KillSwitchButton({ policy }: { policy: PolicySummary }) {
     if (!provider || !programId || busy) return;
     setBusy(true);
     setError(null);
-    setBanner(null);
     try {
       const client = new GuardrailsClient(provider, programId);
       await client.resumeAgent(new PublicKey(policy.pubkey));
       updateCache(true);
-      setBanner("Agent resumed on-chain.");
+      toast.success("Agent resumed on-chain.");
     } catch (e) {
       if (isAlreadyInState(e, false)) {
         updateCache(true);
-        setBanner("Agent is active on-chain.");
+        toast.success("Agent is active on-chain.");
       } else {
         const message = getErrorMessage(e);
         setError(message);
-        setToastError(message);
+        toast.error(message);
       }
     } finally {
       setBusy(false);
@@ -118,21 +109,6 @@ export function KillSwitchButton({ policy }: { policy: PolicySummary }) {
 
   return (
     <div className="mt-4">
-      {toastError ? (
-        <div
-          role="status"
-          aria-live="polite"
-          className="fixed right-4 top-4 z-50 max-w-sm rounded-md border border-red-900/60 bg-red-950/95 px-4 py-3 text-sm text-red-200 shadow-lg"
-        >
-          {toastError}
-        </div>
-      ) : null}
-      {banner ? (
-        <div className="mb-3 rounded-md border border-blue-900/50 bg-blue-950/30 px-3 py-2 text-sm text-blue-200">
-          {banner}
-        </div>
-      ) : null}
-
       {policy.isActive ? (
         <button
           type="button"

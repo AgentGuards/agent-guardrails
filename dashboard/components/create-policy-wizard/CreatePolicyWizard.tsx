@@ -1,9 +1,10 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useCallback, useState } from "react";
+import { useRouter } from "nextjs-toploader/app";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { Keypair } from "@solana/web3.js";
+import { toast } from "sonner";
 import { WizardStepPanels } from "@/components/create-policy-wizard/wizard-step-panels";
 import { AgentSecretBackupModal } from "@/components/create-policy-wizard/agent-secret-backup-modal";
 import { getErrorMessage } from "@/lib/api/client";
@@ -27,7 +28,7 @@ function isIdempotentCreateError(error: unknown) {
   );
 }
 
-export function CreatePolicyWizard() {
+export function CreatePolicyWizard({ onCreated }: { onCreated?: () => void }) {
   const router = useRouter();
   const { publicKey } = useWallet();
   const provider = useAnchorProvider();
@@ -42,17 +43,10 @@ export function CreatePolicyWizard() {
   const [agentKeypair, setAgentKeypair] = useState<Keypair | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
-  const [toastError, setToastError] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!toastError) return;
-    const timeout = window.setTimeout(() => setToastError(null), 5000);
-    return () => window.clearTimeout(timeout);
-  }, [toastError]);
 
   const publishError = useCallback((message: string) => {
     setSubmitError(message);
-    setToastError(message);
+    toast.error(message);
   }, []);
 
   const runCreate = useCallback(
@@ -107,14 +101,20 @@ export function CreatePolicyWizard() {
 
         setAgentKeypair(null);
         resetWizard();
-        router.push("/agents");
+        toast.success("Policy created on-chain.");
+        if (onCreated) {
+          onCreated();
+          router.refresh();
+        } else {
+          router.push("/agents");
+        }
       } catch (e) {
         publishError(getErrorMessage(e));
       } finally {
         setSubmitting(false);
       }
     },
-    [programId, provider, publicKey, publishError, resetWizard, router],
+    [onCreated, programId, provider, publicKey, publishError, resetWizard, router],
   );
 
   const onCreateClick = () => {
@@ -153,15 +153,6 @@ export function CreatePolicyWizard() {
 
   return (
     <div className="mx-auto flex w-full max-w-4xl flex-col gap-5">
-      {toastError ? (
-        <div
-          role="status"
-          aria-live="polite"
-          className="fixed right-4 top-4 z-50 max-w-sm rounded-md border border-red-900/60 bg-red-950/95 px-4 py-3 text-sm text-red-200 shadow-lg"
-        >
-          {toastError}
-        </div>
-      ) : null}
       {agentKeypair ? (
         <AgentSecretBackupModal
           agentKeypair={agentKeypair}

@@ -1,13 +1,18 @@
-import { AppShell } from "@/components/dashboard-ui";
-import { SiwsSignIn } from "@/components/auth/siws-sign-in";
+"use client";
+
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
 
 export default function SignInPage() {
+  const router = useRouter();
+
+  useEffect(() => {
+    router.replace("/");
+  }, [router]);
+
   return (
-    <AppShell
-      title="Sign In"
-      subtitle="Authenticate with your wallet using SIWS."
-    >
-      <SiwsSignIn />
-    </AppShell>
+    <div className="flex min-h-screen items-center justify-center bg-[#07080c] text-zinc-400">
+      <p className="text-sm">Redirecting…</p>
+    </div>
   );
 }

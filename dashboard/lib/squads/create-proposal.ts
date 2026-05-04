@@ -1,9 +1,12 @@
 "use client";
 
 import { Connection, PublicKey, TransactionMessage, VersionedTransaction } from "@solana/web3.js";
+import { AnchorProvider, BN } from "@coral-xyz/anchor";
 import * as multisig from "@sqds/multisig";
 import type { AnchorWallet } from "@solana/wallet-adapter-react";
 import { fetchEscalation, updateEscalationProposal } from "@/lib/api/client";
+import { GuardrailsClient } from "@/lib/sdk/client";
+import type { EscalationDetail } from "@/lib/types/dashboard";
 
 /**
  * Create a Squads vault transaction + proposal for an escalated transaction.
@@ -88,7 +91,10 @@ export async function createEscalationProposal(
 
   const tx = new VersionedTransaction(message);
   const signed = await wallet.signTransaction(tx);
-  const sig = await connection.sendRawTransaction(signed.serialize());
+  const sig = await connection.sendRawTransaction(signed.serialize(), {
+    skipPreflight: true,
+    maxRetries: 0,
+  });
   await connection.confirmTransaction(sig, "confirmed");
 
   // 6. Derive proposal PDA
@@ -134,43 +140,66 @@ export async function approveProposal(
 
   const tx = new VersionedTransaction(message);
   const signed = await wallet.signTransaction(tx);
-  const sig = await connection.sendRawTransaction(signed.serialize());
+  const sig = await connection.sendRawTransaction(signed.serialize(), {
+    skipPreflight: true,
+    maxRetries: 0,
+  });
   await connection.confirmTransaction(sig, "confirmed");
 
   return sig;
 }
 
 /**
- * Execute an approved Squads vault transaction.
+ * Execute an approved escalation via the Guardrails multisig_execute instruction.
+ * Transfers directly from the policy PDA — funds never leave the guardrails layer.
  */
-export async function executeProposal(
+export async function executeViaGuardrails(
   connection: Connection,
   wallet: AnchorWallet,
-  multisigAddress: string,
-  transactionIndex: string,
+  escalation: EscalationDetail,
 ): Promise<string> {
-  const multisigPda = new PublicKey(multisigAddress);
-  const txIndex = BigInt(transactionIndex);
+  const provider = new AnchorProvider(connection, wallet, {
+    commitment: "confirmed",
+  });
+  const client = new GuardrailsClient(provider);
 
-  const { instruction: executeIx, lookupTableAccounts } =
-    await multisig.instructions.vaultTransactionExecute({
-      connection,
-      multisigPda,
-      transactionIndex: txIndex,
-      member: wallet.publicKey,
-    });
+  const policyPda = new PublicKey(escalation.policyPubkey);
+  const [trackerPda] = client.findTrackerPda(policyPda);
 
-  const { blockhash } = await connection.getLatestBlockhash();
-  const message = new TransactionMessage({
-    payerKey: wallet.publicKey,
-    recentBlockhash: blockhash,
-    instructions: [executeIx],
-  }).compileToV0Message(lookupTableAccounts);
+  // Derive the Squads proposal PDA
+  const multisigPda = new PublicKey(escalation.squadsMultisig);
+  const txIndex = BigInt(escalation.transactionIndex!);
+  const [proposalPda] = multisig.getProposalPda({
+    multisigPda,
+    transactionIndex: txIndex,
+  });
 
-  const tx = new VersionedTransaction(message);
-  const signed = await wallet.signTransaction(tx);
-  const sig = await connection.sendRawTransaction(signed.serialize());
-  await connection.confirmTransaction(sig, "confirmed");
+  const instruction = escalation.instruction;
+  if (!instruction) throw new Error("No instruction data for execution");
 
-  return sig;
+  const targetProgram = new PublicKey(instruction.programId);
+  const instructionData = Buffer.from(instruction.data, "base64");
+  const amountHint = new BN(instruction.amountLamports);
+
+  // Build remaining accounts — for SOL transfers, just the destination
+  const remainingAccounts = instruction.accounts
+    .filter((acc) => acc.pubkey !== instruction.programId)
+    .map((acc) => ({
+      pubkey: new PublicKey(acc.pubkey),
+      isSigner: false,
+      isWritable: acc.isWritable,
+    }));
+
+  return await client.multisigExecute(
+    policyPda,
+    trackerPda,
+    proposalPda,
+    targetProgram,
+    {
+      instructionData,
+      amountHint,
+      inputAccountIndex: null,
+    },
+    remainingAccounts,
+  );
 }

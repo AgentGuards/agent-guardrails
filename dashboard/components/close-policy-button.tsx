@@ -1,10 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter } from "nextjs-toploader/app";
 import { useQueryClient } from "@tanstack/react-query";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { PublicKey } from "@solana/web3.js";
+import { toast } from "sonner";
 import { getErrorMessage } from "@/lib/api/client";
 import { queryKeys } from "@/lib/api/query-keys";
 import { GuardrailsClient } from "@/lib/sdk/client";
@@ -38,18 +39,22 @@ export function ClosePolicyButton({ policy }: { policy: PolicySummary }) {
       await client.closePolicy(new PublicKey(policy.pubkey));
 
       queryClient.removeQueries({ queryKey: queryKeys.policy(policy.pubkey) });
-      queryClient.invalidateQueries({ queryKey: queryKeys.policies() });
+      queryClient.invalidateQueries({ queryKey: ["policies"] });
 
       setOpen(false);
+      toast.success("Policy closed and refunded.");
       router.push("/agents");
     } catch (e) {
       const msg = getErrorMessage(e).toLowerCase();
       if (msg.includes("already been processed") || msg.includes("already processed")) {
         queryClient.removeQueries({ queryKey: queryKeys.policy(policy.pubkey) });
-        queryClient.invalidateQueries({ queryKey: queryKeys.policies() });
+        queryClient.invalidateQueries({ queryKey: ["policies"] });
+        toast.success("Policy close was already processed.");
         router.push("/agents");
       } else {
-        setError(getErrorMessage(e));
+        const message = getErrorMessage(e);
+        setError(message);
+        toast.error(message);
       }
     } finally {
       setBusy(false);

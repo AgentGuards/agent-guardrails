@@ -1,7 +1,11 @@
 "use client";
 
 import { AppShell, TransactionRow } from "@/components/dashboard-ui";
-import { QueryEmpty, QueryError, QueryLoading } from "@/components/query-states";
+import { EmptyState } from "@/components/EmptyState";
+import { QueryError } from "@/components/query-states";
+import { ActivityViewSkeleton } from "@/components/skeletons";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Activity } from "lucide-react";
 import { getErrorMessage } from "@/lib/api/client";
 import { useInfiniteTransactionsQuery } from "@/lib/api/use-infinite-transactions-query";
 import { usePoliciesQuery } from "@/lib/api/use-policies-query";
@@ -16,7 +20,7 @@ export function ActivityView() {
   if (transactionsQuery.isLoading) {
     return (
       <AppShell title="Activity" subtitle="Global guarded transactions and AI verdicts.">
-        <QueryLoading message="Loading activity feed…" listSkeleton />
+        <ActivityViewSkeleton />
       </AppShell>
     );
   }
@@ -48,31 +52,40 @@ export function ActivityView() {
         </div>
       ) : null}
 
-      <div className="mb-4 flex flex-wrap gap-2.5">
-        <select
-          className="w-full rounded-lg border border-zinc-800/70 bg-zinc-950/60 px-4 py-3 text-sm text-zinc-200 outline-none transition-all duration-200 focus:border-blue-700/60 focus:bg-zinc-950/80 focus:ring-1 focus:ring-blue-500/30 disabled:cursor-not-allowed disabled:opacity-50"
-          value={selectedPolicyPubkey ?? ""}
-          onChange={(event) => setSelectedPolicy(event.target.value || null)}
-          aria-label="Filter by policy"
-        >
-          <option value="">All policies</option>
-          {(policiesQuery.data ?? []).map((policy) => (
-            <option key={policy.pubkey} value={policy.pubkey}>
-              {policy.label ?? shortAddress(policy.pubkey)}
-            </option>
-          ))}
-        </select>
-        <select
-          className="w-full rounded-lg border border-zinc-800/70 bg-zinc-950/60 px-4 py-3 text-sm text-zinc-200 outline-none transition-all duration-200 focus:border-blue-700/60 focus:bg-zinc-950/80 focus:ring-1 focus:ring-blue-500/30 disabled:cursor-not-allowed disabled:opacity-50"
-          value={verdictFilter}
-          onChange={(event) => setVerdictFilter(event.target.value as "all" | "allow" | "flag" | "pause")}
-          aria-label="Filter by verdict"
-        >
-          <option value="all">All verdicts</option>
-          <option value="allow">Allow</option>
-          <option value="flag">Flag</option>
-          <option value="pause">Pause</option>
-        </select>
+      <div className="mb-4 rounded-xl border border-zinc-800/80 bg-zinc-900/40 p-3 sm:p-4">
+        <div className="grid gap-3 md:grid-cols-2">
+          <div className="space-y-1.5">
+            <p className="text-xs font-medium tracking-wide text-zinc-400 uppercase">Policy</p>
+            <Select value={selectedPolicyPubkey ?? "all"} onValueChange={(value) => setSelectedPolicy(value === "all" ? null : value)}>
+              <SelectTrigger aria-label="Filter by policy">
+                <SelectValue placeholder="All policies" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All policies</SelectItem>
+                {(policiesQuery.data ?? []).map((policy) => (
+                  <SelectItem key={policy.pubkey} value={policy.pubkey}>
+                    {policy.label ?? shortAddress(policy.pubkey)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-1.5">
+            <p className="text-xs font-medium tracking-wide text-zinc-400 uppercase">Verdict</p>
+            <Select value={verdictFilter} onValueChange={(value) => setVerdictFilter(value as "all" | "allow" | "flag" | "pause")}>
+              <SelectTrigger aria-label="Filter by verdict">
+                <SelectValue placeholder="All verdicts" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All verdicts</SelectItem>
+                <SelectItem value="allow">Allow</SelectItem>
+                <SelectItem value="flag">Flag</SelectItem>
+                <SelectItem value="pause">Pause</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
       </div>
 
       <p className="mb-3 text-xs text-zinc-500">
@@ -87,10 +100,13 @@ export function ActivityView() {
           ))}
         </div>
       ) : (
-        <QueryEmpty
-          title="No transactions match the current filters."
-          description="Try another policy or verdict, or load older activity below."
-        />
+        <div className="rounded-xl border border-zinc-800/80 bg-zinc-900/40">
+          <EmptyState
+            icon={Activity}
+            title="No matching transactions"
+            description="Try adjusting your policy or verdict filters."
+          />
+        </div>
       )}
 
       {transactionsQuery.hasNextPage ? (

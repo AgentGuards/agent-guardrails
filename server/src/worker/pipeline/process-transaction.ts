@@ -5,6 +5,7 @@ import { detectAndExtract, detectInstruction, ingest } from "./ingest.js";
 import { syncPolicyFromChain } from "./sync-policy.js";
 import { syncTrackerFromChain } from "./sync-tracker.js";
 import { handleEscalation } from "./escalation.js";
+import { resolveEscalation } from "./resolve-escalation.js";
 import { migratePolicy } from "./migrate-policy.js";
 import { prefilter } from "./prefilter.js";
 import { judgeTransaction } from "./judge.js";
@@ -84,6 +85,16 @@ export async function processTransaction(txn: HeliusEnhancedTransaction): Promis
 
       sseEmitter.emitEvent("policy_closed", { policyPubkey });
       console.log(`[pipeline] policy ${policyPubkey.slice(0, 8)}… closed and deleted`);
+      break;
+    }
+
+    // Multisig-approved execution — ingest → resolve escalation → sync tracker
+    case "multisig_execute": {
+      const msRow = await ingest(txn, policyPubkey);
+      if (!msRow) return;
+
+      await resolveEscalation(msRow);
+      await syncTrackerFromChain(policyPubkey);
       break;
     }
 
