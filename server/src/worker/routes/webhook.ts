@@ -109,6 +109,8 @@ export async function webhookHandler(req: Request, res: Response): Promise<void>
     return;
   }
 
+  console.log(`[webhook] received ${transactions.length} transaction(s)`);
+
   // Respond immediately — pipeline runs async
   res.status(200).json({ received: transactions.length });
   recordWebhookIngress(transactions.length);

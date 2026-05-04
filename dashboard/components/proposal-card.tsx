@@ -6,8 +6,8 @@ import { useConnection, useWallet } from "@solana/wallet-adapter-react";
 import { useAnchorWallet } from "@solana/wallet-adapter-react";
 import { StatusChip } from "@/components/dashboard-ui";
 import { shortAddress, formatRelativeTime, formatRelativeTooltip, formatSol, programLabel } from "@/lib/utils";
-import { approveProposal, executeProposal, createEscalationProposal } from "@/lib/squads/create-proposal";
-import { getErrorMessage } from "@/lib/api/client";
+import { approveProposal, executeViaGuardrails, createEscalationProposal } from "@/lib/squads/create-proposal";
+import { getErrorMessage, fetchEscalation } from "@/lib/api/client";
 import type { EscalationSummary } from "@/lib/types/dashboard";
 import { escalationLabel, escalationTone } from "@/lib/utils/escalation-display";
 
@@ -70,12 +70,8 @@ export function ProposalCard({
     setBusy(true);
     setError(null);
     try {
-      await executeProposal(
-        connection,
-        wallet,
-        escalation.squadsMultisig,
-        escalation.transactionIndex,
-      );
+      const detail = await fetchEscalation(escalation.id);
+      await executeViaGuardrails(connection, wallet, detail);
       onUpdate?.();
     } catch (e) {
       setError(getErrorMessage(e));
