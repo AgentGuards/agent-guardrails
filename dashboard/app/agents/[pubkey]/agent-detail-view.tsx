@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { ChevronLeft } from "lucide-react";
+import { ChevronLeft, Play } from "lucide-react";
+import { useWallet } from "@solana/wallet-adapter-react";
 import {
   AnomalyRiskLabel,
   anomalyBarClass,
@@ -15,6 +16,7 @@ import { ClosePolicyButton } from "@/components/close-policy-button";
 import { FundAgentButton } from "@/components/fund-agent-button";
 import { KillSwitchButton } from "@/components/kill-switch-button";
 import { RotateAgentKeyButton } from "@/components/rotate-agent-key-button";
+import { SimulatePanel } from "@/components/simulate-panel";
 import { QueryEmpty, QueryError } from "@/components/query-states";
 import { AgentDetailSkeleton, IncidentsViewSkeleton } from "@/components/skeletons";
 import { useInfiniteTransactionsQuery } from "@/lib/api/use-infinite-transactions-query";
@@ -22,6 +24,7 @@ import { useIncidentsQuery } from "@/lib/api/use-incidents-query";
 import { useEscalationsQuery } from "@/lib/api/use-escalations-query";
 import { usePolicyQuery } from "@/lib/api/use-policy-query";
 import { useAllSpendTrackersQuery } from "@/lib/api/use-spend-trackers-query";
+import { useSimulationStore } from "@/lib/stores/simulation";
 import { formatSol } from "@/lib/utils";
 
 function BackToAgentsLink() {
@@ -37,6 +40,8 @@ function BackToAgentsLink() {
 }
 
 export function AgentDetailView({ pubkey }: { pubkey: string }) {
+  const { publicKey } = useWallet();
+  const simulationStore = useSimulationStore();
   const policyQuery = usePolicyQuery(pubkey);
   const transactionsQuery = useInfiniteTransactionsQuery(pubkey, 10);
   const incidentsQuery = useIncidentsQuery(pubkey, 10);
@@ -110,6 +115,18 @@ export function AgentDetailView({ pubkey }: { pubkey: string }) {
         <RotateAgentKeyButton policy={policy} />
         <FundAgentButton policy={policy} />
         <ClosePolicyButton policy={policy} />
+        {publicKey && publicKey.toBase58() === policy.owner && (
+          <div className="mt-4">
+            <button
+              type="button"
+              className="inline-flex items-center gap-2 rounded-md border border-blue-800 bg-blue-950/40 px-4 py-2 text-sm font-medium text-blue-200 hover:bg-blue-950/70"
+              onClick={() => simulationStore.setPanelOpen(true)}
+            >
+              <Play className="h-4 w-4" />
+              Simulate
+            </button>
+          </div>
+        )}
       </div>
 
       {policy.squadsMultisig ? (() => {
@@ -226,6 +243,8 @@ export function AgentDetailView({ pubkey }: { pubkey: string }) {
           <IncidentTable incidents={incidents} />
         )}
       </div>
+
+      {simulationStore.panelOpen && <SimulatePanel policy={policy} />}
     </AppShell>
   );
 }
