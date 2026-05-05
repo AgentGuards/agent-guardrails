@@ -256,6 +256,7 @@ interface ApiGuardedTxnRow {
   amountLamports: string | null;
   status: string;
   rejectReason: string | null;
+  destination: string | null;
   rawEvent: unknown;
   createdAt: string;
   verdict: ApiVerdictRow | null;
@@ -755,10 +756,10 @@ export async function fetchTransactionDetail(sig: string): Promise<TransactionDe
         nextTxnSig: string | null;
       }>(`/api/transactions/${encodeURIComponent(sig)}`);
 
-      const { escalation: escRaw, destination: dest, ...txnRest } = raw.transaction;
+      const { escalation: escRaw, ...txnRest } = raw.transaction;
       const transaction: TransactionDetail = {
         ...mapApiTxnRow(txnRest),
-        destination: (dest as string) ?? null,
+        destination: txnRest.destination ?? null,
         escalation:
           escRaw && typeof escRaw === "object"
             ? mapApiEscalationRow(escRaw as Record<string, unknown>)
