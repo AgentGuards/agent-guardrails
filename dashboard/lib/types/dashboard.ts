@@ -102,6 +102,7 @@ export interface SpendTrackerRow {
 
 /** Guarded txn + nested escalation from GET /api/transactions/:sig */
 export interface TransactionDetail extends TransactionSummary {
+  destination: string | null;
   escalation: EscalationSummary | null;
 }
 
