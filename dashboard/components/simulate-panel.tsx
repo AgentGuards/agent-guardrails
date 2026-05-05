@@ -1,8 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Connection, LAMPORTS_PER_SOL, PublicKey } from "@solana/web3.js";
-import { X, Play, Square, CheckCircle2, XCircle, ExternalLink, Zap, Shield, Wrench } from "lucide-react";
+import { Connection, LAMPORTS_PER_SOL, PublicKey, SystemProgram, Transaction } from "@solana/web3.js";
+import { useWallet } from "@solana/wallet-adapter-react";
+import { X, Play, Square, CheckCircle2, XCircle, ExternalLink, Zap, Shield, Wrench, Wallet } from "lucide-react";
 import { toast } from "sonner";
 import { useSimulationStore, type SimulationMode } from "@/lib/stores/simulation";
 import { useSimulationRunner } from "@/hooks/use-simulation-runner";
@@ -32,6 +33,8 @@ export function SimulatePanel({ policy }: { policy: PolicySummary }) {
   const [agentBalance, setAgentBalance] = useState<number | null>(null);
   const [balanceLoading, setBalanceLoading] = useState(false);
   const [airdropping, setAirdropping] = useState(false);
+  const [fundingFromWallet, setFundingFromWallet] = useState(false);
+  const { publicKey: walletPubkey, sendTransaction } = useWallet();
 
   const keyMatchesAgent =
     sim.derivedPubkey !== null && sim.derivedPubkey === policy.agent;
@@ -86,6 +89,30 @@ export function SimulatePanel({ policy }: { policy: PolicySummary }) {
       setAirdropping(false);
     }
   }, [sim.derivedPubkey]);
+
+  const handleFundFromWallet = useCallback(async () => {
+    if (!sim.derivedPubkey || !walletPubkey || !sendTransaction) return;
+    setFundingFromWallet(true);
+    try {
+      const conn = new Connection(RPC_URL, "confirmed");
+      const tx = new Transaction().add(
+        SystemProgram.transfer({
+          fromPubkey: walletPubkey,
+          toPubkey: new PublicKey(sim.derivedPubkey),
+          lamports: 0.01 * LAMPORTS_PER_SOL,
+        }),
+      );
+      const sig = await sendTransaction(tx, conn);
+      await conn.confirmTransaction(sig, "confirmed");
+      const bal = await conn.getBalance(new PublicKey(sim.derivedPubkey));
+      setAgentBalance(bal / LAMPORTS_PER_SOL);
+      toast.success("Sent 0.01 SOL from wallet");
+    } catch {
+      toast.error("Transfer failed");
+    } finally {
+      setFundingFromWallet(false);
+    }
+  }, [sim.derivedPubkey, walletPubkey, sendTransaction]);
 
   const canStart =
     keyValid &&
@@ -208,14 +235,25 @@ export function SimulatePanel({ policy }: { policy: PolicySummary }) {
                   </div>
                 </div>
                 {agentBalance !== null && agentBalance < 0.005 && (
-                  <button
-                    type="button"
-                    className="mt-2.5 w-full rounded-md border border-blue-800/50 bg-blue-950/40 px-3 py-1.5 text-xs font-medium text-blue-300 transition-colors hover:bg-blue-950/60 disabled:cursor-not-allowed disabled:opacity-50"
-                    disabled={airdropping}
-                    onClick={() => void handleAirdrop()}
-                  >
-                    {airdropping ? "Requesting..." : "Airdrop 1 SOL (devnet)"}
-                  </button>
+                  <div className="mt-2.5 flex gap-2">
+                    <button
+                      type="button"
+                      className="flex-1 rounded-md border border-teal-800/50 bg-teal-950/40 px-3 py-1.5 text-xs font-medium text-teal-300 transition-colors hover:bg-teal-950/60 disabled:cursor-not-allowed disabled:opacity-50"
+                      disabled={fundingFromWallet}
+                      onClick={() => void handleFundFromWallet()}
+                    >
+                      <Wallet className="mr-1 inline-block h-3 w-3" />
+                      {fundingFromWallet ? "Sending..." : "Fund 0.01 SOL"}
+                    </button>
+                    <button
+                      type="button"
+                      className="flex-1 rounded-md border border-blue-800/50 bg-blue-950/40 px-3 py-1.5 text-xs font-medium text-blue-300 transition-colors hover:bg-blue-950/60 disabled:cursor-not-allowed disabled:opacity-50"
+                      disabled={airdropping}
+                      onClick={() => void handleAirdrop()}
+                    >
+                      {airdropping ? "Requesting..." : "Airdrop 1 SOL"}
+                    </button>
+                  </div>
                 )}
               </div>
             )}
