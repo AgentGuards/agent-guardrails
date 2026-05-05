@@ -8,7 +8,7 @@
 
 import { AnchorProvider, BN, Program } from "@coral-xyz/anchor";
 import { AccountMeta, Keypair, PublicKey, SystemProgram } from "@solana/web3.js";
-import IDL from "./idl/guardrails.json" with { type: "json" };
+import IDL from "./idl/guardrails.json";
 import {
   POLICY_SEED,
   TRACKER_SEED,
@@ -18,7 +18,7 @@ import {
   type UpdatePolicyArgs,
   type GuardedExecuteArgs,
   type WrapSolArgs,
-} from "./types.js";
+} from "./types";
 
 const TOKEN_PROGRAM_ID = new PublicKey("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA");
 
