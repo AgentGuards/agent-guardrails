@@ -731,6 +731,7 @@ function mockTransactionDetail(sig: string): TransactionDetailResponse {
   const transaction: TransactionDetail = {
     ...txn,
     verdict,
+    destination: null,
     escalation: null,
   };
   const incident = INCIDENTS.find((i) => i.triggeringTxnSig === sig) ?? null;
@@ -754,9 +755,10 @@ export async function fetchTransactionDetail(sig: string): Promise<TransactionDe
         nextTxnSig: string | null;
       }>(`/api/transactions/${encodeURIComponent(sig)}`);
 
-      const { escalation: escRaw, ...txnRest } = raw.transaction;
+      const { escalation: escRaw, destination: dest, ...txnRest } = raw.transaction;
       const transaction: TransactionDetail = {
         ...mapApiTxnRow(txnRest),
+        destination: (dest as string) ?? null,
         escalation:
           escRaw && typeof escRaw === "object"
             ? mapApiEscalationRow(escRaw as Record<string, unknown>)
