@@ -241,7 +241,7 @@ export function AppShell({
             </div>
           </header>
 
-          <div className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-5 pb-8 [scrollbar-gutter:stable] md:px-7 md:pb-10">
+          <div className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-5 pb-8 pt-4 [scrollbar-gutter:stable] md:px-7 md:pb-10 md:pt-4">
             {subtitle || actions ? (
               <header className="mb-6 flex flex-wrap items-end justify-between gap-4">
                 {subtitle ? (

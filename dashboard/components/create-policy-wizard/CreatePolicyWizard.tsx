@@ -4,6 +4,7 @@ import { useCallback, useState } from "react";
 import { useRouter } from "nextjs-toploader/app";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { Keypair } from "@solana/web3.js";
+import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { WizardStepPanels } from "@/components/create-policy-wizard/wizard-step-panels";
 import { AgentSecretBackupModal } from "@/components/create-policy-wizard/agent-secret-backup-modal";
@@ -33,6 +34,7 @@ export function CreatePolicyWizard({ onCreated }: { onCreated?: () => void }) {
   const { publicKey } = useWallet();
   const provider = useAnchorProvider();
   const programId = getProgramId();
+  const queryClient = useQueryClient();
 
   const currentStep = useCreatePolicyWizardStore((s) => s.currentStep);
   const goNext = useCreatePolicyWizardStore((s) => s.goNext);
@@ -102,6 +104,15 @@ export function CreatePolicyWizard({ onCreated }: { onCreated?: () => void }) {
         setAgentKeypair(null);
         resetWizard();
         toast.success("Policy created on-chain.");
+        queryClient.invalidateQueries({ queryKey: ["policies"] });
+        // Webhook → DB row can lag a few seconds; re-poll briefly so the new
+        // agent shows up without a manual refresh.
+        const retryDelays = [1500, 3500, 6500];
+        retryDelays.forEach((delay) => {
+          setTimeout(() => {
+            queryClient.invalidateQueries({ queryKey: ["policies"] });
+          }, delay);
+        });
         if (onCreated) {
           onCreated();
           router.refresh();
@@ -114,7 +125,7 @@ export function CreatePolicyWizard({ onCreated }: { onCreated?: () => void }) {
         setSubmitting(false);
       }
     },
-    [onCreated, programId, provider, publicKey, publishError, resetWizard, router],
+    [onCreated, programId, provider, publicKey, publishError, queryClient, resetWizard, router],
   );
 
   const onCreateClick = () => {
