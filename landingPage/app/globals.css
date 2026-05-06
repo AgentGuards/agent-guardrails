@@ -1,0 +1,75 @@
+@import "tailwindcss";
+
+:root {
+  --background: #090c11;
+  --background-deep: #06080d;
+  --background-mid: #0e1219;
+  --foreground: #f7fafc;
+
+  --foreground-dim: #94a3b8;
+
+  --primary: #00ffd0;
+  --primary-rgb: 0 255 208;
+  --primary-strong: #33ffd9;
+  --primary-soft: #80ffe5;
+  --primary-soft-rgb: 128 255 229;
+
+  --secondary: #33ffd9;
+  --secondary-rgb: 51 255 217;
+  --secondary-soft: #80ffe5;
+  --secondary-soft-rgb: 128 255 229;
+
+  --accent: #ffb22e;
+  --accent-rgb: 255 178 46;
+
+  --border: rgba(255, 255, 255, 0.12);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-background-deep: var(--background-deep);
+  --color-background-mid: var(--background-mid);
+  --color-foreground: var(--foreground);
+  --color-foreground-dim: var(--foreground-dim);
+
+  --color-primary: var(--primary);
+  --color-primary-strong: var(--primary-strong);
+  --color-primary-soft: var(--primary-soft);
+
+  --color-secondary: var(--secondary);
+  --color-secondary-soft: var(--secondary-soft);
+
+  --color-accent: var(--accent);
+
+  --color-border: var(--border);
+  --font-sans: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  --font-mono: "SFMono-Regular", "Menlo", "Monaco", "Consolas", monospace;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+}
+
+a,
+button {
+  transition:
+    background-color 180ms ease,
+    border-color 180ms ease,
+    color 180ms ease,
+    transform 180ms ease;
+}
+
+::selection {
+  background: rgb(var(--primary-soft-rgb) / 0.28);
+  color: var(--foreground);
+}
