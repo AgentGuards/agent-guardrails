@@ -62,7 +62,7 @@ export function ClosePolicyButton({ policy }: { policy: PolicySummary }) {
   };
 
   return (
-    <div className="mt-2">
+    <>
       <button
         type="button"
         className="rounded-md border border-red-900/60 bg-red-950/30 px-4 py-2 text-sm font-medium text-red-300 hover:bg-red-950/50 disabled:cursor-not-allowed disabled:opacity-50"
@@ -112,6 +112,6 @@ export function ClosePolicyButton({ policy }: { policy: PolicySummary }) {
           </div>
         </div>
       ) : null}
-    </div>
+    </>
   );
 }

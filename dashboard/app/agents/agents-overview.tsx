@@ -44,7 +44,7 @@ export function AgentsOverview({ onNewAgent }: { onNewAgent?: () => void }) {
           action={{ label: "Create a policy", href: "/agents/new" }}
         />
         {onNewAgent ? (
-          <div className="flex justify-center pb-6">
+          <div className="flex justify-center pb-6 pt-4">
             <button
               type="button"
               onClick={onNewAgent}

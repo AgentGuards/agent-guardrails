@@ -89,14 +89,15 @@ export function AgentDetailView({ pubkey }: { pubkey: string }) {
       subtitle="Live status, spend view, and recent guarded activity."
       actions={<BackToAgentsLink />}
     >
-      <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="space-y-6">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <Metric label="Policy" value={shortenedPolicyPubkey} />
         <Metric label="Status" value={policy.isActive ? "Active" : "Paused"} />
         <Metric label="Session expiry" value={new Date(policy.sessionExpiry).toLocaleString()} />
       </div>
-      <div className="rounded-lg border border-zinc-800 bg-zinc-900/40 p-4">
-        <div className="mb-0.5 flex items-center justify-between">
-          <span className="text-xs uppercase tracking-wider text-zinc-500">Anomaly</span>
+      <div className="rounded-xl mt-4 border border-white/[0.06] bg-white/[0.02] p-4 panel-glow">
+        <div className="mb-2 flex items-center justify-between">
+          <span className="text-[11px] uppercase tracking-[0.14em] text-zinc-500">Anomaly</span>
           <div className="flex items-center gap-1.5">
             <span className="text-xs text-zinc-300">{policy.anomalyScore}/100</span>
             <AnomalyRiskLabel score={policy.anomalyScore} />
@@ -110,22 +111,20 @@ export function AgentDetailView({ pubkey }: { pubkey: string }) {
         </div>
       </div>
 
-      <div className="flex flex-wrap gap-2">
+      <div className="flex flex-wrap items-center gap-2">
         <KillSwitchButton policy={policy} />
         <RotateAgentKeyButton policy={policy} />
         <FundAgentButton policy={policy} />
         <ClosePolicyButton policy={policy} />
         {publicKey && publicKey.toBase58() === policy.owner && (
-          <div className="mt-4">
-            <button
-              type="button"
-              className="inline-flex items-center gap-2 rounded-md border border-blue-800 bg-blue-950/40 px-4 py-2 text-sm font-medium text-blue-200 hover:bg-blue-950/70"
-              onClick={() => simulationStore.setPanelOpen(true)}
-            >
-              <Play className="h-4 w-4" />
-              Simulate
-            </button>
-          </div>
+          <button
+            type="button"
+            className="inline-flex items-center gap-2 rounded-md border border-blue-800 bg-blue-950/40 px-4 py-2 text-sm font-medium text-blue-200 hover:bg-blue-950/70"
+            onClick={() => simulationStore.setPanelOpen(true)}
+          >
+            <Play className="h-4 w-4" />
+            Simulate
+          </button>
         )}
       </div>
 
@@ -137,7 +136,7 @@ export function AgentDetailView({ pubkey }: { pubkey: string }) {
         return (
           <Link
             href={`/agents/${pubkey}/proposals`}
-            className="panel-glow panel-glow-hover mt-4 flex items-center justify-between p-4 transition-colors"
+            className="panel-glow panel-glow-hover flex items-center justify-between p-4 transition-colors"
           >
             <div className="flex items-center gap-3">
               <div className="inline-flex items-center gap-2 rounded-lg bg-gradient-to-r from-blue-600 to-cyan-500 bg-clip-text text-sm font-bold uppercase tracking-widest text-transparent">
@@ -154,31 +153,37 @@ export function AgentDetailView({ pubkey }: { pubkey: string }) {
         );
       })() : null}
 
-      <div className="panel-glow mt-4 p-5">
-        <div className="inline-flex items-center gap-2 rounded-lg bg-gradient-to-r from-blue-600 to-cyan-500 bg-clip-text text-sm font-bold uppercase tracking-widest text-transparent">Daily spend</div>
-        <div className="mt-4 flex items-center gap-8">
-          <div className="flex-shrink-0">
+      <div className="panel-glow p-5 md:p-6">
+        <div className="inline-flex items-center gap-2 rounded-lg bg-gradient-to-r from-blue-600 to-cyan-500 bg-clip-text text-sm font-bold uppercase tracking-widest text-transparent">
+          Daily spend
+        </div>
+        <div className="mt-5 flex flex-col gap-6 md:flex-row md:items-center md:gap-10">
+          <div className="flex shrink-0 justify-center md:justify-start">
             <SpendGauge
               spentLamports={String(spendTracker?.lamportsSpent24h ?? policy.dailySpentLamports ?? "0")}
               budgetLamports={String(policy.dailyBudgetLamports)}
-              size={120}
+              size={140}
             />
           </div>
-          <div className="flex flex-col gap-3 text-sm">
-            <div>
-              <p className="mb-0.5 text-xs uppercase tracking-wider text-zinc-500">24h Transactions</p>
-              <p className="font-medium text-zinc-200">{spendTracker?.txnCount24h ?? 0}</p>
+          <div className="grid flex-1 grid-cols-1 gap-3 sm:grid-cols-3">
+            <div className="rounded-lg border border-white/[0.06] bg-white/[0.02] p-3">
+              <p className="text-[11px] uppercase tracking-[0.14em] text-zinc-500">24h Transactions</p>
+              <p className="mt-1.5 text-lg font-semibold tabular-nums text-zinc-100">
+                {spendTracker?.txnCount24h ?? 0}
+              </p>
             </div>
-            <div>
-              <p className="mb-0.5 text-xs uppercase tracking-wider text-zinc-500">1h Spend</p>
-              <p className="font-medium text-zinc-200">{formatSol(spendTracker?.lamportsSpent1h ?? "0")}</p>
+            <div className="rounded-lg border border-white/[0.06] bg-white/[0.02] p-3">
+              <p className="text-[11px] uppercase tracking-[0.14em] text-zinc-500">1h Spend</p>
+              <p className="mt-1.5 text-lg font-semibold tabular-nums text-zinc-100">
+                {formatSol(spendTracker?.lamportsSpent1h ?? "0")}
+              </p>
             </div>
-            <div>
-              <p className="mb-0.5 text-xs uppercase tracking-wider text-zinc-500">Budget remaining</p>
-              <p className="font-medium text-zinc-200">
+            <div className="rounded-lg border border-white/[0.06] bg-white/[0.02] p-3">
+              <p className="text-[11px] uppercase tracking-[0.14em] text-zinc-500">Budget remaining</p>
+              <p className="mt-1.5 text-lg font-semibold tabular-nums text-zinc-100">
                 {formatSol(
                   BigInt(policy.dailyBudgetLamports ?? "0") -
-                  BigInt(spendTracker?.lamportsSpent24h ?? policy.dailySpentLamports ?? "0"),
+                    BigInt(spendTracker?.lamportsSpent24h ?? policy.dailySpentLamports ?? "0"),
                 )}
               </p>
             </div>
@@ -186,7 +191,7 @@ export function AgentDetailView({ pubkey }: { pubkey: string }) {
         </div>
       </div>
 
-      <div className="panel-glow mt-4 p-6">
+      <div className="panel-glow p-6">
         <div className="inline-flex items-center gap-2 rounded-lg bg-gradient-to-r from-blue-600 to-cyan-500 bg-clip-text text-sm font-bold uppercase tracking-widest text-transparent">Recent transactions</div>
         {transactionsQuery.isLoading ? (
           <div className="grid gap-3">
@@ -233,7 +238,7 @@ export function AgentDetailView({ pubkey }: { pubkey: string }) {
         )}
       </div>
 
-      <div className="panel-glow mt-4 p-5">
+      <div className="panel-glow p-5">
         <div className="inline-flex items-center gap-2 rounded-lg bg-gradient-to-r from-blue-600 to-cyan-500 bg-clip-text text-sm font-bold uppercase tracking-widest text-transparent">Related incidents</div>
         {incidentsQuery.isLoading ? (
           <IncidentsViewSkeleton />
@@ -242,6 +247,7 @@ export function AgentDetailView({ pubkey }: { pubkey: string }) {
         ) : (
           <IncidentTable incidents={incidents} />
         )}
+      </div>
       </div>
 
       {simulationStore.panelOpen && <SimulatePanel policy={policy} />}

@@ -108,7 +108,7 @@ export function KillSwitchButton({ policy }: { policy: PolicySummary }) {
   };
 
   return (
-    <div className="mt-4">
+    <>
       {policy.isActive ? (
         <button
           type="button"
@@ -179,6 +179,6 @@ export function KillSwitchButton({ policy }: { policy: PolicySummary }) {
           </div>
         </div>
       ) : null}
-    </div>
+    </>
   );
 }

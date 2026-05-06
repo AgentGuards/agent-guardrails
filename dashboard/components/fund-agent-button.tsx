@@ -64,7 +64,7 @@ export function FundAgentButton({ policy }: { policy: PolicySummary }) {
   };
 
   return (
-    <div className="mt-2">
+    <>
       {banner ? (
         <div className="mb-3 rounded-md border border-emerald-900/50 bg-emerald-950/30 px-3 py-2 text-sm text-emerald-200">
           {banner}
@@ -138,6 +138,6 @@ export function FundAgentButton({ policy }: { policy: PolicySummary }) {
           </div>
         </div>
       ) : null}
-    </div>
+    </>
   );
 }

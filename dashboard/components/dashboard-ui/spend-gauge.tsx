@@ -24,13 +24,17 @@ export function SpendGauge({
     );
   }
 
+  const isCompact = size < 180;
+  const valueClass = isCompact ? "text-base font-semibold" : "text-2xl font-bold";
+  const labelClass = isCompact ? "text-[10px]" : "text-sm";
+
   return (
-    <div className="max-w-full" style={{ width: size, height: size }}>
+    <div className="relative max-w-full" style={{ width: size, height: size }}>
       <ResponsiveContainer width="100%" height="100%">
         <RadialBarChart
           innerRadius="72%"
           outerRadius="100%"
-          barSize={18}
+          barSize={isCompact ? 12 : 18}
           data={[{ value: clampedRatio, fill: tone }]}
           startAngle={90}
           endAngle={-270}
@@ -38,20 +42,25 @@ export function SpendGauge({
           <RadialBar background dataKey="value" cornerRadius={16} />
         </RadialBarChart>
       </ResponsiveContainer>
-      <div style={{ marginTop: Math.round(-(size * 0.58)), textAlign: "center" }}>
+      <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center px-4 text-center leading-tight">
         {ratio > 100 ? (
           <>
-            <div className="text-2xl font-bold text-crimson-500">
-              OVER BUDGET
-            </div>
-            <div className="text-sm text-muted-foreground">
+            <div className={`${valueClass} tabular-nums text-crimson-500`}>OVER</div>
+            <div className={`${labelClass} text-muted-foreground tabular-nums`}>
               {spent.toFixed(1)} / {budget.toFixed(1)} SOL
             </div>
           </>
         ) : (
           <>
-            <div className="text-2xl font-bold text-foreground">{spent.toFixed(1)} SOL</div>
-            <div className="text-sm text-muted-foreground">of {budget.toFixed(1)} SOL budget</div>
+            <div className={`${valueClass} tabular-nums text-foreground`}>
+              {spent.toFixed(1)}
+              <span className={`ml-1 ${isCompact ? "text-[10px]" : "text-xs"} font-medium text-muted-foreground`}>
+                SOL
+              </span>
+            </div>
+            <div className={`${labelClass} tabular-nums text-muted-foreground`}>
+              of {budget.toFixed(1)}
+            </div>
           </>
         )}
       </div>

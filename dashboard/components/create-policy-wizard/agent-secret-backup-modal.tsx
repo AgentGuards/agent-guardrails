@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import type { Keypair } from "@solana/web3.js";
+import { toast } from "sonner";
 
 function secretKeyBase64(kp: Keypair): string {
   return Buffer.from(JSON.stringify(Array.from(kp.secretKey))).toString("base64");
@@ -38,7 +39,12 @@ export function AgentSecretBackupModal({
           <button
             type="button"
             className="button button-secondary px-3 py-1.5 text-sm font-medium"
-            onClick={() => navigator.clipboard.writeText(secret)}
+            onClick={() => {
+              void navigator.clipboard
+                .writeText(secret)
+                .then(() => toast.success("Secret copied to clipboard."))
+                .catch(() => toast.error("Could not copy secret."));
+            }}
           >
             Copy secret
           </button>

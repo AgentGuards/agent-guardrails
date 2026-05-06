@@ -20,22 +20,25 @@ export function VerdictPanel({
 }) {
   if (!result) {
     return (
-      <div className="panel-glow rounded-xl border border-white/[0.06] bg-white/[0.02] p-6">
-        <div className="flex h-full min-h-[300px] flex-col items-center justify-center gap-3 text-center">
-          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-zinc-800">
-            <Play className="h-4 w-4 text-zinc-500" />
+      <div className="relative">
+        <div className="panel-glow absolute inset-0 overflow-y-auto rounded-xl border border-white/[0.06] bg-white/[0.02] p-6">
+          <div className="flex h-full min-h-[300px] flex-col items-center justify-center gap-3 text-center">
+            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-zinc-800">
+              <Play className="h-4 w-4 text-zinc-500" />
+            </div>
+            <p className="text-sm text-zinc-500">Run a simulation to see verdict output</p>
+            <p className="max-w-[180px] text-xs text-zinc-600">
+              Configure parameters on the left and click Run Judge
+            </p>
           </div>
-          <p className="text-sm text-zinc-500">Run a simulation to see verdict output</p>
-          <p className="max-w-[180px] text-xs text-zinc-600">
-            Configure parameters on the left and click Run Judge
-          </p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="panel-glow flex flex-col gap-5 rounded-xl border border-white/[0.06] bg-white/[0.02] p-6">
+    <div className="relative">
+      <div className="panel-glow absolute inset-0 flex flex-col gap-5 overflow-y-auto rounded-xl border border-white/[0.06] bg-white/[0.02] p-6">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="flex flex-col gap-2">
           <span className="text-xs font-medium uppercase tracking-wide text-zinc-500">Verdict</span>
@@ -47,7 +50,7 @@ export function VerdictPanel({
         <DangerGauge score={result.dangerScore} />
       </div>
 
-      <div>
+      <div className="mt-4">
         <div className="mb-1 flex justify-between text-xs text-zinc-500">
           <span>Confidence</span>
           <span className="font-mono text-zinc-300">{result.confidence}%</span>
@@ -97,6 +100,7 @@ export function VerdictPanel({
       ) : (
         <p className="text-xs text-zinc-600">No anomaly signals for this run.</p>
       )}
+      </div>
     </div>
   );
 }
