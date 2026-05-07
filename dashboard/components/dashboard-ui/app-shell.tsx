@@ -210,48 +210,25 @@ export function AppShell({
             </button>
 
             <div className="min-w-0 flex-1">
-              {/* {brandedHeader ? (
-                <h1 className="flex min-w-0 items-center gap-3 md:gap-3.5">
-                  <Image
-                    src="/logo.png"
-                    alt=""
-                    width={36}
-                    height={36}
-                    className="h-8 w-8 shrink-0 md:h-9 md:w-9"
-                    aria-hidden
-                  />
-                  <span className="flex min-w-0 flex-col gap-0.5">
-                    <span className="truncate text-[0.8125rem] font-normal leading-snug tracking-[0.14em] text-zinc-100 md:text-[0.9375rem]">
-                      Guardrails
-                    </span>
-                    <span className="truncate text-[1rem] font-semibold leading-tight tracking-[-0.02em] text-zinc-50 md:text-[1.5rem]">
-                      {title}
-                    </span>
-                  </span>
+              <div className="flex items-baseline gap-3">
+                <h1 className="truncate text-[1rem] font-semibold leading-tight tracking-[-0.02em] text-zinc-50 md:text-[1.5rem]">
+                  {title}
                 </h1>
-              ) : ( */}
-              <h1 className="truncate text-[1rem] font-semibold leading-tight tracking-[-0.02em] text-zinc-50 md:text-[1.5rem]">
-                {title}
-              </h1>
-              {/* )} */}
+                {subtitle && (
+                  <span className="hidden truncate text-[12px] text-zinc-500 md:inline">
+                    {subtitle}
+                  </span>
+                )}
+              </div>
             </div>
 
-            <div className="flex shrink-0 items-center md:ml-auto">
+            <div className="flex shrink-0 items-center gap-3 md:ml-auto">
+              {actions}
               <ShellNavbarActions />
             </div>
           </header>
 
-          <div className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-5 pb-8 pt-4 [scrollbar-gutter:stable] md:px-7 md:pb-10 md:pt-4">
-            {subtitle || actions ? (
-              <header className="mb-6 flex flex-wrap items-end justify-between gap-4">
-                {subtitle ? (
-                  <p className="max-w-2xl text-[13px] leading-relaxed text-zinc-400">{subtitle}</p>
-                ) : (
-                  <span />
-                )}
-                <div className="flex shrink-0 items-center gap-2">{actions}</div>
-              </header>
-            ) : null}
+          <div className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-5 pb-8 pt-6 [scrollbar-gutter:stable] md:px-7 md:pb-10">
             <PageErrorBoundary>
               <div className="animate-[fade-in-up_220ms_ease-out]">{children}</div>
             </PageErrorBoundary>

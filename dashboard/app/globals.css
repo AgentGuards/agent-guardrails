@@ -142,3 +142,35 @@
     transform: translateY(0);
   }
 }
+
+@keyframes slide-in-left {
+  from {
+    opacity: 0;
+    transform: translateX(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes pulse-dot {
+  0%,
+  100% {
+    box-shadow: 0 0 6px currentColor;
+    transform: scale(1);
+  }
+  50% {
+    box-shadow: 0 0 12px currentColor;
+    transform: scale(1.3);
+  }
+}
+
+@keyframes gauge-fill {
+  from {
+    stroke-dashoffset: var(--gauge-circumference);
+  }
+  to {
+    stroke-dashoffset: var(--gauge-target);
+  }
+}
