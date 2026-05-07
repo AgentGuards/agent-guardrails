@@ -20,15 +20,6 @@ export function AgentsPageClient({ startWithNewAgentOpen }: { startWithNewAgentO
       <AppShell
         title="Agents"
         subtitle="Policies owned by your wallet."
-        actions={
-          <button
-            type="button"
-            onClick={() => setIsNewAgentOpen(true)}
-            className="button button-primary px-3.5 py-2"
-          >
-            New Agent
-          </button>
-        }
       >
         <AgentsOverview onNewAgent={() => setIsNewAgentOpen(true)} />
       </AppShell>
