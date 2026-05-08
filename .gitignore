@@ -48,3 +48,4 @@ program/target/
 # Local testing notes (per-developer, not committed)
 TESTING-NOTES.md
 
+.vercel

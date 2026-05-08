@@ -63,7 +63,7 @@ export function RequireSession({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!hydrated) return;
     if (siwsOk && (pathname === "/" || pathname === "/signin")) {
-      router.replace("/agents");
+      router.replace("/home");
     }
   }, [hydrated, pathname, router, siwsOk]);
 

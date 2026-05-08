@@ -26,7 +26,7 @@ function resolveRedirectTarget(from: string | null): string {
   if (from && from.startsWith("/") && !from.startsWith("//")) {
     return from;
   }
-  return "/agents";
+  return "/home";
 }
 
 export function SiwsSignIn() {
@@ -52,7 +52,7 @@ export function SiwsSignIn() {
       const signature = uint8ArrayToBase64(signatureBytes);
       await verifySiwsSignature({ pubkey, message, signature });
       markSignedIn(pubkey, new Date().toISOString());
-      router.replace("/agents");
+      router.replace("/home");
     } catch (err) {
       if (err instanceof ApiClientError) {
         setError(err.message);
