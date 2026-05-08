@@ -1,32 +1,46 @@
 "use client";
 
+import { useState } from "react";
 import { useWallet } from "@solana/wallet-adapter-react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Copy } from "lucide-react";
+import { Check, Copy, LogOut, Shield, Bell } from "lucide-react";
 import { toast } from "sonner";
 import { AppShell } from "@/components/dashboard-ui";
 import { QueryError } from "@/components/query-states";
 import { SkeletonStatCard } from "@/components/skeletons";
-import {
-  deleteAuthSessions,
-} from "@/lib/api/client";
-import { useLlmSettingsQuery } from "@/lib/api/use-llm-settings-query";
+import { deleteAuthSessions } from "@/lib/api/client";
 import { useOperatorSessionQuery } from "@/lib/api/use-operator-session-query";
-import { useWebhookStatusQuery } from "@/lib/api/use-webhook-status-query";
 import { clearSiwsAndRedirectHome } from "@/lib/auth/siws-session";
 import { useSiwsAuthStore } from "@/lib/stores/siws-auth";
 import { formatDateTime } from "@/lib/utils";
 
+function CopyInline({ text }: { text: string }) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <button
+      type="button"
+      onClick={() => {
+        void navigator.clipboard.writeText(text).then(() => {
+          toast.success("Copied");
+          setCopied(true);
+          setTimeout(() => setCopied(false), 2000);
+        });
+      }}
+      className="inline-flex items-center gap-1 rounded-md border border-white/[0.08] bg-white/[0.03] px-2 py-1 text-[10px] font-medium text-zinc-400 transition-colors hover:bg-white/[0.06] hover:text-zinc-200"
+    >
+      {copied ? <Check size={10} /> : <Copy size={10} />}
+      {copied ? "Copied" : "Copy"}
+    </button>
+  );
+}
+
 export function SettingsView() {
   const router = useRouter();
   const wallet = useWallet();
-  const webhookQ = useWebhookStatusQuery();
   const sessionQ = useOperatorSessionQuery();
-  const llmQ = useLlmSettingsQuery();
 
-  const loading = webhookQ.isLoading || sessionQ.isLoading || llmQ.isLoading;
-  const error = webhookQ.error ?? sessionQ.error ?? llmQ.error;
+  const loading = sessionQ.isLoading;
+  const error = sessionQ.error;
 
   const onSignOutSession = () => {
     useSiwsAuthStore.getState().clearSignedIn();
@@ -47,13 +61,13 @@ export function SettingsView() {
     }
   };
 
-  const connectedPk = wallet.publicKey?.toBase58() ?? "—";
+  const connectedPk = wallet.publicKey?.toBase58() ?? "";
 
   if (loading) {
     return (
-      <AppShell title="Settings" subtitle="Webhook, session, and judge configuration.">
+      <AppShell title="Settings">
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          {Array.from({ length: 4 }).map((_, idx) => (
+          {Array.from({ length: 3 }).map((_, idx) => (
             <SkeletonStatCard key={idx} />
           ))}
         </div>
@@ -63,190 +77,130 @@ export function SettingsView() {
 
   if (error) {
     return (
-      <AppShell title="Settings" subtitle="Webhook, session, and judge configuration.">
-        <QueryError
-          error={error}
-          onRetry={() => {
-            void webhookQ.refetch();
-            void sessionQ.refetch();
-            void llmQ.refetch();
-          }}
-        />
+      <AppShell title="Settings">
+        <QueryError error={error} onRetry={() => void sessionQ.refetch()} />
       </AppShell>
     );
   }
 
-  const webhook = webhookQ.data!;
   const session = sessionQ.data!;
-  const llm = llmQ.data!;
 
   return (
-    <AppShell title="Settings" subtitle="Webhook, session, and judge configuration.">
-      <div className="flex max-w-3xl flex-col gap-8">
-        <section className="rounded-xl border border-[#1e1e22] bg-[#111113] p-5">
-          <h2 className="text-sm font-semibold uppercase tracking-[0.12em] text-zinc-400">
-            Webhook status
-          </h2>
-          <div className="mt-4 space-y-3 text-sm">
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="font-mono text-xs text-teal-300/90 break-all">{webhook.webhookUrl}</span>
-              <button
-                type="button"
-                className="rounded-md border border-zinc-700 px-2 py-1 text-[11px] text-zinc-300 hover:border-teal-600/60"
-                onClick={() => {
-                  void navigator.clipboard.writeText(webhook.webhookUrl).then(() => toast.success("URL copied"));
-                }}
-              >
-                Copy URL
-              </button>
-            </div>
-            <div className="flex flex-wrap gap-6 text-xs text-zinc-500">
-              <span>
-                Last webhook:{" "}
-                <span className="font-mono text-zinc-300">
-                  {webhook.lastWebhookReceivedAt ? formatDateTime(webhook.lastWebhookReceivedAt) : "never"}
-                </span>
-              </span>
-              <span>
-                Events (1h):{" "}
-                <span className="font-mono text-zinc-300">{webhook.eventsReceivedLastHour}</span>
-              </span>
-            </div>
-            <div className="rounded-lg border border-teal-900/40 bg-teal-950/20 px-3 py-2 text-[13px] leading-relaxed text-teal-100/90">
-              Configure this URL in your Helius dashboard under webhook settings for Enhanced Transactions.
-            </div>
-          </div>
-        </section>
+    <AppShell title="Settings">
+      <div className="flex max-w-3xl flex-col gap-6">
 
-        <section className="rounded-xl border border-[#1e1e22] bg-[#111113] p-5">
-          <h2 className="text-sm font-semibold uppercase tracking-[0.12em] text-zinc-400">Active session</h2>
-          <dl className="mt-4 space-y-3 text-sm">
-            <div>
-              <dt className="text-[11px] uppercase tracking-wide text-zinc-500">Connected wallet</dt>
-              <dd className="mt-1">
-                <div className="mt-0.5 flex items-center gap-2">
-                  <span className="break-all font-mono text-sm text-zinc-200">{connectedPk}</span>
-                  {connectedPk !== "—" ? (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        void navigator.clipboard.writeText(connectedPk).then(() => toast.success("Address copied"));
-                      }}
-                      className="flex-shrink-0 rounded p-1 text-zinc-500 transition-colors hover:bg-zinc-800 hover:text-zinc-300"
-                      title="Copy address"
-                    >
-                      <Copy className="h-3.5 w-3.5" />
-                    </button>
-                  ) : null}
-                </div>
-              </dd>
+        {/* ── Active Session ── */}
+        <div
+          className="overflow-hidden rounded-xl border border-[#1e1e22] bg-[#111113] shadow-[inset_0_1px_0_0_rgba(255,255,255,0.04)]"
+          style={{ animation: "fade-in-up 0.4s ease-out 0.05s backwards" }}
+        >
+          <div className="flex items-center gap-3 border-b border-white/[0.05] px-5 py-3.5">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg border border-teal-500/20 bg-teal-500/10">
+              <Shield size={14} className="text-teal-400" />
             </div>
-            <div>
-              <dt className="text-[11px] uppercase tracking-wide text-zinc-500">JWT wallet</dt>
-              <dd className="mt-1">
-                <div className="mt-0.5 flex items-center gap-2">
-                  <span className="break-all font-mono text-sm text-zinc-200">{session.walletPubkey}</span>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      void navigator.clipboard
-                        .writeText(session.walletPubkey)
-                        .then(() => toast.success("Address copied"));
-                    }}
-                    className="flex-shrink-0 rounded p-1 text-zinc-500 transition-colors hover:bg-zinc-800 hover:text-zinc-300"
-                    title="Copy address"
-                  >
-                    <Copy className="h-3.5 w-3.5" />
-                  </button>
-                </div>
-              </dd>
+            <span className="text-[12px] font-semibold uppercase tracking-[0.12em] text-zinc-400">Active Session</span>
+          </div>
+          <div className="space-y-4 p-5">
+            {/* Connected wallet */}
+            <div className="rounded-lg border border-white/[0.06] bg-white/[0.02] px-4 py-3">
+              <div className="mb-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-zinc-500">Connected Wallet</div>
+              <div className="flex items-center gap-2">
+                <span className="h-2 w-2 shrink-0 rounded-full bg-teal-500 shadow-[0_0_6px_rgba(0,255,209,0.4)]" />
+                <span className="min-w-0 flex-1 break-all font-mono text-[12px] text-zinc-200">{connectedPk || "—"}</span>
+                {connectedPk && <CopyInline text={connectedPk} />}
+              </div>
             </div>
-            <div>
-              <dt className="text-[11px] uppercase tracking-wide text-zinc-500">Session expires</dt>
-              <dd className="mt-1 font-mono text-xs text-zinc-400">
+
+            {/* JWT wallet */}
+            <div className="rounded-lg border border-white/[0.06] bg-white/[0.02] px-4 py-3">
+              <div className="mb-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-zinc-500">Session Wallet (JWT)</div>
+              <div className="flex items-center gap-2">
+                <span className="min-w-0 flex-1 break-all font-mono text-[12px] text-zinc-200">{session.walletPubkey}</span>
+                <CopyInline text={session.walletPubkey} />
+              </div>
+            </div>
+
+            {/* Expiry */}
+            <div className="rounded-lg border border-white/[0.06] bg-white/[0.02] px-4 py-3">
+              <div className="mb-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-zinc-500">Session Expires</div>
+              <div className="font-mono text-[12px] text-zinc-300">
                 {session.expiresAt ? formatDateTime(session.expiresAt) : "—"}
-              </dd>
+              </div>
             </div>
-          </dl>
-          <button
-            type="button"
-            className="mt-4 rounded-md border border-zinc-700 bg-zinc-800/50 px-4 py-2 text-sm text-zinc-300 transition-all duration-150 hover:border-red-500/40 hover:bg-red-500/5 hover:text-red-400"
-            onClick={onSignOutSession}
-          >
-            Sign out
-          </button>
-        </section>
 
-        <section className="rounded-xl border border-[#1e1e22] bg-[#111113] p-5">
-          <h2 className="text-sm font-semibold uppercase tracking-[0.12em] text-zinc-400">
-            Guardian configuration
-          </h2>
-          <p className="mt-2 text-xs text-zinc-500">Read-only — server-side configuration.</p>
-          <div className="mt-4 grid gap-3 sm:grid-cols-2">
-            <div className="rounded-lg border border-zinc-800 bg-black/30 p-4">
-              <div className="text-[11px] uppercase tracking-wide text-zinc-500"><span className="text-teal-500">Guardian</span> Judge</div>
-              <div className="mt-1 font-mono text-sm text-zinc-100">{llm.judgeModel}</div>
-            </div>
-            <div className="rounded-lg border border-zinc-800 bg-black/30 p-4">
-              <div className="text-[11px] uppercase tracking-wide text-zinc-500"><span className="text-teal-500">Guardian</span> Report</div>
-              <div className="mt-1 font-mono text-sm text-zinc-100">{llm.reportModel}</div>
-            </div>
+            {/* Sign out */}
+            <button
+              type="button"
+              onClick={onSignOutSession}
+              className="flex w-full items-center justify-center gap-2 rounded-lg border border-white/[0.08] bg-white/[0.03] py-2.5 text-[12px] font-medium text-zinc-400 transition-colors hover:bg-white/[0.06] hover:text-zinc-200"
+            >
+              <LogOut size={13} />
+              Sign out of this session
+            </button>
           </div>
-          {llm.fallbackActive ? (
-            <div className="mt-4 rounded-lg border border-amber-900/40 bg-amber-950/25 px-3 py-2 text-sm text-amber-100">
-              Rule-based fallback active — Guardian API key not configured on the server.
-            </div>
-          ) : (
-            <div className="mt-4 text-xs text-teal-400/90"><span className="font-semibold text-teal-300">Guardian</span> judge enabled and configured.</div>
-          )}
-        </section>
+        </div>
 
-        <section className="relative rounded-xl border border-[#1e1e22] bg-[#111113] p-5 opacity-95">
-          <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center rounded-xl bg-black/55 backdrop-blur-[1px]">
-            <span className="rounded-full border border-zinc-600 bg-zinc-900 px-4 py-1.5 text-xs font-semibold uppercase tracking-wide text-zinc-300">
+        {/* ── Notification Preferences ── */}
+        <div
+          className="relative overflow-hidden rounded-xl border border-[#1e1e22] bg-[#111113] shadow-[inset_0_1px_0_0_rgba(255,255,255,0.04)]"
+          style={{ animation: "fade-in-up 0.4s ease-out 0.1s backwards" }}
+        >
+          {/* Coming soon overlay */}
+          <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center rounded-xl bg-black/60 backdrop-blur-[1px]">
+            <span className="rounded-full border border-zinc-600 bg-zinc-900 px-4 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-zinc-300">
               Coming soon
             </span>
           </div>
-          <h2 className="text-sm font-semibold uppercase tracking-[0.12em] text-zinc-400">
-            Notification preferences
-          </h2>
-          <ul className="mt-4 space-y-3 text-sm text-zinc-400">
-            <li className="flex items-center justify-between rounded-lg border border-zinc-800/80 px-3 py-2">
-              Email on agent pause
-              <input type="checkbox" disabled className="opacity-40" />
-            </li>
-            <li className="flex items-center justify-between rounded-lg border border-zinc-800/80 px-3 py-2">
-              Email on escalation created
-              <input type="checkbox" disabled className="opacity-40" />
-            </li>
-            <li className="flex items-center justify-between rounded-lg border border-zinc-800/80 px-3 py-2">
-              Daily spend summary
-              <input type="checkbox" disabled className="opacity-40" />
-            </li>
-          </ul>
-        </section>
 
-        <section className="rounded-xl border border-red-900/40 bg-red-950/10 p-5 opacity-90 transition-opacity hover:opacity-100">
-          <h2 className="text-sm font-semibold uppercase tracking-[0.12em] text-red-300">Danger zone</h2>
-          <p className="mt-2 text-xs text-zinc-500">
-            Revokes server-side SIWS sessions for your wallet and clears the JWT cookie.
-          </p>
-          <button
-            type="button"
-            className="mt-4 rounded-lg border border-red-800/70 bg-red-950/30 px-4 py-2 text-sm font-medium text-red-100 hover:bg-red-950/50"
-            onClick={() => void onKillAllSessions()}
-          >
-            Sign out of all sessions
-          </button>
-        </section>
+          <div className="flex items-center gap-3 border-b border-white/[0.05] px-5 py-3.5">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/[0.08] bg-white/[0.04]">
+              <Bell size={14} className="text-zinc-400" />
+            </div>
+            <span className="text-[12px] font-semibold uppercase tracking-[0.12em] text-zinc-400">Notifications</span>
+          </div>
+          <div className="space-y-2 p-5">
+            {[
+              { label: "Email on agent pause", desc: "Get notified when any agent is paused by Guardian or manually" },
+              { label: "Email on escalation created", desc: "Alert when a transaction is escalated to Squads multisig" },
+              { label: "Daily spend summary", desc: "Receive a daily digest of spend across all agents" },
+            ].map((item) => (
+              <label key={item.label} className="flex cursor-pointer items-start gap-3 rounded-lg border border-white/[0.05] bg-white/[0.02] px-4 py-3 transition-colors hover:border-white/[0.1]">
+                <input type="checkbox" disabled className="mt-0.5 opacity-40" />
+                <div>
+                  <div className="text-[12px] font-medium text-zinc-300">{item.label}</div>
+                  <div className="mt-0.5 text-[10px] text-zinc-600">{item.desc}</div>
+                </div>
+              </label>
+            ))}
+          </div>
+        </div>
 
-        <p className="text-xs text-zinc-600">
-          Looking for agents? Go to{" "}
-          <Link href="/agents" className="text-teal-400 hover:text-teal-300">
-            Agents
-          </Link>
-          .
-        </p>
+        {/* ── Danger Zone ── */}
+        <div
+          className="overflow-hidden rounded-xl border border-red-900/20 bg-red-950/[0.04] shadow-[inset_0_1px_0_0_rgba(255,255,255,0.04)]"
+          style={{ animation: "fade-in-up 0.4s ease-out 0.15s backwards" }}
+        >
+          <div className="flex items-center gap-3 border-b border-red-900/15 px-5 py-3.5">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg border border-red-500/20 bg-red-500/10">
+              <LogOut size={14} className="text-red-400" />
+            </div>
+            <span className="text-[12px] font-semibold uppercase tracking-[0.12em] text-red-400/70">Danger Zone</span>
+          </div>
+          <div className="p-5">
+            <p className="mb-4 text-[12px] leading-relaxed text-zinc-500">
+              Revokes all server-side SIWS sessions for your wallet and clears the JWT cookie. You will need to sign in again on every device.
+            </p>
+            <button
+              type="button"
+              onClick={() => void onKillAllSessions()}
+              className="flex items-center gap-2 rounded-lg border border-red-500/30 bg-red-600 px-4 py-2 text-[12px] font-semibold text-white shadow-[0_0_12px_rgba(239,68,68,0.15)] transition-all hover:bg-red-500"
+            >
+              <LogOut size={13} />
+              Sign out of all sessions
+            </button>
+          </div>
+        </div>
+
       </div>
     </AppShell>
   );
