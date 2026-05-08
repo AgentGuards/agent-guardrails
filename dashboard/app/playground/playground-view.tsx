@@ -1,5 +1,6 @@
 "use client";
 
+import { Shield } from "lucide-react";
 import { AppShell } from "@/components/dashboard-ui";
 import { TransactionCrafter } from "@/components/playground/transaction-crafter";
 import { AttackSimulator } from "@/components/playground/attack-simulator";
@@ -11,9 +12,18 @@ import { usePlaygroundStore } from "@/lib/stores/playground";
 
 const tabs: { id: PlaygroundTab; label: string }[] = [
   { id: "simulate", label: "Simulate" },
-  { id: "inspect", label: "Signal inspector" },
-  { id: "learn", label: "Reference" },
+  { id: "inspect", label: "Signal Inspector" },
+  { id: "learn", label: "Kill Switch" },
 ];
+
+function SandboxBadge() {
+  return (
+    <span className="inline-flex items-center gap-1.5 rounded-full border border-dashed border-teal-500/20 bg-teal-500/[0.06] px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-teal-400">
+      <Shield size={12} strokeWidth={2} />
+      Sandbox Mode
+    </span>
+  );
+}
 
 export function PlaygroundView() {
   const activeTab = usePlaygroundStore((s) => s.activeTab);
@@ -23,17 +33,19 @@ export function PlaygroundView() {
     <AppShell
       title="Playground"
       subtitle="Frontend-only Guardian simulation — no RPC spend, no server writes."
+      actions={<SandboxBadge />}
     >
-      <div className="mb-6 flex flex-wrap gap-2 border-b border-white/[0.06] pb-3">
+      {/* Tab bar */}
+      <div className="mb-6 flex gap-0 border-b border-white/[0.06]">
         {tabs.map((t) => (
           <button
             key={t.id}
             type="button"
             onClick={() => setActiveTab(t.id)}
-            className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
+            className={`-mb-px border-b-2 px-5 py-2.5 text-[13px] font-medium transition-colors ${
               activeTab === t.id
-                ? "bg-white/[0.12] text-zinc-50 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.18)]"
-                : "text-zinc-500 hover:bg-white/[0.06] hover:text-zinc-300"
+                ? "border-teal-500 text-teal-400"
+                : "border-transparent text-zinc-500 hover:text-zinc-300"
             }`}
           >
             {t.label}
@@ -44,21 +56,14 @@ export function PlaygroundView() {
       {activeTab === "simulate" ? (
         <div className="space-y-6">
           <TransactionCrafter />
-          <div className="border-t border-zinc-800/70 pt-6">
-            <h3 className="mb-3 text-xs font-semibold uppercase tracking-[0.14em] text-zinc-500">
-              Attack sequences
-            </h3>
-            <AttackSimulator />
-          </div>
+          <AttackSimulator />
         </div>
       ) : null}
       {activeTab === "inspect" ? <SignalInspector /> : null}
       {activeTab === "learn" ? (
-        <div className="space-y-6">
+        <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
           <KillSwitchDemo />
-          <div className="border-t border-zinc-800/70 pt-6">
-            <PolicySandbox />
-          </div>
+          <PolicySandbox />
         </div>
       ) : null}
     </AppShell>

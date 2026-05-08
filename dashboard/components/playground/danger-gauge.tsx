@@ -8,12 +8,12 @@ export function DangerGauge({ score }: { score: number }) {
     clamped <= 30 ? "hsl(var(--teal))" : clamped <= 50 ? "hsl(var(--amber))" : "hsl(var(--crimson))";
 
   return (
-    <div className="mx-auto w-full max-w-[240px]">
-      <ResponsiveContainer width="100%" height={180}>
+    <div className="relative mx-auto w-full max-w-[200px]">
+      <ResponsiveContainer width="100%" height={160}>
         <RadialBarChart
           innerRadius="68%"
           outerRadius="100%"
-          barSize={14}
+          barSize={12}
           data={[{ value: clamped, fill }]}
           startAngle={90}
           endAngle={-270}
@@ -21,9 +21,9 @@ export function DangerGauge({ score }: { score: number }) {
           <RadialBar background={{ fill: "rgba(255,255,255,0.06)" }} dataKey="value" cornerRadius={10} />
         </RadialBarChart>
       </ResponsiveContainer>
-      <div className="-mt-[118px] text-center">
-        <div className="text-3xl font-bold tabular-nums text-zinc-50">{Math.round(clamped)}</div>
-        <div className="text-xs text-zinc-500">danger score</div>
+      <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
+        <div className="text-2xl font-bold tabular-nums text-zinc-50">{Math.round(clamped)}</div>
+        <div className="text-[10px] text-zinc-500">danger</div>
       </div>
     </div>
   );
