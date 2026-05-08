@@ -1,0 +1,56 @@
+{
+  "name": "@agentguards/sdk",
+  "version": "0.1.0",
+  "description": "TypeScript SDK for the Agent Guardrails on-chain policy layer — enforce allow-lists, spending budgets, and real-time kill switches for AI agents on Solana.",
+  "author": "AgentGuards",
+  "license": "MIT",
+  "main": "dist/client.js",
+  "module": "dist/client.js",
+  "types": "dist/client.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/client.js",
+      "require": "./dist/client.js",
+      "types": "./dist/client.d.ts"
+    },
+    "./types": {
+      "import": "./dist/types.js",
+      "require": "./dist/types.js",
+      "types": "./dist/types.d.ts"
+    },
+    "./idl": "./idl/guardrails.json"
+  },
+  "files": [
+    "dist",
+    "idl",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "clean": "rm -rf dist",
+    "prepublishOnly": "npm run clean && npm run build"
+  },
+  "keywords": [
+    "solana",
+    "anchor",
+    "guardrails",
+    "ai-agent",
+    "policy",
+    "security",
+    "web3"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/AgentGuards/agent-guardrails",
+    "directory": "sdk"
+  },
+  "peerDependencies": {
+    "@coral-xyz/anchor": ">=0.30.0",
+    "@solana/web3.js": ">=1.90.0"
+  },
+  "devDependencies": {
+    "@coral-xyz/anchor": "^0.30.1",
+    "@solana/web3.js": "^1.95.0",
+    "typescript": "^5.5.0"
+  }
+}

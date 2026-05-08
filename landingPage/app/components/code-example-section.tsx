@@ -160,7 +160,7 @@ export default function CodeExampleSection() {
             {' } '}
             <span className="text-[#c678dd]">from</span>{' '}
             <span className="text-[#98c379]">
-              &apos;@agent-guardrails/sdk&apos;
+              &apos;@agentguards/sdk&apos;
             </span>
             ;
             <br />

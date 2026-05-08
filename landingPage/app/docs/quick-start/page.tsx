@@ -59,7 +59,7 @@ anchor deploy --provider.cluster devnet`}
       <h2>4. Create Your First Policy</h2>
 
       <CodeBlock filename="create-policy.ts">
-{`import { GuardrailsClient } from '@agent-guardrails/sdk';
+{`import { GuardrailsClient } from '@agentguards/sdk';
 import { AnchorProvider } from '@coral-xyz/anchor';
 import { PublicKey, Keypair, LAMPORTS_PER_SOL } from '@solana/web3.js';
 

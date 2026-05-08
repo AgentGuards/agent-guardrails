@@ -17,13 +17,13 @@ export default function SdkReferencePage() {
       <h2>Installation</h2>
 
       <CodeBlock filename="terminal">
-        {'npm install @agent-guardrails/sdk'}
+        {'npm install @agentguards/sdk'}
       </CodeBlock>
 
       <h2>Initialization</h2>
 
       <CodeBlock filename="client.ts">
-        {`import { GuardrailsClient } from "@agent-guardrails/sdk";
+        {`import { GuardrailsClient } from "@agentguards/sdk";
 import { AnchorProvider } from "@coral-xyz/anchor";
 
 const provider = AnchorProvider.env();
@@ -39,7 +39,7 @@ const client = new GuardrailsClient(provider);`}
       </p>
 
       <CodeBlock filename="pda.ts">
-        {`import { findPolicyPda, findTrackerPda } from "@agent-guardrails/sdk";
+        {`import { findPolicyPda, findTrackerPda } from "@agentguards/sdk";
 
 // Seeds: ["policy", owner, agent]
 const [policyPda, policyBump] = findPolicyPda(ownerPubkey, agentPubkey);
