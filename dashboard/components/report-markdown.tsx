@@ -5,24 +5,52 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
 const components: Components = {
-  h1: ({ children }) => <h1 className="mb-3 text-[18px] font-semibold tracking-tight text-foreground">{children}</h1>,
-  h2: ({ children }) => <h2 className="mb-2 mt-6 text-[14px] font-semibold uppercase tracking-[0.02em] text-primary">{children}</h2>,
-  h3: ({ children }) => <h3 className="mb-2 mt-5 text-base font-medium text-foreground">{children}</h3>,
-  p: ({ children }) => <p className="mb-2.5 text-[13.5px] leading-[1.65] text-foreground">{children}</p>,
-  ul: ({ children }) => <ul className="mb-3 list-disc space-y-1 pl-5 text-[13.5px] text-foreground">{children}</ul>,
-  ol: ({ children }) => <ol className="mb-3 list-decimal space-y-1 pl-5 text-[13.5px] text-foreground">{children}</ol>,
-  li: ({ children }) => <li className="leading-relaxed">{children}</li>,
-  strong: ({ children }) => <strong className="font-semibold text-foreground">{children}</strong>,
-  em: ({ children }) => <em className="italic text-muted-foreground">{children}</em>,
+  h1: ({ children }) => (
+    <h1 className="mb-4 border-b border-white/[0.06] pb-3 text-[18px] font-bold tracking-tight text-zinc-50">
+      {children}
+    </h1>
+  ),
+  h2: ({ children }) => (
+    <h2 className="mb-3 mt-8 text-[13px] font-semibold uppercase tracking-[0.06em] text-teal-400 first:mt-0">
+      {children}
+    </h2>
+  ),
+  h3: ({ children }) => (
+    <h3 className="mb-2 mt-5 text-[15px] font-semibold text-zinc-100">{children}</h3>
+  ),
+  p: ({ children }) => (
+    <p className="mb-3 text-[13px] leading-[1.7] text-zinc-300">{children}</p>
+  ),
+  ul: ({ children }) => (
+    <ul className="mb-4 space-y-1.5 pl-4 text-[13px] text-zinc-300 [&>li]:relative [&>li]:pl-3 [&>li::before]:absolute [&>li::before]:left-0 [&>li::before]:top-[0.6em] [&>li::before]:h-[5px] [&>li::before]:w-[5px] [&>li::before]:rounded-full [&>li::before]:bg-teal-500/40 [&>li::before]:content-['']">
+      {children}
+    </ul>
+  ),
+  ol: ({ children }) => (
+    <ol className="mb-4 list-decimal space-y-1.5 pl-5 text-[13px] text-zinc-300 marker:font-mono marker:text-[11px] marker:text-teal-500/60">
+      {children}
+    </ol>
+  ),
+  li: ({ children }) => (
+    <li className="leading-[1.65]">{children}</li>
+  ),
+  strong: ({ children }) => (
+    <strong className="font-semibold text-zinc-100">{children}</strong>
+  ),
+  em: ({ children }) => (
+    <em className="italic text-zinc-400">{children}</em>
+  ),
   blockquote: ({ children }) => (
-    <blockquote className="mb-3 border-l-2 border-border pl-3 italic text-muted-foreground">{children}</blockquote>
+    <blockquote className="mb-4 rounded-r-lg border-l-2 border-teal-500/40 bg-teal-500/[0.04] py-2 pl-4 pr-3 text-zinc-300">
+      {children}
+    </blockquote>
   ),
   a: ({ href, children }) => (
     <a
       href={href ?? "#"}
       target="_blank"
       rel="noopener noreferrer"
-      className="break-words text-primary underline decoration-primary/40 underline-offset-2 hover:text-primary/85"
+      className="break-words text-teal-400 underline decoration-teal-500/30 underline-offset-2 hover:text-teal-300"
     >
       {children}
     </a>
@@ -33,25 +61,41 @@ const components: Components = {
       return <code className={`${className ?? ""} block`}>{children}</code>;
     }
     return (
-      <code className="rounded bg-secondary px-1.5 py-0.5 font-mono text-[12px] text-amber-500">{children}</code>
+      <code className="rounded border border-amber-500/15 bg-amber-500/[0.06] px-1.5 py-0.5 font-mono text-[11.5px] text-amber-400">
+        {children}
+      </code>
     );
   },
   pre: ({ children }) => (
-    <pre className="mb-4 max-h-[min(24rem,50vh)] overflow-x-auto overflow-y-auto rounded-md border border-border bg-secondary p-4 text-sm text-muted-foreground">
+    <pre className="mb-4 max-h-[min(24rem,50vh)] overflow-x-auto overflow-y-auto rounded-lg border border-[#1e1e22] bg-black/40 p-4 font-mono text-[11.5px] leading-relaxed text-teal-100/80">
       {children}
     </pre>
   ),
-  hr: () => <hr className="my-8 border-border" />,
+  hr: () => <hr className="my-8 border-white/[0.06]" />,
   table: ({ children }) => (
-    <div className="mb-4 overflow-x-auto rounded-md border border-border">
-      <table className="w-full min-w-[20rem] border-collapse text-left text-[12.5px]">{children}</table>
+    <div className="mb-4 overflow-x-auto rounded-lg border border-[#1e1e22]">
+      <table className="w-full min-w-[20rem] border-collapse text-left text-[12px]">
+        {children}
+      </table>
     </div>
   ),
-  thead: ({ children }) => <thead className="border-b border-border bg-secondary">{children}</thead>,
+  thead: ({ children }) => (
+    <thead className="border-b border-[#1e1e22] bg-white/[0.03]">{children}</thead>
+  ),
   tbody: ({ children }) => <tbody>{children}</tbody>,
-  tr: ({ children }) => <tr className="border-b border-border last:border-b-0">{children}</tr>,
-  th: ({ children }) => <th className="px-3 py-2 text-[11px] font-medium uppercase tracking-[0.06em] text-muted-foreground">{children}</th>,
-  td: ({ children }) => <td className="px-3 py-2 font-mono text-[12px] text-foreground">{children}</td>,
+  tr: ({ children }) => (
+    <tr className="border-b border-white/[0.04] transition-colors last:border-b-0 hover:bg-white/[0.02]">
+      {children}
+    </tr>
+  ),
+  th: ({ children }) => (
+    <th className="px-3 py-2.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-zinc-500">
+      {children}
+    </th>
+  ),
+  td: ({ children }) => (
+    <td className="px-3 py-2.5 font-mono text-[11.5px] text-zinc-300">{children}</td>
+  ),
 };
 
 export function ReportMarkdown({ markdown }: { markdown: string }) {

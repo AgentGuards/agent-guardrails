@@ -136,7 +136,7 @@ export function TransactionDetailView({ sig }: { sig: string }) {
 
   return (
     <AppShell title="Transaction" subtitle="Guarded execution detail and Guardian verdict.">
-      <div className="space-y-5">
+      <div className="space-y-5 overflow-hidden">
 
         {/* ── Breadcrumb ── */}
         <div
@@ -178,8 +178,8 @@ export function TransactionDetailView({ sig }: { sig: string }) {
                   {formatRelativeTime(txn.blockTime)}
                 </span>
               </div>
-              <div className="mt-2 flex flex-wrap items-center gap-2">
-                <span className="break-all font-mono text-[13px] text-zinc-200">
+              <div className="mt-2 flex items-start gap-2 overflow-hidden">
+                <span className="min-w-0 overflow-hidden text-ellipsis font-mono text-[13px] text-zinc-200">
                   {txn.txnSig}
                 </span>
                 <CopyButton text={txn.txnSig} label="Copy" />
