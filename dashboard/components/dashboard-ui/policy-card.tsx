@@ -48,7 +48,7 @@ export function PolicyCard({ policy }: { policy: PolicySummary }) {
         </div>
         <div className="flex flex-shrink-0 flex-wrap items-center justify-end gap-1.5">
           {policy.squadsMultisig && (
-            <span className="rounded-full border border-indigo-500/25 bg-indigo-500/10 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-indigo-400">
+            <span className="rounded-full border border-teal-500/25 bg-teal-500/10 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-teal-400">
               Squads
             </span>
           )}

@@ -823,8 +823,8 @@ export async function fetchLlmSettings(): Promise<LLMSettingsInfo> {
     }
   }
   return {
-    judgeModel: "claude-haiku-4-5-20251001",
-    reportModel: "claude-haiku-4-5-20251001",
+    judgeModel: "guardian-fast",
+    reportModel: "guardian-report",
     anthropicConfigured: false,
     fallbackActive: true,
   };

@@ -131,10 +131,10 @@ export function IncidentDetailView({ id }: { id: string }) {
 
         <div className="rounded-xl border border-card-border bg-card p-5">
           <div className="mb-3 flex items-center justify-between text-[11px] uppercase tracking-[0.1em] text-muted-foreground">
-            <span>Guardian postmortem</span>
+            <span><span className="text-teal-400">Guardian</span> postmortem</span>
             {incident.fullReport ? (
-              <span className="rounded border border-primary/30 bg-primary/10 px-2 py-0.5 font-mono text-[11px] text-primary normal-case tracking-normal">
-                guardian
+              <span className="rounded border border-teal-500/30 bg-teal-500/10 px-2 py-0.5 font-mono text-[11px] text-teal-400 normal-case tracking-normal">
+                Guardian
               </span>
             ) : null}
           </div>

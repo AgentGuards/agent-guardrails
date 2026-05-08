@@ -116,7 +116,7 @@ export function runSimulation(params: CrafterParams, policy: PlaygroundPolicySli
   let reasoning: string;
   if (prefilterSkipped) {
     reasoning =
-      "Prefilter skipped the LLM judge — no anomaly signals matched configured thresholds.";
+      "Prefilter skipped the Guardian judge — no anomaly signals matched configured thresholds.";
   } else {
     reasoning = generateReasoning(signals, verdict);
   }

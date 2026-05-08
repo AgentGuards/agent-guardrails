@@ -179,25 +179,25 @@ export function SettingsView() {
 
         <section className="rounded-xl border border-[#1e1e22] bg-[#111113] p-5">
           <h2 className="text-sm font-semibold uppercase tracking-[0.12em] text-zinc-400">
-            LLM judge configuration
+            Guardian configuration
           </h2>
           <p className="mt-2 text-xs text-zinc-500">Read-only — server-side configuration.</p>
           <div className="mt-4 grid gap-3 sm:grid-cols-2">
             <div className="rounded-lg border border-zinc-800 bg-black/30 p-4">
-              <div className="text-[11px] uppercase tracking-wide text-zinc-500">Fast tier (judge)</div>
+              <div className="text-[11px] uppercase tracking-wide text-zinc-500"><span className="text-teal-500">Guardian</span> Judge</div>
               <div className="mt-1 font-mono text-sm text-zinc-100">{llm.judgeModel}</div>
             </div>
             <div className="rounded-lg border border-zinc-800 bg-black/30 p-4">
-              <div className="text-[11px] uppercase tracking-wide text-zinc-500">Report model</div>
+              <div className="text-[11px] uppercase tracking-wide text-zinc-500"><span className="text-teal-500">Guardian</span> Report</div>
               <div className="mt-1 font-mono text-sm text-zinc-100">{llm.reportModel}</div>
             </div>
           </div>
           {llm.fallbackActive ? (
             <div className="mt-4 rounded-lg border border-amber-900/40 bg-amber-950/25 px-3 py-2 text-sm text-amber-100">
-              Rule-based fallback active — no Anthropic API key configured on the server.
+              Rule-based fallback active — Guardian API key not configured on the server.
             </div>
           ) : (
-            <div className="mt-4 text-xs text-teal-400/90">Anthropic API configured — LLM judge enabled.</div>
+            <div className="mt-4 text-xs text-teal-400/90"><span className="font-semibold text-teal-300">Guardian</span> judge enabled and configured.</div>
           )}
         </section>
 

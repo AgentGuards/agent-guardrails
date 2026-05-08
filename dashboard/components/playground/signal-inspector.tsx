@@ -34,7 +34,7 @@ export function SignalInspector() {
     const { verdict, confidence } = determineVerdict(signals, dangerScore, sessionRemaining);
     const prefilterSkipped = signals.length === 0;
     const reasoning = prefilterSkipped
-      ? "Prefilter skipped the LLM judge — no anomaly signals matched configured thresholds."
+      ? "Prefilter skipped the Guardian judge — no anomaly signals matched configured thresholds."
       : generateReasoning(signals, verdict);
 
     return {

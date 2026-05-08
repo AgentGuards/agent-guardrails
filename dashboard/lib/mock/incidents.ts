@@ -2,7 +2,7 @@
  * Mock incidents — mirrors `incidents` table (server/prisma/schema.prisma)
  *
  * Two incidents:
- * 1. Alpha Scanner paused by AI judge after draining sequence (full Guardian report)
+ * 1. Alpha Scanner paused by Guardian after draining sequence (full Guardian report)
  * 2. An older resolved incident (manually paused by owner, resolved next day)
  *
  * Covers: null triggeringTxnSig, null judgeVerdictId, null fullReport,

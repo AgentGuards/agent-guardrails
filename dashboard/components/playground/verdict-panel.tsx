@@ -70,7 +70,7 @@ export function VerdictPanel({
       <div className="text-xs text-zinc-500">
         Prefilter:{" "}
         {result.prefilterSkipped ? (
-          <span className="text-emerald-400/90">skipped LLM — safe path</span>
+          <span className="text-emerald-400/90">skipped <span className="font-semibold text-teal-300">Guardian</span> — safe path</span>
         ) : (
           <span className="text-amber-400/90">judge invoked</span>
         )}

@@ -246,7 +246,7 @@ export function TransactionDetailView({ sig }: { sig: string }) {
               style={{ animation: "fade-in-up 0.4s ease-out 0.15s backwards" }}
             >
               <div className="mb-4 text-[12px] font-semibold uppercase tracking-[0.12em] text-zinc-400">
-                Guardian Verdict
+                <span className="text-teal-400">Guardian</span> Verdict
               </div>
 
               {/* Large verdict badge */}
@@ -352,8 +352,8 @@ export function TransactionDetailView({ sig }: { sig: string }) {
               <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-zinc-800/80">
                 <ShieldCheck size={18} className="text-zinc-500" />
               </div>
-              <p className="text-sm font-medium text-zinc-400">No Guardian verdict recorded</p>
-              <p className="mt-1 text-xs text-zinc-600">This transaction was not evaluated by the guardian.</p>
+              <p className="text-sm font-medium text-zinc-400">No <span className="text-teal-400">Guardian</span> verdict recorded</p>
+              <p className="mt-1 text-xs text-zinc-600">This transaction was not evaluated by the <span className="text-teal-500/70">Guardian</span>.</p>
             </div>
           )}
 

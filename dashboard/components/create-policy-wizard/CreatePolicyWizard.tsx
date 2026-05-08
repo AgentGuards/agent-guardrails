@@ -173,60 +173,80 @@ export function CreatePolicyWizard({ onCreated }: { onCreated?: () => void }) {
         />
       ) : null}
 
+      {/* Step indicator */}
       <nav aria-label="Wizard steps" className="grid grid-cols-2 gap-2 md:grid-cols-4">
         {WIZARD_STEP_LABELS.map((label, index) => {
           const active = index === currentStep;
           const done = index < currentStep;
           return (
-            <div
+            <button
               key={label}
-              className={`rounded-md border px-3 py-2 text-sm ${
+              type="button"
+              onClick={() => jumpToStep(index)}
+              className={`flex items-center gap-2.5 rounded-lg border px-3.5 py-2.5 text-left transition-all ${
                 active
-                  ? "border-blue-600 bg-blue-950/40 text-blue-200"
+                  ? "border-teal-500/25 bg-teal-500/[0.06] shadow-[0_0_12px_rgba(0,255,209,0.06)]"
                   : done
-                    ? "border-blue-900/60 text-blue-200/80"
-                    : "border-zinc-800 text-zinc-500"
+                    ? "border-teal-500/10 bg-transparent"
+                    : "border-white/[0.06] bg-transparent"
               }`}
             >
-              {index + 1}. {label}
-            </div>
+              <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[11px] font-bold ${
+                active
+                  ? "bg-teal-500 text-black"
+                  : done
+                    ? "bg-teal-500/20 text-teal-400"
+                    : "bg-white/[0.06] text-zinc-500"
+              }`}>
+                {done ? (
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><path d="M20 6 9 17l-5-5" /></svg>
+                ) : index + 1}
+              </span>
+              <span className={`text-[12px] font-medium ${active ? "text-zinc-100" : done ? "text-teal-400/80" : "text-zinc-500"}`}>
+                {label}
+              </span>
+            </button>
           );
         })}
       </nav>
 
-      {submitError ? (
-        <div className="rounded-md border border-red-900/50 bg-red-950/30 px-3 py-2 text-sm text-red-300">
-          {submitError}
+      {/* Error banner */}
+      {submitError && (
+        <div className="flex items-start gap-2 rounded-lg border border-red-500/20 bg-red-500/[0.06] px-3.5 py-2.5">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="mt-0.5 shrink-0 text-red-400"><circle cx="12" cy="12" r="10" /><line x1="12" x2="12" y1="8" y2="12" /><line x1="12" x2="12.01" y1="16" y2="16" /></svg>
+          <p className="text-[12px] leading-relaxed text-red-300">{submitError}</p>
         </div>
-      ) : null}
+      )}
 
-      <div className="panel-glow p-5 md:p-6">
+      {/* Step content */}
+      <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-5 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.04)] md:p-6">
         <WizardStepPanels />
       </div>
 
-      <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
+      {/* Footer actions */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <button
           type="button"
-          className="text-sm text-zinc-500 underline decoration-zinc-600 hover:text-zinc-300"
+          className="text-[12px] text-zinc-600 transition-colors hover:text-zinc-400"
           onClick={() => resetWizard()}
         >
           Reset draft
         </button>
         <div className="flex flex-wrap gap-2">
-          {currentStep > 0 ? (
+          {currentStep > 0 && (
             <button
               type="button"
-              className="button button-secondary px-4 py-2.5 font-semibold"
               onClick={() => goBack()}
+              className="rounded-lg border border-white/[0.08] bg-transparent px-4 py-2 text-[13px] font-medium text-zinc-400 transition-colors hover:bg-white/[0.04] hover:text-zinc-200"
             >
               Back
             </button>
-          ) : null}
+          )}
           {currentStep < 3 ? (
             <button
               type="button"
-              className="button button-primary px-4 py-2.5 font-semibold"
               onClick={() => goNext()}
+              className="rounded-lg border border-teal-500/30 bg-teal-600 px-5 py-2 text-[13px] font-semibold text-white shadow-[0_0_12px_rgba(0,255,209,0.15)] transition-all hover:bg-teal-500"
             >
               Next
             </button>
@@ -234,18 +254,23 @@ export function CreatePolicyWizard({ onCreated }: { onCreated?: () => void }) {
             <button
               type="button"
               disabled={!walletReady || submitting}
-              className="button button-primary px-4 py-2.5 font-semibold"
               onClick={onCreateClick}
+              className="rounded-lg border border-teal-500/30 bg-teal-600 px-5 py-2 text-[13px] font-semibold text-white shadow-[0_0_12px_rgba(0,255,209,0.15)] transition-all hover:bg-teal-500 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {submitting ? "Creating…" : "Create policy"}
+              {submitting ? (
+                <span className="flex items-center gap-2">
+                  <svg className="h-3.5 w-3.5 animate-spin" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>
+                  Creating...
+                </span>
+              ) : "Create Policy"}
             </button>
           )}
         </div>
       </div>
 
-      {canSubmitStep && !walletReady ? (
-        <p className="text-sm text-zinc-500">Connect a wallet to submit this policy on-chain.</p>
-      ) : null}
+      {canSubmitStep && !walletReady && (
+        <p className="text-[12px] text-zinc-500">Connect a wallet to submit this policy on-chain.</p>
+      )}
     </div>
   );
 }
