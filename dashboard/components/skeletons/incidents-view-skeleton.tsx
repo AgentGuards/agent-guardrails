@@ -1,30 +1,45 @@
 import { SkeletonBlock } from "./skeleton-block";
+import { SkeletonStatCard } from "./primitives";
 
 export function IncidentsViewSkeleton() {
   return (
-    <div className="overflow-hidden rounded-xl border border-card-border bg-card">
-      <div className="overflow-x-auto">
-        <table className="w-full min-w-[36rem] border-collapse text-left text-[13px]">
-          <thead>
-            <tr>
-              {Array.from({ length: 4 }).map((_, idx) => (
-                <th key={idx} className="border-b border-border bg-secondary px-4 py-3">
-                  <SkeletonBlock className="h-2.5 w-16" />
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {Array.from({ length: 6 }).map((_, idx) => (
-              <tr key={idx}>
-                <td className="border-b border-border px-4 py-3.5"><SkeletonBlock className="h-3 w-24" /></td>
-                <td className="border-b border-border px-4 py-3.5"><SkeletonBlock className="h-3 w-44" /></td>
-                <td className="border-b border-border px-4 py-3.5"><SkeletonBlock className="h-3 w-28" /></td>
-                <td className="border-b border-border px-4 py-3.5"><SkeletonBlock className="h-5 w-16 rounded-full" /></td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+    <div className="space-y-5">
+      {/* Stats strip */}
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <SkeletonStatCard key={i} />
+        ))}
+      </div>
+
+      {/* Toolbar */}
+      <div className="flex flex-wrap items-center gap-3">
+        <SkeletonBlock className="h-9 w-52 rounded-md" />
+        <div className="flex gap-1">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <SkeletonBlock key={i} className="h-7 w-16 rounded-full" />
+          ))}
+        </div>
+      </div>
+
+      {/* Feed meta */}
+      <SkeletonBlock className="h-3 w-44" />
+
+      {/* Incident cards */}
+      <div className="grid gap-3">
+        {Array.from({ length: 4 }).map((_, idx) => (
+          <div
+            key={idx}
+            className="flex items-stretch rounded-xl border border-[#1e1e22]"
+          >
+            <SkeletonBlock className="w-[3px] rounded-l-xl" />
+            <div className="flex flex-1 flex-wrap items-center gap-4 p-4">
+              <SkeletonBlock className="h-6 w-16 rounded-full" />
+              <SkeletonBlock className="h-4 w-24" />
+              <SkeletonBlock className="h-3 flex-1" />
+              <SkeletonBlock className="h-3 w-14" />
+            </div>
+          </div>
+        ))}
       </div>
     </div>
   );

@@ -1,36 +1,46 @@
 import { SkeletonBlock } from "./skeleton-block";
+import { SkeletonStatCard } from "./primitives";
 
 export function IncidentDetailSkeleton() {
   return (
-    <div>
-      <section className="mb-6 border-b border-border pb-5">
-        <div className="space-y-3">
-          <SkeletonBlock className="h-8 w-64" />
-          <SkeletonBlock className="h-4 w-80 max-w-[95%]" />
-          <SkeletonBlock className="h-3 w-72" />
-        </div>
-      </section>
-
-      <div className="mb-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {Array.from({ length: 3 }).map((_, idx) => (
-          <div key={idx} className="space-y-2">
-            <SkeletonBlock className="h-3 w-20" />
-            <SkeletonBlock className="h-7 w-32" />
-          </div>
-        ))}
+    <div className="space-y-5">
+      {/* Breadcrumb */}
+      <div className="flex items-center gap-1.5">
+        <SkeletonBlock className="h-3 w-16" />
+        <SkeletonBlock className="h-3 w-3" />
+        <SkeletonBlock className="h-3 w-12" />
       </div>
 
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[340px_1fr]">
-        <div className="rounded-xl border border-card-border bg-card p-5 space-y-3">
-          <SkeletonBlock className="h-3 w-24" />
-          {Array.from({ length: 4 }).map((_, idx) => (
-            <SkeletonBlock key={idx} className="h-12 w-full" />
+      {/* Hero card */}
+      <div className="rounded-xl border border-[#1e1e22] bg-[#111113] p-6">
+        <div className="mb-5 flex items-center gap-3">
+          <SkeletonBlock className="h-9 w-9 rounded-lg" />
+          <SkeletonBlock className="h-6 w-48" />
+          <SkeletonBlock className="h-5 w-16 rounded-full" />
+        </div>
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <SkeletonStatCard key={i} />
           ))}
         </div>
-        <div className="rounded-xl border border-card-border bg-card p-5 space-y-3">
-          <SkeletonBlock className="h-3 w-40" />
-          {Array.from({ length: 6 }).map((_, idx) => (
-            <SkeletonBlock key={idx} className="h-3 w-full" />
+      </div>
+
+      {/* Two-column */}
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-[360px_1fr]">
+        <div className="rounded-xl border border-[#1e1e22] bg-[#111113] p-5 space-y-4">
+          <SkeletonBlock className="h-3 w-20" />
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="space-y-1.5">
+              <SkeletonBlock className="h-2.5 w-16" />
+              <SkeletonBlock className="h-3 w-full" />
+              <SkeletonBlock className="h-3 w-3/4" />
+            </div>
+          ))}
+        </div>
+        <div className="rounded-xl border border-[#1e1e22] bg-[#111113] p-5 space-y-3">
+          <SkeletonBlock className="h-3 w-36" />
+          {Array.from({ length: 8 }).map((_, i) => (
+            <SkeletonBlock key={i} className="h-3 w-full" />
           ))}
         </div>
       </div>
