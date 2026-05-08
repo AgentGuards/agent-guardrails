@@ -22,6 +22,12 @@
   --accent: #ffb22e;
   --accent-rgb: 255 178 46;
 
+  --danger: #ff4d6a;
+  --danger-rgb: 255 77 106;
+
+  --violet: #8b5cf6;
+  --violet-rgb: 139 92 246;
+
   --border: rgba(255, 255, 255, 0.12);
 }
 
@@ -40,6 +46,9 @@
   --color-secondary-soft: var(--secondary-soft);
 
   --color-accent: var(--accent);
+
+  --color-danger: var(--danger);
+  --color-violet: var(--violet);
 
   --color-border: var(--border);
   --font-sans: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;

@@ -1,0 +1,1135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Agent Guardrails — On-Chain Defense for Solana AI Agents</title>
+  <meta name="description" content="Enforce spending limits, program allow-lists, and real-time AI kill switches for autonomous Solana agents. Three-layer on-chain defense. Sub-3-second pause." />
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+
+  <style>
+    /* ───────────── Reset & Base ───────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; -webkit-font-smoothing: antialiased; }
+
+    :root {
+      --bg:           #06080d;
+      --bg-mid:       #0c0f16;
+      --bg-card:      #0e1219;
+      --bg-card-hover:#121820;
+      --fg:           #f0f4f8;
+      --fg-dim:       #8a9bb5;
+      --fg-muted:     #566480;
+      --primary:      #00ffd0;
+      --primary-dim:  rgba(0,255,208,.15);
+      --primary-glow: rgba(0,255,208,.08);
+      --accent:       #ffb22e;
+      --accent-dim:   rgba(255,178,46,.12);
+      --danger:       #ff4d6a;
+      --danger-dim:   rgba(255,77,106,.12);
+      --border:       rgba(255,255,255,.08);
+      --border-hover: rgba(255,255,255,.14);
+      --radius:       12px;
+      --radius-lg:    20px;
+      --radius-xl:    28px;
+      --font:         'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+      --mono:         'JetBrains Mono', 'SF Mono', 'Fira Code', 'Consolas', monospace;
+      --ease:         cubic-bezier(.22,1,.36,1);
+    }
+
+    body {
+      font-family: var(--font);
+      background: var(--bg);
+      color: var(--fg);
+      line-height: 1.6;
+      overflow-x: hidden;
+    }
+
+    ::selection { background: rgba(0,255,208,.2); color: #fff; }
+
+    a { color: var(--primary); text-decoration: none; transition: color .18s; }
+    a:hover { color: #33ffd9; }
+
+    img { max-width: 100%; display: block; }
+
+    /* ───────────── Utility ───────────── */
+    .container { max-width: 1200px; margin: 0 auto; padding: 0 24px; }
+    .container-narrow { max-width: 880px; margin: 0 auto; padding: 0 24px; }
+    .text-center { text-align: center; }
+    .text-dim { color: var(--fg-dim); }
+    .text-muted { color: var(--fg-muted); }
+    .text-primary { color: var(--primary); }
+    .text-accent { color: var(--accent); }
+    .text-danger { color: var(--danger); }
+    .mono { font-family: var(--mono); }
+    .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); border: 0; }
+
+    .section-label {
+      display: inline-flex; align-items: center; gap: 8px;
+      font-family: var(--mono); font-size: 13px; font-weight: 500;
+      color: var(--primary); letter-spacing: .06em; text-transform: uppercase;
+      margin-bottom: 16px;
+    }
+    .section-label::before {
+      content: ''; display: block; width: 8px; height: 8px; border-radius: 50%;
+      background: var(--primary); box-shadow: 0 0 8px var(--primary);
+    }
+
+    h2.section-title {
+      font-size: clamp(28px, 4vw, 44px); font-weight: 700; letter-spacing: -.02em;
+      line-height: 1.15; margin-bottom: 16px;
+    }
+    .section-subtitle {
+      font-size: clamp(16px, 1.8vw, 19px); color: var(--fg-dim); line-height: 1.65;
+      max-width: 640px;
+    }
+    .section-subtitle.centered { margin: 0 auto; }
+
+    /* ───────────── Buttons ───────────── */
+    .btn {
+      display: inline-flex; align-items: center; gap: 8px;
+      font-family: var(--font); font-weight: 600; font-size: 15px;
+      padding: 12px 28px; border-radius: 10px; border: none; cursor: pointer;
+      transition: all .2s var(--ease); white-space: nowrap;
+    }
+    .btn-primary {
+      background: var(--primary); color: #06080d;
+      box-shadow: 0 0 24px rgba(0,255,208,.18), 0 1px 2px rgba(0,0,0,.3);
+    }
+    .btn-primary:hover {
+      background: #33ffd9; box-shadow: 0 0 40px rgba(0,255,208,.28), 0 2px 4px rgba(0,0,0,.3);
+      transform: translateY(-1px);
+    }
+    .btn-ghost {
+      background: transparent; color: var(--fg); border: 1px solid var(--border);
+    }
+    .btn-ghost:hover {
+      border-color: var(--border-hover); background: rgba(255,255,255,.04);
+      transform: translateY(-1px);
+    }
+
+    /* ───────────── Badge ───────────── */
+    .badge {
+      display: inline-flex; align-items: center; gap: 8px;
+      padding: 6px 16px 6px 12px; border-radius: 100px;
+      background: rgba(0,255,208,.06); border: 1px solid rgba(0,255,208,.15);
+      font-family: var(--mono); font-size: 13px; color: var(--primary);
+    }
+    .badge-dot {
+      width: 6px; height: 6px; border-radius: 50%; background: var(--primary);
+      box-shadow: 0 0 6px var(--primary);
+      animation: pulse 2s ease-in-out infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: .5; transform: scale(.8); }
+    }
+
+    /* ───────────── Card ───────────── */
+    .card {
+      background: var(--bg-card); border: 1px solid var(--border);
+      border-radius: var(--radius-lg); padding: 32px;
+      transition: border-color .25s, background .25s, transform .25s var(--ease), box-shadow .25s;
+    }
+    .card:hover {
+      border-color: var(--border-hover); background: var(--bg-card-hover);
+      transform: translateY(-2px);
+      box-shadow: 0 8px 32px rgba(0,0,0,.25);
+    }
+
+    /* ───────────── Nav ───────────── */
+    .nav {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+      padding: 16px 0;
+      background: rgba(6,8,13,.7); backdrop-filter: blur(16px) saturate(1.4);
+      border-bottom: 1px solid transparent;
+      transition: border-color .3s, padding .3s;
+    }
+    .nav.scrolled { border-bottom-color: var(--border); padding: 12px 0; }
+    .nav-inner {
+      max-width: 1200px; margin: 0 auto; padding: 0 24px;
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .nav-logo { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 16px; color: var(--fg); }
+    .nav-logo svg { width: 28px; height: 28px; }
+    .nav-links { display: flex; align-items: center; gap: 32px; }
+    .nav-links a { font-size: 14px; font-weight: 500; color: var(--fg-dim); transition: color .18s; }
+    .nav-links a:hover { color: var(--fg); }
+    .nav-cta { display: flex; align-items: center; gap: 12px; }
+    .nav-cta .btn { padding: 8px 20px; font-size: 14px; }
+    @media (max-width: 768px) {
+      .nav-links { display: none; }
+    }
+
+    /* ───────────── Hero ───────────── */
+    .hero {
+      position: relative; min-height: 100vh; display: flex; align-items: center;
+      justify-content: center; text-align: center; padding: 120px 24px 80px;
+      overflow: hidden;
+    }
+    .hero-bg {
+      position: absolute; inset: 0; z-index: 0; pointer-events: none;
+    }
+    .hero-bg::before {
+      content: ''; position: absolute; top: -20%; left: 50%; transform: translateX(-50%);
+      width: 900px; height: 900px; border-radius: 50%;
+      background: radial-gradient(circle, rgba(0,255,208,.08) 0%, transparent 70%);
+      filter: blur(60px);
+    }
+    .hero-bg::after {
+      content: ''; position: absolute; inset: 0;
+      background-image:
+        linear-gradient(rgba(255,255,255,.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,.03) 1px, transparent 1px);
+      background-size: 64px 64px;
+      mask-image: radial-gradient(ellipse 60% 50% at 50% 40%, black 30%, transparent 70%);
+    }
+    .hero-content { position: relative; z-index: 1; max-width: 800px; }
+    .hero h1 {
+      font-size: clamp(40px, 6vw, 72px); font-weight: 700;
+      letter-spacing: -.03em; line-height: 1.05; margin: 24px 0 20px;
+    }
+    .hero h1 .gradient {
+      background: linear-gradient(135deg, #00ffd0 0%, #00b8ff 50%, #8b5cf6 100%);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .hero-sub {
+      font-size: clamp(16px, 2vw, 20px); color: var(--fg-dim);
+      line-height: 1.65; max-width: 580px; margin: 0 auto 36px;
+    }
+    .hero-actions { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+    .hero-micro {
+      margin-top: 20px; font-size: 13px; color: var(--fg-muted);
+    }
+    .hero-micro code {
+      font-family: var(--mono); color: var(--fg-dim); background: rgba(255,255,255,.06);
+      padding: 2px 8px; border-radius: 4px;
+    }
+
+    /* ───────────── Social proof bar ───────────── */
+    .proof-bar {
+      padding: 48px 0; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border);
+      background: var(--bg-mid);
+    }
+    .proof-inner {
+      display: flex; align-items: center; justify-content: center;
+      gap: 48px; flex-wrap: wrap;
+    }
+    .proof-item {
+      display: flex; align-items: center; gap: 10px;
+      font-size: 14px; color: var(--fg-dim); white-space: nowrap;
+    }
+    .proof-item svg { width: 20px; height: 20px; opacity: .6; }
+    .proof-item strong { color: var(--fg); font-weight: 600; }
+    .proof-divider { width: 1px; height: 24px; background: var(--border); }
+    @media (max-width: 640px) {
+      .proof-inner { gap: 24px; }
+      .proof-divider { display: none; }
+    }
+
+    /* ───────────── Problem ───────────── */
+    .problem { padding: 120px 0; }
+    .problem-grid {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 48px;
+      margin-top: 56px; align-items: start;
+    }
+    .problem-stat {
+      display: flex; gap: 16px; padding: 24px; border-radius: var(--radius);
+      background: rgba(255,77,106,.05); border: 1px solid rgba(255,77,106,.12);
+    }
+    .problem-stat-icon {
+      flex-shrink: 0; width: 40px; height: 40px; border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+      background: var(--danger-dim);
+    }
+    .problem-stat-icon svg { width: 20px; height: 20px; color: var(--danger); }
+    .problem-stat-value { font-size: 28px; font-weight: 700; color: var(--danger); font-family: var(--mono); }
+    .problem-stat-label { font-size: 14px; color: var(--fg-dim); margin-top: 2px; }
+
+    .problem-right { display: flex; flex-direction: column; gap: 20px; }
+    .problem-card {
+      padding: 24px; border-radius: var(--radius);
+      border: 1px solid var(--border); background: var(--bg-card);
+    }
+    .problem-card h4 { font-size: 16px; font-weight: 600; margin-bottom: 8px; }
+    .problem-card p { font-size: 14px; color: var(--fg-dim); line-height: 1.6; }
+
+    @media (max-width: 768px) {
+      .problem-grid { grid-template-columns: 1fr; }
+    }
+
+    /* ───────────── How It Works ───────────── */
+    .how-it-works { padding: 120px 0; background: var(--bg-mid); }
+    .steps {
+      display: grid; grid-template-columns: repeat(3, 1fr); gap: 2px;
+      margin-top: 56px; border-radius: var(--radius-xl); overflow: hidden;
+      background: var(--border);
+    }
+    .step {
+      background: var(--bg-card); padding: 40px 32px; position: relative;
+      transition: background .25s;
+    }
+    .step:hover { background: var(--bg-card-hover); }
+    .step-number {
+      display: flex; align-items: center; justify-content: center;
+      width: 36px; height: 36px; border-radius: 10px;
+      background: var(--primary-dim); color: var(--primary);
+      font-family: var(--mono); font-size: 14px; font-weight: 600;
+      margin-bottom: 20px;
+    }
+    .step h3 { font-size: 18px; font-weight: 600; margin-bottom: 10px; }
+    .step p { font-size: 14px; color: var(--fg-dim); line-height: 1.65; }
+    .step-arrow {
+      position: absolute; right: -14px; top: 50%; transform: translateY(-50%);
+      z-index: 2; width: 28px; height: 28px; border-radius: 50%;
+      background: var(--bg); border: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: center;
+    }
+    .step-arrow svg { width: 14px; height: 14px; color: var(--fg-dim); }
+    @media (max-width: 768px) {
+      .steps { grid-template-columns: 1fr; }
+      .step-arrow { display: none; }
+    }
+
+    /* ───────────── Defense Layers — Bento Grid ───────────── */
+    .defense { padding: 120px 0; }
+    .bento {
+      display: grid;
+      grid-template-columns: repeat(12, 1fr);
+      grid-template-rows: auto auto;
+      gap: 16px; margin-top: 56px;
+    }
+    .bento-item {
+      border-radius: var(--radius-xl); padding: 36px;
+      border: 1px solid var(--border); background: var(--bg-card);
+      position: relative; overflow: hidden;
+      transition: border-color .3s, transform .3s var(--ease), box-shadow .3s;
+    }
+    .bento-item:hover {
+      border-color: var(--border-hover); transform: translateY(-3px);
+      box-shadow: 0 12px 40px rgba(0,0,0,.3);
+    }
+    .bento-item::before {
+      content: ''; position: absolute; inset: 0; border-radius: inherit;
+      opacity: 0; transition: opacity .4s;
+    }
+    .bento-item:hover::before { opacity: 1; }
+
+    .bento-1 { grid-column: 1 / 8; }
+    .bento-1::before { background: radial-gradient(circle at 30% 70%, rgba(0,255,208,.06), transparent 60%); }
+    .bento-2 { grid-column: 8 / 13; }
+    .bento-2::before { background: radial-gradient(circle at 70% 30%, rgba(255,178,46,.06), transparent 60%); }
+    .bento-3 { grid-column: 1 / 5; }
+    .bento-3::before { background: radial-gradient(circle at 50% 50%, rgba(139,92,246,.06), transparent 60%); }
+    .bento-4 { grid-column: 5 / 13; }
+    .bento-4::before { background: radial-gradient(circle at 60% 40%, rgba(255,77,106,.04), transparent 60%); }
+
+    .bento-icon {
+      width: 48px; height: 48px; border-radius: 14px; margin-bottom: 20px;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .bento-icon svg { width: 24px; height: 24px; }
+    .bento-icon.cyan    { background: var(--primary-dim); color: var(--primary); }
+    .bento-icon.amber   { background: var(--accent-dim); color: var(--accent); }
+    .bento-icon.violet  { background: rgba(139,92,246,.12); color: #8b5cf6; }
+    .bento-icon.red     { background: var(--danger-dim); color: var(--danger); }
+
+    .bento-item h3 { font-size: 20px; font-weight: 700; margin-bottom: 8px; }
+    .bento-item .desc { font-size: 15px; color: var(--fg-dim); line-height: 1.65; margin-bottom: 20px; }
+
+    /* Inline visuals in bento tiles */
+    .bento-visual {
+      background: var(--bg); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 16px; font-family: var(--mono);
+      font-size: 13px; line-height: 1.7; color: var(--fg-dim);
+      overflow-x: auto;
+    }
+    .bento-visual .allowed { color: var(--primary); }
+    .bento-visual .blocked { color: var(--danger); }
+    .bento-visual .warn { color: var(--accent); }
+    .bento-visual .muted { color: var(--fg-muted); }
+
+    .bento-tag {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 4px 12px; border-radius: 6px; font-size: 12px;
+      font-family: var(--mono); font-weight: 500;
+    }
+    .bento-tag.green  { background: rgba(0,255,208,.1); color: var(--primary); }
+    .bento-tag.amber  { background: var(--accent-dim); color: var(--accent); }
+    .bento-tag.red    { background: var(--danger-dim); color: var(--danger); }
+
+    @media (max-width: 768px) {
+      .bento { grid-template-columns: 1fr; }
+      .bento-1, .bento-2, .bento-3, .bento-4 { grid-column: 1 / -1; }
+    }
+
+    /* ───────────── Code Example ───────────── */
+    .code-section { padding: 120px 0; background: var(--bg-mid); }
+    .code-grid {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 48px;
+      margin-top: 56px; align-items: center;
+    }
+    .code-block {
+      background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius-lg);
+      overflow: hidden;
+    }
+    .code-header {
+      display: flex; align-items: center; gap: 8px;
+      padding: 14px 20px; border-bottom: 1px solid var(--border);
+      background: rgba(255,255,255,.02);
+    }
+    .code-dot { width: 10px; height: 10px; border-radius: 50%; }
+    .code-dot.r { background: #ff5f56; }
+    .code-dot.y { background: #ffbd2e; }
+    .code-dot.g { background: #27c93f; }
+    .code-filename {
+      margin-left: 12px; font-family: var(--mono); font-size: 12px; color: var(--fg-muted);
+    }
+    .code-body {
+      padding: 20px; font-family: var(--mono); font-size: 13px; line-height: 1.8;
+      color: var(--fg-dim); overflow-x: auto; tab-size: 2;
+    }
+    .code-body .kw { color: #c678dd; }
+    .code-body .fn { color: #61afef; }
+    .code-body .str { color: #98c379; }
+    .code-body .cmt { color: var(--fg-muted); font-style: italic; }
+    .code-body .const { color: #d19a66; }
+    .code-body .type { color: #e5c07b; }
+    .code-body .param { color: #e06c75; }
+    .code-features { display: flex; flex-direction: column; gap: 24px; }
+    .code-feature { display: flex; gap: 16px; }
+    .code-feature-icon {
+      flex-shrink: 0; width: 40px; height: 40px; border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+      background: var(--primary-dim);
+    }
+    .code-feature-icon svg { width: 20px; height: 20px; color: var(--primary); }
+    .code-feature h4 { font-size: 16px; font-weight: 600; margin-bottom: 4px; }
+    .code-feature p { font-size: 14px; color: var(--fg-dim); line-height: 1.6; }
+    @media (max-width: 768px) {
+      .code-grid { grid-template-columns: 1fr; }
+    }
+
+    /* ───────────── Architecture ───────────── */
+    .architecture { padding: 120px 0; }
+    .arch-flow {
+      display: flex; align-items: stretch; gap: 2px;
+      margin-top: 56px; border-radius: var(--radius-xl); overflow: hidden;
+      background: var(--border);
+    }
+    .arch-node {
+      flex: 1; background: var(--bg-card); padding: 32px 24px; text-align: center;
+      position: relative; transition: background .25s;
+    }
+    .arch-node:hover { background: var(--bg-card-hover); }
+    .arch-node-icon {
+      width: 48px; height: 48px; border-radius: 14px; margin: 0 auto 16px;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .arch-node-icon svg { width: 22px; height: 22px; }
+    .arch-node h4 { font-size: 14px; font-weight: 600; margin-bottom: 6px; }
+    .arch-node p { font-size: 13px; color: var(--fg-dim); line-height: 1.5; }
+    .arch-arrow {
+      position: absolute; right: -14px; top: 50%; transform: translateY(-50%); z-index: 2;
+      width: 28px; height: 28px; border-radius: 50%;
+      background: var(--bg); border: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: center;
+    }
+    .arch-arrow svg { width: 14px; height: 14px; color: var(--primary); }
+    @media (max-width: 768px) {
+      .arch-flow { flex-direction: column; }
+      .arch-arrow { display: none; }
+    }
+
+    /* ───────────── Live Terminal ───────────── */
+    .terminal-section { padding: 120px 0; background: var(--bg-mid); }
+    .terminal {
+      max-width: 720px; margin: 56px auto 0; border-radius: var(--radius-lg);
+      border: 1px solid var(--border); overflow: hidden;
+      background: #0a0e14;
+    }
+    .terminal-header {
+      display: flex; align-items: center; gap: 8px; padding: 14px 20px;
+      border-bottom: 1px solid var(--border); background: rgba(255,255,255,.02);
+    }
+    .terminal-body {
+      padding: 24px; font-family: var(--mono); font-size: 13px; line-height: 2;
+      color: var(--fg-dim); min-height: 300px;
+    }
+    .t-line { opacity: 0; animation: typeLine .4s forwards; }
+    .t-line.dim { color: var(--fg-muted); }
+    .t-prompt { color: var(--primary); }
+    .t-ok { color: #27c93f; }
+    .t-warn { color: var(--accent); }
+    .t-err { color: var(--danger); }
+    .t-time { color: var(--fg-muted); font-size: 12px; }
+
+    @keyframes typeLine {
+      from { opacity: 0; transform: translateY(4px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    /* ───────────── FAQ ───────────── */
+    .faq { padding: 120px 0; }
+    .faq-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 56px; }
+    .faq-item {
+      padding: 28px; border-radius: var(--radius-lg);
+      border: 1px solid var(--border); background: var(--bg-card);
+      transition: border-color .25s, background .25s;
+    }
+    .faq-item:hover { border-color: var(--border-hover); background: var(--bg-card-hover); }
+    .faq-item h4 { font-size: 15px; font-weight: 600; margin-bottom: 10px; }
+    .faq-item p { font-size: 14px; color: var(--fg-dim); line-height: 1.65; }
+    @media (max-width: 768px) {
+      .faq-grid { grid-template-columns: 1fr; }
+    }
+
+    /* ───────────── Final CTA ───────────── */
+    .final-cta {
+      padding: 120px 0; text-align: center; position: relative; overflow: hidden;
+    }
+    .final-cta::before {
+      content: ''; position: absolute; bottom: 0; left: 50%; transform: translateX(-50%);
+      width: 800px; height: 600px; border-radius: 50%;
+      background: radial-gradient(circle, rgba(0,255,208,.06), transparent 70%);
+      filter: blur(60px); pointer-events: none;
+    }
+    .final-cta h2 {
+      font-size: clamp(32px, 5vw, 52px); font-weight: 700;
+      letter-spacing: -.03em; line-height: 1.1; margin-bottom: 16px;
+    }
+    .final-cta .gradient {
+      background: linear-gradient(135deg, #00ffd0, #00b8ff);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+    }
+    .final-cta p { font-size: 18px; color: var(--fg-dim); margin-bottom: 36px; max-width: 520px; margin-left: auto; margin-right: auto; }
+    .final-cta .hero-actions { margin-bottom: 20px; }
+
+    /* ───────────── Footer ───────────── */
+    .footer {
+      padding: 48px 0; border-top: 1px solid var(--border);
+    }
+    .footer-inner {
+      display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 16px;
+    }
+    .footer-left { display: flex; align-items: center; gap: 8px; font-size: 14px; color: var(--fg-muted); }
+    .footer-left svg { width: 20px; height: 20px; opacity: .5; }
+    .footer-links { display: flex; gap: 24px; }
+    .footer-links a { font-size: 13px; color: var(--fg-muted); }
+    .footer-links a:hover { color: var(--fg-dim); }
+
+    /* ───────────── Scroll animations ───────────── */
+    .reveal {
+      opacity: 0; transform: translateY(24px);
+      transition: opacity .7s var(--ease), transform .7s var(--ease);
+    }
+    .reveal.visible { opacity: 1; transform: translateY(0); }
+    .reveal-delay-1 { transition-delay: .1s; }
+    .reveal-delay-2 { transition-delay: .2s; }
+    .reveal-delay-3 { transition-delay: .3s; }
+    .reveal-delay-4 { transition-delay: .4s; }
+
+    /* ───────────── Glow line ───────────── */
+    .glow-line {
+      width: 100%; height: 1px; position: relative; overflow: hidden;
+    }
+    .glow-line::after {
+      content: ''; position: absolute; top: 0; left: -100%; width: 80px; height: 1px;
+      background: linear-gradient(90deg, transparent, var(--primary), transparent);
+      animation: glowSlide 4s linear infinite;
+    }
+    @keyframes glowSlide {
+      0% { left: -80px; }
+      100% { left: 100%; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ════════════ NAV ════════════ -->
+  <nav class="nav" id="nav">
+    <div class="nav-inner">
+      <a href="#" class="nav-logo">
+        <svg viewBox="0 0 28 28" fill="none">
+          <rect x="2" y="2" width="24" height="24" rx="6" stroke="currentColor" stroke-width="1.5" fill="none"/>
+          <path d="M9 14h10M14 9v10" stroke="var(--primary)" stroke-width="1.5" stroke-linecap="round"/>
+          <circle cx="14" cy="14" r="3" stroke="var(--primary)" stroke-width="1.5" fill="none"/>
+        </svg>
+        Agent Guardrails
+      </a>
+      <div class="nav-links">
+        <a href="#problem">Problem</a>
+        <a href="#how-it-works">How It Works</a>
+        <a href="#defense">Defense Layers</a>
+        <a href="#code">Integration</a>
+        <a href="#faq">FAQ</a>
+      </div>
+      <div class="nav-cta">
+        <a href="#" class="btn btn-ghost" style="font-size:13px;">Docs</a>
+        <a href="#" class="btn btn-primary" style="font-size:13px;">Get Started</a>
+      </div>
+    </div>
+  </nav>
+
+  <!-- ════════════ HERO ════════════ -->
+  <section class="hero" id="hero">
+    <div class="hero-bg"></div>
+    <div class="hero-content">
+      <div class="badge reveal">
+        <span class="badge-dot"></span>
+        On-chain agent defense &middot; Solana
+      </div>
+      <h1 class="reveal reveal-delay-1">
+        Stop rogue agents.<br/>
+        <span class="gradient">Protect every transaction.</span>
+      </h1>
+      <p class="hero-sub reveal reveal-delay-2">
+        The on-chain policy layer between autonomous AI agents and the Solana blockchain.
+        Enforce allow-lists, spending budgets, and AI-powered kill switches — before damage is done.
+      </p>
+      <div class="hero-actions reveal reveal-delay-3">
+        <a href="#" class="btn btn-primary">
+          Start Building
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 8h10m0 0L9 4m4 4L9 12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </a>
+        <a href="#how-it-works" class="btn btn-ghost">See How It Works</a>
+      </div>
+      <p class="hero-micro reveal reveal-delay-4">
+        One instruction: <code>guarded_execute</code> — same security model as traditional finance.
+      </p>
+    </div>
+  </section>
+
+  <!-- ════════════ SOCIAL PROOF BAR ════════════ -->
+  <div class="proof-bar">
+    <div class="proof-inner">
+      <div class="proof-item">
+        <svg viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="8" stroke="currentColor" stroke-width="1.5"/><path d="M10 6v4l3 2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+        <span><strong>&lt; 3s</strong>&ensp;pause latency</span>
+      </div>
+      <div class="proof-divider"></div>
+      <div class="proof-item">
+        <svg viewBox="0 0 20 20" fill="none"><path d="M10 2l2.5 5 5.5.8-4 3.9 1 5.3L10 14.5 4.5 17l1-5.3-4-3.9 5.5-.8L10 2z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>
+        <span>Built on <strong>Solana</strong></span>
+      </div>
+      <div class="proof-divider"></div>
+      <div class="proof-item">
+        <svg viewBox="0 0 20 20" fill="none"><rect x="3" y="3" width="14" height="14" rx="3" stroke="currentColor" stroke-width="1.5"/><path d="M7 10h6M10 7v6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+        <span>Powered by <strong>Claude AI</strong></span>
+      </div>
+      <div class="proof-divider"></div>
+      <div class="proof-item">
+        <svg viewBox="0 0 20 20" fill="none"><path d="M5 10l3 3 7-7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <span><strong>Solana Frontier</strong> Hackathon</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════ PROBLEM ════════════ -->
+  <section class="problem" id="problem">
+    <div class="container">
+      <div class="reveal">
+        <span class="section-label">The Problem</span>
+        <h2 class="section-title">250,000 agents on Solana.<br/>Zero on-chain safeguards.</h2>
+        <p class="section-subtitle">
+          Autonomous agents operate with unconstrained keys. A single prompt injection, key leak, or buggy loop can drain an entire treasury in seconds — with no circuit breakers, rate limits, or kill switches.
+        </p>
+      </div>
+
+      <div class="problem-grid">
+        <div class="reveal reveal-delay-1" style="display:flex; flex-direction:column; gap:20px;">
+          <div class="problem-stat">
+            <div class="problem-stat-icon">
+              <svg viewBox="0 0 20 20" fill="none"><path d="M10 4v6l4 2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><circle cx="10" cy="10" r="8" stroke="currentColor" stroke-width="1.5"/></svg>
+            </div>
+            <div>
+              <div class="problem-stat-value">&lt; 12s</div>
+              <div class="problem-stat-label">Average drain time once compromised</div>
+            </div>
+          </div>
+          <div class="problem-stat">
+            <div class="problem-stat-icon">
+              <svg viewBox="0 0 20 20" fill="none"><path d="M4 16l4-4m0 0l4-4m-4 4l-4-4m4 4l4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+            </div>
+            <div>
+              <div class="problem-stat-value">~3%</div>
+              <div class="problem-stat-label">Recovery rate after agent exploits</div>
+            </div>
+          </div>
+          <div class="problem-stat">
+            <div class="problem-stat-icon">
+              <svg viewBox="0 0 20 20" fill="none"><path d="M10 2v16M2 10h16" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+            </div>
+            <div>
+              <div class="problem-stat-value">$100M+</div>
+              <div class="problem-stat-label">Total value at risk in agent treasuries</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="problem-right reveal reveal-delay-2">
+          <div class="problem-card">
+            <h4 style="color: var(--danger);">Without Guardrails</h4>
+            <p>Agent has full keypair access. One compromised prompt and the treasury is empty. No alerts, no audit trail, no way back.</p>
+          </div>
+          <div class="problem-card" style="border-color: rgba(0,255,208,.15);">
+            <h4 style="color: var(--primary);">With Guardrails</h4>
+            <p>Funds live in a policy-owned PDA. Every transaction is validated against allow-lists, budgets, and AI behavioral analysis. Anomalies trigger a sub-3-second on-chain freeze.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <div class="glow-line"></div>
+
+  <!-- ════════════ HOW IT WORKS ════════════ -->
+  <section class="how-it-works" id="how-it-works">
+    <div class="container">
+      <div class="text-center reveal">
+        <span class="section-label">How It Works</span>
+        <h2 class="section-title">Three layers. One instruction.</h2>
+        <p class="section-subtitle centered">
+          Route agent transactions through <code class="mono" style="background:rgba(255,255,255,.06); padding:2px 8px; border-radius:4px; font-size:14px;">guarded_execute</code>. The protocol handles the rest.
+        </p>
+      </div>
+
+      <div class="steps reveal">
+        <div class="step">
+          <div class="step-number">01</div>
+          <h3>Define Policy</h3>
+          <p>Create an on-chain policy: whitelist programs, set per-tx and daily spending limits, configure AI monitoring thresholds.</p>
+          <div class="step-arrow">
+            <svg viewBox="0 0 14 14" fill="none"><path d="M5 3l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-number">02</div>
+          <h3>Execute Guarded</h3>
+          <p>Agent calls <code class="mono" style="font-size:12px;">guarded_execute</code> instead of raw transactions. The program validates allow-lists and budgets on-chain before CPI.</p>
+          <div class="step-arrow">
+            <svg viewBox="0 0 14 14" fill="none"><path d="M5 3l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-number">03</div>
+          <h3>AI Monitors</h3>
+          <p>Off-chain AI (Claude) analyzes behavioral patterns in real time. Anomalies trigger an instant on-chain pause — no committee votes needed.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ════════════ DEFENSE LAYERS — BENTO ════════════ -->
+  <section class="defense" id="defense">
+    <div class="container">
+      <div class="text-center reveal">
+        <span class="section-label">Defense Layers</span>
+        <h2 class="section-title">Hard limits on-chain.<br/>AI judgment off-chain.</h2>
+        <p class="section-subtitle centered">
+          Four interlocking defense mechanisms ensure no single point of failure.
+        </p>
+      </div>
+
+      <div class="bento">
+        <!-- Bento 1: Allow-listing -->
+        <div class="bento-item bento-1 reveal">
+          <div class="bento-icon cyan">
+            <svg viewBox="0 0 24 24" fill="none"><path d="M12 2l8 4v6c0 5.5-3.8 10.7-8 12-4.2-1.3-8-6.5-8-12V6l8-4z" stroke="currentColor" stroke-width="1.5"/><path d="M9 12l2 2 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </div>
+          <h3>Program Allow-Listing</h3>
+          <p class="desc">Every CPI target is validated against an on-chain whitelist. Unknown or malicious programs are rejected before execution — not after.</p>
+          <div class="bento-visual">
+            <span class="muted">// On-chain validation</span><br/>
+            <span class="allowed">&#10003; Jupiter Aggregator</span> &ensp;<span class="bento-tag green">whitelisted</span><br/>
+            <span class="allowed">&#10003; Marinade Finance</span> &ensp;<span class="bento-tag green">whitelisted</span><br/>
+            <span class="blocked">&#10007; Unknown: 7xKX...mQ3d</span> &ensp;<span class="bento-tag red">ProgramNotWhitelisted</span><br/>
+            <span class="muted">→ Transaction rejected at instruction level</span>
+          </div>
+        </div>
+
+        <!-- Bento 2: Spending budgets -->
+        <div class="bento-item bento-2 reveal reveal-delay-1">
+          <div class="bento-icon amber">
+            <svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="1.5"/><path d="M12 6v6l4 2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+          </div>
+          <h3>Spending Budgets</h3>
+          <p class="desc">Two-tier caps enforced on-chain. Per-transaction limits catch single large drains. Rolling 24h budgets stop slow bleeds.</p>
+          <div class="bento-visual">
+            <span class="muted">// Policy limits</span><br/>
+            per_tx_limit: <span class="warn">2.0 SOL</span><br/>
+            daily_budget: <span class="warn">20.0 SOL</span><br/>
+            <span class="muted">---</span><br/>
+            spent_today: <span class="allowed">14.2 SOL</span><br/>
+            remaining: <span class="allowed">5.8 SOL</span>
+          </div>
+        </div>
+
+        <!-- Bento 3: Kill switch -->
+        <div class="bento-item bento-3 reveal reveal-delay-2">
+          <div class="bento-icon red">
+            <svg viewBox="0 0 24 24" fill="none"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>
+          </div>
+          <h3>AI Kill Switch</h3>
+          <p class="desc">Claude Haiku evaluates every flagged transaction. Suspicious patterns trigger a <code class="mono" style="font-size:12px">pause_agent</code> instruction in under 3 seconds.</p>
+          <div style="margin-top:16px; display:flex; flex-direction:column; gap:8px;">
+            <span class="bento-tag green" style="width:fit-content;">ALLOW — 94% of txns</span>
+            <span class="bento-tag amber" style="width:fit-content;">FLAG — review needed</span>
+            <span class="bento-tag red" style="width:fit-content;">PAUSE — frozen on-chain</span>
+          </div>
+        </div>
+
+        <!-- Bento 4: Monitoring pipeline -->
+        <div class="bento-item bento-4 reveal reveal-delay-3">
+          <div class="bento-icon violet">
+            <svg viewBox="0 0 24 24" fill="none"><rect x="3" y="3" width="18" height="18" rx="3" stroke="currentColor" stroke-width="1.5"/><path d="M3 9h18M9 3v18" stroke="currentColor" stroke-width="1.5"/></svg>
+          </div>
+          <h3>Real-Time Monitoring &amp; Incident Reports</h3>
+          <p class="desc">Live dashboard with SSE streaming, spend gauges, and incident timelines. When an agent is paused, Claude Opus generates a full postmortem with root cause analysis and policy recommendations.</p>
+          <div class="bento-visual">
+            <span class="muted">// Pipeline: Ingest → Prefilter → Judge → Execute → Report</span><br/>
+            <span class="t-time">[14:32:01]</span> <span class="allowed">ALLOW</span> &ensp;yield_bot &ensp;Jupiter swap &ensp;1.2 SOL<br/>
+            <span class="t-time">[14:32:14]</span> <span class="warn">FLAG</span> &ensp;&ensp;alpha_scan &ensp;Unknown pgm &ensp;4.8 SOL<br/>
+            <span class="t-time">[14:32:15]</span> <span class="warn">FLAG</span> &ensp;&ensp;alpha_scan &ensp;Burst detected<br/>
+            <span class="t-time">[14:32:16]</span> <span class="blocked">PAUSE</span> &ensp;alpha_scan &ensp;<span class="blocked">Frozen on-chain (94% conf)</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <div class="glow-line"></div>
+
+  <!-- ════════════ CODE EXAMPLE ════════════ -->
+  <section class="code-section" id="code">
+    <div class="container">
+      <div class="reveal">
+        <span class="section-label">Integration</span>
+        <h2 class="section-title">Five lines to protect your agent.</h2>
+        <p class="section-subtitle">
+          Wrap your agent's executor with the Guardrails SDK. Works with Solana Agent Kit, LangChain, or any custom agent framework.
+        </p>
+      </div>
+
+      <div class="code-grid">
+        <div class="code-block reveal reveal-delay-1">
+          <div class="code-header">
+            <span class="code-dot r"></span>
+            <span class="code-dot y"></span>
+            <span class="code-dot g"></span>
+            <span class="code-filename">agent.ts</span>
+          </div>
+          <div class="code-body">
+<span class="kw">import</span> { <span class="type">GuardrailsClient</span> } <span class="kw">from</span> <span class="str">'@agent-guardrails/sdk'</span>;
+
+<span class="cmt">// Initialize with your policy</span>
+<span class="kw">const</span> <span class="fn">guard</span> = <span class="kw">new</span> <span class="type">GuardrailsClient</span>({
+  <span class="param">policyId</span>: <span class="str">'8xKZ...policy'</span>,
+  <span class="param">agentKeypair</span>: <span class="fn">loadKeypair</span>(),
+});
+
+<span class="cmt">// Every transaction goes through guarded_execute</span>
+<span class="kw">const</span> <span class="fn">tx</span> = <span class="kw">await</span> <span class="fn">guard</span>.<span class="fn">execute</span>({
+  <span class="param">targetProgram</span>: <span class="const">JUPITER_PROGRAM_ID</span>,
+  <span class="param">amount</span>: <span class="const">1.5</span> * <span class="const">LAMPORTS_PER_SOL</span>,
+  <span class="param">instruction</span>: <span class="fn">swapIx</span>,
+});
+
+<span class="cmt">// ✓ Allow-list checked on-chain</span>
+<span class="cmt">// ✓ Budget validated on-chain</span>
+<span class="cmt">// ✓ AI monitoring triggered</span>
+          </div>
+        </div>
+
+        <div class="code-features reveal reveal-delay-2">
+          <div class="code-feature">
+            <div class="code-feature-icon">
+              <svg viewBox="0 0 20 20" fill="none"><path d="M5 10l3 3 7-7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </div>
+            <div>
+              <h4>Drop-in replacement</h4>
+              <p>Replace your raw transaction call with <code class="mono" style="font-size:12px; background:rgba(255,255,255,.06); padding:1px 6px; border-radius:3px;">guard.execute()</code>. No architecture changes needed.</p>
+            </div>
+          </div>
+          <div class="code-feature">
+            <div class="code-feature-icon">
+              <svg viewBox="0 0 20 20" fill="none"><path d="M10 2v16M2 10h16" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+            </div>
+            <div>
+              <h4>Framework agnostic</h4>
+              <p>Works with Solana Agent Kit, LangChain, AutoGPT, or any custom agent. Wraps the executor, not the agent logic.</p>
+            </div>
+          </div>
+          <div class="code-feature">
+            <div class="code-feature-icon">
+              <svg viewBox="0 0 20 20" fill="none"><rect x="3" y="3" width="14" height="14" rx="3" stroke="currentColor" stroke-width="1.5"/><path d="M7 7h6v6H7z" stroke="currentColor" stroke-width="1.5"/></svg>
+            </div>
+            <div>
+              <h4>PDA-based custody</h4>
+              <p>Funds live in a policy-owned PDA, not in the agent's keypair. The agent signs, but never holds the keys to the treasury.</p>
+            </div>
+          </div>
+          <div class="code-feature">
+            <div class="code-feature-icon">
+              <svg viewBox="0 0 20 20" fill="none"><path d="M10 2l2.5 5 5.5.8-4 3.9 1 5.3L10 14.5 4.5 17l1-5.3-4-3.9 5.5-.8L10 2z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>
+            </div>
+            <div>
+              <h4>Open source</h4>
+              <p>Fully auditable Anchor program. Inspect the on-chain logic yourself — no trust required.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ════════════ ARCHITECTURE ════════════ -->
+  <section class="architecture" id="architecture">
+    <div class="container">
+      <div class="text-center reveal">
+        <span class="section-label">Architecture</span>
+        <h2 class="section-title">End-to-end defense flow</h2>
+        <p class="section-subtitle centered">
+          From agent request to on-chain execution — every step is validated, monitored, and auditable.
+        </p>
+      </div>
+
+      <div class="arch-flow reveal">
+        <div class="arch-node">
+          <div class="arch-node-icon" style="background:var(--primary-dim); color:var(--primary);">
+            <svg viewBox="0 0 22 22" fill="none"><rect x="3" y="3" width="16" height="16" rx="3" stroke="currentColor" stroke-width="1.5"/><path d="M8 8h6M8 11h4M8 14h5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+          </div>
+          <h4>AI Agent</h4>
+          <p>Requests a transaction via SDK</p>
+          <div class="arch-arrow">
+            <svg viewBox="0 0 14 14" fill="none"><path d="M5 3l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </div>
+        </div>
+        <div class="arch-node">
+          <div class="arch-node-icon" style="background:rgba(139,92,246,.12); color:#8b5cf6;">
+            <svg viewBox="0 0 22 22" fill="none"><path d="M11 2l7 4v6c0 4.5-3 8.5-7 10-4-1.5-7-5.5-7-10V6l7-4z" stroke="currentColor" stroke-width="1.5"/></svg>
+          </div>
+          <h4>Guardrails Program</h4>
+          <p>On-chain policy check + CPI</p>
+          <div class="arch-arrow">
+            <svg viewBox="0 0 14 14" fill="none"><path d="M5 3l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </div>
+        </div>
+        <div class="arch-node">
+          <div class="arch-node-icon" style="background:var(--accent-dim); color:var(--accent);">
+            <svg viewBox="0 0 22 22" fill="none"><circle cx="11" cy="11" r="8" stroke="currentColor" stroke-width="1.5"/><path d="M11 7v4l3 2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+          </div>
+          <h4>Helius Webhook</h4>
+          <p>Streams events to monitor</p>
+          <div class="arch-arrow">
+            <svg viewBox="0 0 14 14" fill="none"><path d="M5 3l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </div>
+        </div>
+        <div class="arch-node">
+          <div class="arch-node-icon" style="background:var(--danger-dim); color:var(--danger);">
+            <svg viewBox="0 0 22 22" fill="none"><path d="M12 2L3 13h8l-1 7 9-11h-8l1-7z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>
+          </div>
+          <h4>AI Judge</h4>
+          <p>Claude analyzes + pauses</p>
+          <div class="arch-arrow">
+            <svg viewBox="0 0 14 14" fill="none"><path d="M5 3l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </div>
+        </div>
+        <div class="arch-node">
+          <div class="arch-node-icon" style="background:rgba(0,255,208,.08); color:var(--primary);">
+            <svg viewBox="0 0 22 22" fill="none"><rect x="3" y="5" width="16" height="12" rx="2" stroke="currentColor" stroke-width="1.5"/><path d="M7 9h8M7 12h5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+          </div>
+          <h4>Dashboard</h4>
+          <p>Real-time feed + controls</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <div class="glow-line"></div>
+
+  <!-- ════════════ LIVE DEMO TERMINAL ════════════ -->
+  <section class="terminal-section" id="demo">
+    <div class="container">
+      <div class="text-center reveal">
+        <span class="section-label">Live Demo</span>
+        <h2 class="section-title">Watch an attack get stopped.</h2>
+        <p class="section-subtitle centered">
+          Three agents running on devnet. One goes rogue. Guardrails catches and freezes it in seconds.
+        </p>
+      </div>
+
+      <div class="terminal reveal" id="terminal">
+        <div class="terminal-header">
+          <span class="code-dot r"></span>
+          <span class="code-dot y"></span>
+          <span class="code-dot g"></span>
+          <span class="code-filename">guardrails-monitor — devnet</span>
+        </div>
+        <div class="terminal-body" id="terminal-body">
+          <!-- Lines injected by JS -->
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ════════════ FAQ ════════════ -->
+  <section class="faq" id="faq">
+    <div class="container">
+      <div class="text-center reveal">
+        <span class="section-label">FAQ</span>
+        <h2 class="section-title">Common questions</h2>
+      </div>
+
+      <div class="faq-grid">
+        <div class="faq-item reveal">
+          <h4>What happens if the monitoring server goes down?</h4>
+          <p>On-chain protections (allow-lists, budgets) are enforced by the Solana program itself and work independently. The AI monitoring layer adds behavioral analysis on top, but core limits never depend on off-chain availability.</p>
+        </div>
+        <div class="faq-item reveal reveal-delay-1">
+          <h4>Does my agent need to change its logic?</h4>
+          <p>No. Replace your raw transaction call with <code class="mono" style="font-size:12px">guard.execute()</code>. The SDK wraps your existing instructions. Your agent logic stays exactly the same.</p>
+        </div>
+        <div class="faq-item reveal reveal-delay-2">
+          <h4>Can the agent access the treasury directly?</h4>
+          <p>No. Funds are held in a policy-owned PDA. The agent's keypair can only sign <code class="mono" style="font-size:12px">guarded_execute</code> instructions — it never has direct access to the SOL.</p>
+        </div>
+        <div class="faq-item reveal reveal-delay-3">
+          <h4>Which programs can I whitelist?</h4>
+          <p>Any Solana program. Common choices: Jupiter (swaps), Marinade (staking), Drift (perps), Raydium (AMM). The policy owner can update the whitelist at any time.</p>
+        </div>
+        <div class="faq-item reveal reveal-delay-1">
+          <h4>How does the AI kill switch decide to pause?</h4>
+          <p>Claude Haiku evaluates flagged transactions against the agent's policy, recent history, and anomaly signals (burst frequency, new programs, unusual amounts). It returns ALLOW, FLAG, or PAUSE with a confidence score.</p>
+        </div>
+        <div class="faq-item reveal reveal-delay-2">
+          <h4>Is the program audited?</h4>
+          <p>The program is open source and built with Anchor 0.30.1. The on-chain logic is fully inspectable. Community audits are in progress as part of the Solana Frontier hackathon.</p>
+        </div>
+        <div class="faq-item reveal reveal-delay-3">
+          <h4>What's the latency overhead?</h4>
+          <p>The on-chain policy check adds ~2ms to transaction processing (one extra CPI). The AI monitoring is asynchronous and doesn't add latency to the transaction itself.</p>
+        </div>
+        <div class="faq-item reveal reveal-delay-4">
+          <h4>Can I use this with multisig?</h4>
+          <p>Yes. High-value transactions can be escalated to a Squads v4 multisig for human approval before execution, adding an extra authorization layer for critical operations.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <div class="glow-line"></div>
+
+  <!-- ════════════ FINAL CTA ════════════ -->
+  <section class="final-cta">
+    <div class="container-narrow reveal">
+      <span class="section-label">Get Started</span>
+      <h2>Protect your agents.<br/><span class="gradient">Ship with confidence.</span></h2>
+      <p>Deploy on-chain guardrails in minutes. Open source, composable, and built for the Solana ecosystem.</p>
+      <div class="hero-actions">
+        <a href="#" class="btn btn-primary">
+          Start Building
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 8h10m0 0L9 4m4 4L9 12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </a>
+        <a href="#" class="btn btn-ghost">Read the Docs</a>
+      </div>
+      <p class="hero-micro">Free and open source. Deploy in under 5 minutes.</p>
+    </div>
+  </section>
+
+  <!-- ════════════ FOOTER ════════════ -->
+  <footer class="footer">
+    <div class="container">
+      <div class="footer-inner">
+        <div class="footer-left">
+          <svg width="20" height="20" viewBox="0 0 28 28" fill="none">
+            <rect x="2" y="2" width="24" height="24" rx="6" stroke="currentColor" stroke-width="1.5"/>
+            <path d="M9 14h10M14 9v10" stroke="var(--primary)" stroke-width="1.5" stroke-linecap="round"/>
+            <circle cx="14" cy="14" r="3" stroke="var(--primary)" stroke-width="1.5" fill="none"/>
+          </svg>
+          <span>Agent Guardrails &middot; Solana Frontier Hackathon 2025</span>
+        </div>
+        <div class="footer-links">
+          <a href="#">GitHub</a>
+          <a href="#">Documentation</a>
+          <a href="#">Dashboard</a>
+          <a href="#">Twitter</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+
+  <!-- ════════════ SCRIPTS ════════════ -->
+  <script>
+    // ── Nav scroll effect ──
+    const nav = document.getElementById('nav');
+    window.addEventListener('scroll', () => {
+      nav.classList.toggle('scrolled', window.scrollY > 40);
+    }, { passive: true });
+
+    // ── Reveal on scroll ──
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach(e => {
+        if (e.isIntersecting) {
+          e.target.classList.add('visible');
+          observer.unobserve(e.target);
+        }
+      });
+    }, { threshold: 0.1, rootMargin: '0px 0px -40px 0px' });
+
+    document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
+
+    // ── Terminal demo animation ──
+    const terminalLines = [
+      { time: '14:31:42', type: 'ok',   text: 'yield_bot    Jupiter swap         1.2 SOL   ALLOW' },
+      { time: '14:31:48', type: 'ok',   text: 'staking_bot  Marinade stake       3.0 SOL   ALLOW' },
+      { time: '14:31:55', type: 'ok',   text: 'yield_bot    Jupiter swap         0.8 SOL   ALLOW' },
+      { time: '14:32:01', type: 'ok',   text: 'yield_bot    Jupiter swap         1.5 SOL   ALLOW' },
+      { time: '14:32:07', type: 'dim',  text: '... normal operations ...' },
+      { time: '14:32:14', type: 'warn', text: 'alpha_scan   Unknown program      4.8 SOL   FLAG  (68% conf)' },
+      { time: '14:32:15', type: 'warn', text: 'alpha_scan   Burst: 3 tx / 4s     2.1 SOL   FLAG  (76% conf)' },
+      { time: '14:32:16', type: 'err',  text: 'alpha_scan   Drain sequence       8.2 SOL   PAUSE (94% conf)' },
+      { time: '14:32:16', type: 'err',  text: '──────────── AGENT FROZEN ON-CHAIN ────────────' },
+      { time: '14:32:18', type: 'dim',  text: 'Generating incident report via Claude Opus...' },
+      { time: '14:32:24', type: 'ok',   text: 'Report ready: timeline, root cause, policy recommendations' },
+    ];
+
+    let terminalStarted = false;
+    const terminalEl = document.getElementById('terminal');
+    const terminalBody = document.getElementById('terminal-body');
+
+    const terminalObserver = new IntersectionObserver((entries) => {
+      entries.forEach(e => {
+        if (e.isIntersecting && !terminalStarted) {
+          terminalStarted = true;
+          runTerminal();
+          terminalObserver.unobserve(e.target);
+        }
+      });
+    }, { threshold: 0.3 });
+
+    terminalObserver.observe(terminalEl);
+
+    function runTerminal() {
+      terminalBody.innerHTML = '';
+      terminalLines.forEach((line, i) => {
+        setTimeout(() => {
+          const div = document.createElement('div');
+          div.className = 't-line';
+          const colorClass = { ok: 't-ok', warn: 't-warn', err: 't-err', dim: 'dim' }[line.type] || '';
+          div.innerHTML = `<span class="t-time">[${line.time}]</span> <span class="${colorClass}">${line.text}</span>`;
+          div.style.animationDelay = '0s';
+          terminalBody.appendChild(div);
+          terminalBody.scrollTop = terminalBody.scrollHeight;
+        }, i * 600);
+      });
+    }
+  </script>
+
+</body>
+</html>

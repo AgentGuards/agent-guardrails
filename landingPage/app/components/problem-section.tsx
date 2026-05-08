@@ -90,21 +90,29 @@ export default function ProblemSection() {
               </span>
             </h2>
 
-            <div className="mt-8 grid grid-cols-2 gap-3">
-              <div className="rounded-2xl border border-white/8 bg-white/3 p-4 backdrop-blur-sm">
+            <div className="mt-8 grid grid-cols-3 gap-3">
+              <div className="rounded-2xl border border-[rgb(var(--danger-rgb)/0.12)] bg-[rgb(var(--danger-rgb)/0.05)] p-4 backdrop-blur-sm">
                 <p className="font-mono text-[10px] uppercase tracking-[0.24em] text-white/45">
                   Avg drain time
                 </p>
-                <p className="mt-2 font-sans text-2xl font-semibold text-white">
-                  &lt; 12<span className="text-base text-white/50">s</span>
+                <p className="mt-2 font-sans text-2xl font-semibold text-danger">
+                  &lt; 12<span className="text-base text-danger/50">s</span>
                 </p>
               </div>
-              <div className="rounded-2xl border border-white/8 bg-white/3 p-4 backdrop-blur-sm">
+              <div className="rounded-2xl border border-[rgb(var(--danger-rgb)/0.12)] bg-[rgb(var(--danger-rgb)/0.05)] p-4 backdrop-blur-sm">
                 <p className="font-mono text-[10px] uppercase tracking-[0.24em] text-white/45">
                   Recovery rate
                 </p>
-                <p className="mt-2 font-sans text-2xl font-semibold text-white">
-                  ~3<span className="text-base text-white/50">%</span>
+                <p className="mt-2 font-sans text-2xl font-semibold text-danger">
+                  ~3<span className="text-base text-danger/50">%</span>
+                </p>
+              </div>
+              <div className="rounded-2xl border border-[rgb(var(--danger-rgb)/0.12)] bg-[rgb(var(--danger-rgb)/0.05)] p-4 backdrop-blur-sm">
+                <p className="font-mono text-[10px] uppercase tracking-[0.24em] text-white/45">
+                  Value at risk
+                </p>
+                <p className="mt-2 font-sans text-2xl font-semibold text-danger">
+                  $100M<span className="text-base text-danger/50">+</span>
                 </p>
               </div>
             </div>
@@ -113,7 +121,7 @@ export default function ProblemSection() {
           <div className="grid gap-5 text-base leading-8 text-slate-300">
             <div className="relative rounded-2xl border border-white/8 bg-white/3 p-6">
               <span className="absolute left-0 top-6 h-8 w-0.75 rounded-r-full bg-linear-to-b from-secondary to-secondary-soft/0" />
-              <p className="font-mono text-[10px] uppercase tracking-[0.28em] text-secondary-soft/80">
+              <p className="font-mono text-[10px] uppercase tracking-[0.28em] text-danger/80">
                 Today
               </p>
               <p className="mt-3 text-slate-200">
