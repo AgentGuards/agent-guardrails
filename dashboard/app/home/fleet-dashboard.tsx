@@ -6,6 +6,7 @@ import { useWallet } from "@solana/wallet-adapter-react";
 import { useSiwsAuthStore } from "@/lib/stores/siws-auth";
 import { Activity, ArrowRight, Plus, FileText, ShieldCheck } from "lucide-react";
 import { AppShell, anomalyBarClass, StatusChip } from "@/components/dashboard-ui";
+import { useProductTour } from "@/components/product-tour";
 import { EmptyState } from "@/components/EmptyState";
 import { QueryError } from "@/components/query-states";
 import { SkeletonStatCard } from "@/components/skeletons";
@@ -354,6 +355,7 @@ function TimelineItem({
 // ---------------------------------------------------------------------------
 
 export default function FleetDashboard() {
+  const { startTour } = useProductTour();
   const fleetQuery = useFleetSummaryQuery();
   const policiesQuery = usePoliciesQuery();
   const spendQuery = useAllSpendTrackersQuery();
@@ -449,14 +451,26 @@ export default function FleetDashboard() {
       brandedHeader
       title="Dashboard"
       subtitle="Fleet health and real-time monitoring."
-      actions={<LiveBadge />}
+      actions={
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={startTour}
+            className="inline-flex items-center gap-1.5 rounded-md border border-white/[0.08] bg-white/[0.03] px-2.5 py-1 text-[10px] font-medium text-zinc-500 transition-colors hover:bg-white/[0.06] hover:text-teal-400"
+          >
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10" /><path d="M12 16v-4M12 8h.01" /></svg>
+            Tour
+          </button>
+          <LiveBadge />
+        </div>
+      }
     >
       <div className="flex flex-col gap-8">
 
         {/* ================================================================
             Section 1 — Stat Cards
             ================================================================ */}
-        <section className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <section id="tour-stats" className="grid grid-cols-2 gap-3 lg:grid-cols-4">
           <FleetStatCardV2
             label="Active Agents"
             glowColor="radial-gradient(circle, hsl(var(--teal) / 0.18), transparent 70%)"
@@ -515,6 +529,7 @@ export default function FleetDashboard() {
 
           {/* Left — Activity Timeline */}
           <div
+            id="tour-activity"
             className="rounded-xl border border-[#1e1e22] bg-[#111113] p-5"
             style={{ animation: "fade-in-up 0.4s ease-out 0.3s backwards" }}
           >
@@ -565,6 +580,7 @@ export default function FleetDashboard() {
 
           {/* Right — Sidebar (single card, only agent list scrolls) */}
           <aside
+            id="tour-sidebar"
             className="flex min-h-0 min-w-0 flex-col self-stretch rounded-xl border border-[#1e1e22] bg-[#111113] p-5 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.04)]"
             style={{ animation: "fade-in-up 0.4s ease-out 0.35s backwards" }}
           >
@@ -680,6 +696,7 @@ export default function FleetDashboard() {
 
           {/* Left — Recent Incidents */}
           <div
+            id="tour-incidents"
             className="rounded-xl border border-[#1e1e22] bg-[#111113] p-4"
             style={{ animation: "fade-in-up 0.4s ease-out 0.5s backwards" }}
           >
@@ -756,6 +773,7 @@ export default function FleetDashboard() {
 
           {/* Right — Live Events */}
           <div
+            id="tour-live"
             className="rounded-xl border border-[#1e1e22] bg-[#0a0a0b] p-4"
             style={{ animation: "fade-in-up 0.4s ease-out 0.55s backwards" }}
           >

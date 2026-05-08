@@ -126,6 +126,132 @@
   }
 }
 
+/* Driver.js tour overrides */
+.driver-overlay {
+  background: rgba(0, 0, 0, 0.65) !important;
+}
+
+.driver-active-element {
+  border-radius: 14px !important;
+}
+
+.guardrails-tour-popover.driver-popover {
+  background: #0a0a0b !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  border-radius: 16px !important;
+  box-shadow: 0 24px 80px -16px rgba(0, 0, 0, 0.9) !important;
+  color: #fafafa !important;
+  max-width: 360px !important;
+  padding: 0 !important;
+  overflow: hidden;
+}
+
+.guardrails-tour-popover .driver-popover-arrow {
+  display: none !important;
+}
+
+.guardrails-tour-popover .driver-popover-title {
+  font-family: 'Inter', -apple-system, sans-serif !important;
+  font-size: 15px !important;
+  font-weight: 600 !important;
+  color: #fafafa !important;
+  padding: 20px 20px 0 !important;
+  margin: 0 !important;
+}
+
+.guardrails-tour-popover .driver-popover-title::before {
+  content: '';
+  display: block;
+  height: 1px;
+  width: 100%;
+  background: linear-gradient(to right, transparent, hsl(169 100% 50% / 0.4), transparent);
+  margin-bottom: 16px;
+  margin-top: -20px;
+  margin-left: -20px;
+  width: calc(100% + 40px);
+}
+
+.guardrails-tour-popover .driver-popover-description {
+  font-family: 'Inter', -apple-system, sans-serif !important;
+  font-size: 12px !important;
+  line-height: 1.7 !important;
+  color: #a1a1aa !important;
+  padding: 8px 20px 0 !important;
+  margin: 0 !important;
+}
+
+.guardrails-tour-popover .driver-popover-progress-text {
+  font-family: 'JetBrains Mono', monospace !important;
+  font-size: 10px !important;
+  color: hsl(169 100% 50% / 0.7) !important;
+  font-weight: 600 !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.08em !important;
+}
+
+.guardrails-tour-popover .driver-popover-footer {
+  padding: 16px 20px 20px !important;
+  margin: 0 !important;
+  gap: 8px !important;
+}
+
+.guardrails-tour-popover .driver-popover-navigation-btns {
+  gap: 8px !important;
+}
+
+.guardrails-tour-popover .driver-popover-prev-btn {
+  background: transparent !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  border-radius: 8px !important;
+  color: #a1a1aa !important;
+  font-size: 11px !important;
+  font-weight: 500 !important;
+  padding: 6px 14px !important;
+  text-shadow: none !important;
+  font-family: 'Inter', -apple-system, sans-serif !important;
+}
+
+.guardrails-tour-popover .driver-popover-prev-btn:hover {
+  background: rgba(255, 255, 255, 0.04) !important;
+  color: #fafafa !important;
+}
+
+.guardrails-tour-popover .driver-popover-next-btn {
+  background: hsl(169 80% 40%) !important;
+  border: 1px solid hsl(169 100% 50% / 0.3) !important;
+  border-radius: 8px !important;
+  color: #fff !important;
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  padding: 6px 14px !important;
+  text-shadow: none !important;
+  box-shadow: 0 0 10px hsl(169 100% 50% / 0.12) !important;
+  font-family: 'Inter', -apple-system, sans-serif !important;
+}
+
+.guardrails-tour-popover .driver-popover-next-btn:hover {
+  background: hsl(169 80% 45%) !important;
+}
+
+.guardrails-tour-popover .driver-popover-close-btn {
+  background: transparent !important;
+  border: none !important;
+  color: #71717a !important;
+  font-size: 18px !important;
+  padding: 4px !important;
+  position: absolute !important;
+  right: 12px !important;
+  top: 16px !important;
+  line-height: 1 !important;
+  box-shadow: none !important;
+  text-shadow: none !important;
+}
+
+.guardrails-tour-popover .driver-popover-close-btn:hover {
+  color: #fafafa !important;
+  background: transparent !important;
+}
+
 /* Custom checkbox styling */
 input[type="checkbox"] {
   -webkit-appearance: none;
