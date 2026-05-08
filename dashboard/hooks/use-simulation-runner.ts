@@ -183,15 +183,19 @@ export function useSimulationRunner(policy: PolicySummary) {
         store.getState().pushLog({ ...entryBase, signature: sig, status: "success", error: null });
       } catch (e: unknown) {
         store.getState().incrementFailed();
-        const msg = e instanceof Error ? e.message : String(e);
+        const err = e as { message?: string; logs?: string[] };
+        const baseMsg = err?.message ?? String(e);
+        const logs = Array.isArray(err?.logs) ? err.logs : [];
+        const programLog = logs.find((l) => /custom program error|Error Code|Error Number|AnchorError/i.test(l));
+        const msg = programLog ? `${baseMsg} — ${programLog}` : baseMsg;
         store.getState().pushLog({ ...entryBase, signature: null, status: "failed", error: msg });
 
-        if (msg.includes("6000")) {
+        if (msg.includes("6000") || /PolicyPaused/i.test(msg)) {
           store.getState().setStopReason("Policy paused (error 6000)");
           stop();
           return;
         }
-        if (msg.includes("6004")) {
+        if (msg.includes("6004") || /DailyBudgetExceeded/i.test(msg)) {
           store.getState().setStopReason("Daily budget exceeded (error 6004)");
           stop();
           return;

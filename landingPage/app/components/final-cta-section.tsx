@@ -18,7 +18,7 @@ export default function FinalCtaSection() {
         <h2 className="mt-4 font-sans text-4xl font-semibold tracking-tighter text-white sm:text-5xl lg:text-6xl">
           Protect your agents.
           <br />
-          <span className="bg-linear-to-r from-primary to-[#00b8ff] bg-clip-text text-transparent">
+          <span className="bg-linear-to-r from-primary  via-[#dee5e7] to-[#bead68] bg-clip-text text-transparent">
             Ship with confidence.
           </span>
         </h2>
