@@ -60,12 +60,12 @@ const proofItems = [
 
 export default function SocialProofBar() {
   return (
-    <div className="border-t border-b border-border bg-background-mid py-12">
+    <div className="border-t border-b border-white/5 bg-background-mid/25 py-12">
       <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-center gap-6 px-6 sm:gap-12 sm:px-10 lg:px-12">
         {proofItems.map((item, i) => (
           <div key={i} className="contents">
             {i > 0 && (
-              <span className="hidden h-6 w-px bg-border sm:block" />
+              <span className="hidden h-6 w-px bg-white/[0.05] sm:block" />
             )}
             <div className="flex items-center gap-2.5 whitespace-nowrap text-sm text-foreground-dim">
               {item.icon}

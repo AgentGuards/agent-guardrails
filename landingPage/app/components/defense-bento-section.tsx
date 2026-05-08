@@ -25,6 +25,129 @@ function Tag({
   )
 }
 
+function ProgramAllowListIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      className="h-6 w-6"
+      aria-hidden="true"
+    >
+      <path
+        d="M12 3.25 19 6.5v5.15c0 4.58-2.86 8.4-7 9.6-4.14-1.2-7-5.02-7-9.6V6.5l7-3.25Z"
+        stroke="currentColor"
+        strokeWidth="1.6"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M9 10.25h5.5M9 13h3.75"
+        stroke="currentColor"
+        strokeWidth="1.6"
+        strokeLinecap="round"
+      />
+      <path
+        d="m14.25 15.25 1.25 1.25 2.35-2.75"
+        stroke="currentColor"
+        strokeWidth="1.6"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  )
+}
+
+function SpendingBudgetIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      className="h-6 w-6"
+      aria-hidden="true"
+    >
+      <path
+        d="M5.5 8.25h13A2.5 2.5 0 0 1 21 10.75v6A2.5 2.5 0 0 1 18.5 19h-13A2.5 2.5 0 0 1 3 16.5V7.75A2.75 2.75 0 0 1 5.75 5h9"
+        stroke="currentColor"
+        strokeWidth="1.6"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M16.25 12.25h4.25v3h-4.25a1.5 1.5 0 0 1 0-3Z"
+        stroke="currentColor"
+        strokeWidth="1.6"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M8 10.5v4.25M11.25 9v5.75"
+        stroke="currentColor"
+        strokeWidth="1.6"
+        strokeLinecap="round"
+      />
+    </svg>
+  )
+}
+
+function KillSwitchIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      className="h-6 w-6"
+      aria-hidden="true"
+    >
+      <path
+        d="m9 3.5 6 .01 4.25 4.24v6L15 18H9l-4.25-4.25v-6L9 3.5Z"
+        stroke="currentColor"
+        strokeWidth="1.6"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M9.25 9.25v3.5M14.75 9.25v3.5"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+      />
+      <path
+        d="M8 21h8"
+        stroke="currentColor"
+        strokeWidth="1.6"
+        strokeLinecap="round"
+      />
+    </svg>
+  )
+}
+
+function MonitoringReportsIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      className="h-6 w-6"
+      aria-hidden="true"
+    >
+      <path
+        d="M5.75 4h9.5L19 7.75v11A2.25 2.25 0 0 1 16.75 21h-11A2.25 2.25 0 0 1 3.5 18.75V6.25A2.25 2.25 0 0 1 5.75 4Z"
+        stroke="currentColor"
+        strokeWidth="1.6"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M15 4v4h4M7 15.25h2.15l1.25-3.5 1.7 5 1.2-2.5H17"
+        stroke="currentColor"
+        strokeWidth="1.6"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M7 9.25h4.5"
+        stroke="currentColor"
+        strokeWidth="1.6"
+        strokeLinecap="round"
+      />
+    </svg>
+  )
+}
+
 export default function DefenseBentoSection() {
   const sectionRef = useRef<HTMLElement>(null)
 
@@ -98,20 +221,7 @@ export default function DefenseBentoSection() {
           />
           <div className="relative">
             <div className="mb-5 flex h-12 w-12 items-center justify-center rounded-[14px] bg-[rgb(var(--primary-rgb)/0.15)] text-primary">
-              <svg viewBox="0 0 24 24" fill="none" className="h-6 w-6">
-                <path
-                  d="M12 2l8 4v6c0 5.5-3.8 10.7-8 12-4.2-1.3-8-6.5-8-12V6l8-4z"
-                  stroke="currentColor"
-                  strokeWidth="1.5"
-                />
-                <path
-                  d="M9 12l2 2 4-4"
-                  stroke="currentColor"
-                  strokeWidth="1.5"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </svg>
+              <ProgramAllowListIcon />
             </div>
             <h3 className="text-xl font-bold text-white">
               Program Allow-Listing
@@ -162,21 +272,7 @@ export default function DefenseBentoSection() {
           />
           <div className="relative">
             <div className="mb-5 flex h-12 w-12 items-center justify-center rounded-[14px] bg-[rgb(var(--accent-rgb)/0.12)] text-accent">
-              <svg viewBox="0 0 24 24" fill="none" className="h-6 w-6">
-                <circle
-                  cx="12"
-                  cy="12"
-                  r="10"
-                  stroke="currentColor"
-                  strokeWidth="1.5"
-                />
-                <path
-                  d="M12 6v6l4 2"
-                  stroke="currentColor"
-                  strokeWidth="1.5"
-                  strokeLinecap="round"
-                />
-              </svg>
+              <SpendingBudgetIcon />
             </div>
             <h3 className="text-xl font-bold text-white">Spending Budgets</h3>
             <p className="mt-2 mb-5 text-[15px] leading-7 text-foreground-dim">
@@ -216,14 +312,7 @@ export default function DefenseBentoSection() {
           />
           <div className="relative">
             <div className="mb-5 flex h-12 w-12 items-center justify-center rounded-[14px] bg-[rgb(var(--danger-rgb)/0.12)] text-danger">
-              <svg viewBox="0 0 24 24" fill="none" className="h-6 w-6">
-                <path
-                  d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"
-                  stroke="currentColor"
-                  strokeWidth="1.5"
-                  strokeLinejoin="round"
-                />
-              </svg>
+              <KillSwitchIcon />
             </div>
             <h3 className="text-xl font-bold text-white">AI Kill Switch</h3>
             <p className="mt-2 mb-5 text-[15px] leading-7 text-foreground-dim">
@@ -257,22 +346,7 @@ export default function DefenseBentoSection() {
           />
           <div className="relative">
             <div className="mb-5 flex h-12 w-12 items-center justify-center rounded-[14px] bg-[rgb(var(--violet-rgb)/0.12)] text-violet">
-              <svg viewBox="0 0 24 24" fill="none" className="h-6 w-6">
-                <rect
-                  x="3"
-                  y="3"
-                  width="18"
-                  height="18"
-                  rx="3"
-                  stroke="currentColor"
-                  strokeWidth="1.5"
-                />
-                <path
-                  d="M3 9h18M9 3v18"
-                  stroke="currentColor"
-                  strokeWidth="1.5"
-                />
-              </svg>
+              <MonitoringReportsIcon />
             </div>
             <h3 className="text-xl font-bold text-white">
               Real-Time Monitoring &amp; Incident Reports

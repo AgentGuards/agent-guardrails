@@ -17,7 +17,7 @@ export default function HeroSection() {
         <h1 className="font-sans text-5xl font-semibold leading-[1.05] tracking-tighter sm:text-6xl lg:text-[72px]">
           Stop rogue agents.
           <br />
-          <span className="bg-linear-to-r from-primary via-[#00b8ff] to-[#8b5cf6] bg-clip-text text-transparent">
+          <span className="bg-linear-to-r from-primary via-[#dee5e7] to-[#bead68] bg-clip-text text-transparent">
             Protect every transaction.
           </span>
         </h1>
