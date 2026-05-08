@@ -6,7 +6,7 @@ export function SkeletonBlock({
 }: HTMLAttributes<HTMLDivElement>) {
   return (
     <div
-      className={`animate-pulse rounded-md bg-white/[0.08] ${className}`}
+      className={`animate-pulse rounded-md bg-white/[0.06] ${className}`}
       aria-hidden
       {...props}
     />
