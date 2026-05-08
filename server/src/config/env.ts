@@ -67,6 +67,7 @@ export const env = {
   DATABASE_URL: required("DATABASE_URL"),
   DIRECT_URL: required("DIRECT_URL"),
   JWT_SECRET: required("JWT_SECRET"),
+  SOLANA_CLUSTER: optional("SOLANA_CLUSTER", "devnet"),
   CORS_ORIGIN: optional("CORS_ORIGIN", "http://localhost:3000"),
   POLL_INTERVAL_MS: optionalNumber("POLL_INTERVAL_MS", 30_000),
   /** Optional public origin for webhook URL hints (e.g. https://api.example.com). Defaults to http://localhost:PORT */

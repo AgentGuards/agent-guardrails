@@ -49,7 +49,8 @@ authRouter.post("/siws/nonce", nonceLimiter, async (req, res) => {
     });
 
     const domain = env.CORS_ORIGIN;
-    const message = `Sign this message to authenticate with Agent Guardrails.\n\nDomain: ${domain}\nChain: solana:devnet\nWallet: ${pubkey}\nNonce: ${nonce}`;
+    const chain = env.SOLANA_CLUSTER;
+    const message = `Sign this message to authenticate with Agent Guardrails.\n\nDomain: ${domain}\nChain: solana:${chain}\nWallet: ${pubkey}\nNonce: ${nonce}`;
 
     res.json({ nonce, message });
   } catch (err) {
